@@ -552,12 +552,11 @@ Set up Konva.js canvas for timeline editor. Create timeline component with time 
 **Description:**
 Render video clips on timeline as Konva rectangles. Display clip thumbnails, duration, and visual boundaries. Implement clip selection (click to select).
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src/components/timeline/TimelineClip.jsx (create) - Konva clip rectangle
-- src/components/Timeline.jsx (modify) - Render clips from state
-- src/utils/timeline.js (modify) - Clip positioning functions
-- src/store/timelineStore.js (create) - Timeline state management
-- src/styles/Timeline.css (modify) - Clip styles
+**Files (PLANNED by White):**
+- src/store/timelineStore.js (create) - Timeline state management with clips array and selection
+- src/components/timeline/TimelineClip.jsx (create) - Konva clip component (Group with Rect, Image, Text)
+- src/components/Timeline.jsx (modify) - Integrate timeline store, render clips from state
+- src/utils/timeline.js (no changes needed) - Already has clip positioning utilities
 
 **Acceptance Criteria:**
 - [ ] Clips rendered as rectangles on timeline
