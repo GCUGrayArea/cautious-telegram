@@ -158,8 +158,8 @@ Will move to In Progress once PR-001 is Complete.
 ---
 
 ### PR-003: FFmpeg Integration Setup
-**Status:** In Progress
-**Agent:** White (implementing Orange's plan)
+**Status:** Complete
+**Agent:** White (implemented Orange's plan)
 **Dependencies:** PR-001 (file conflicts: Cargo.toml, tauri.conf.json, main.rs, .gitignore)
 **Priority:** High
 
@@ -179,12 +179,20 @@ Integrate FFmpeg into Tauri application for video processing. Bundle FFmpeg stat
 - src-tauri/README-FFMPEG.md (create) - Instructions for downloading FFmpeg binaries
 
 **Acceptance Criteria:**
-- [ ] FFmpeg binary bundled with app or downloaded on first run
-- [ ] Rust wrapper can execute FFmpeg commands
-- [ ] Can probe video file for metadata (duration, resolution, codec)
-- [ ] Can generate thumbnail from video file
-- [ ] FFmpeg output/errors captured and logged
-- [ ] Cross-platform compatibility (macOS and Windows)
+- [x] FFmpeg binary bundled with app or downloaded on first run (binaries downloaded, externalBin configured)
+- [x] Rust wrapper can execute FFmpeg commands
+- [x] Can probe video file for metadata (duration, resolution, codec)
+- [x] Can generate thumbnail from video file
+- [x] FFmpeg output/errors captured and logged
+- [x] Cross-platform compatibility (macOS and Windows)
+
+**Completion Notes (White):**
+- FFmpeg 8.0 binaries downloaded and configured (~189MB, gitignored)
+- All FFmpeg module code complete: wrapper, metadata, commands
+- Tauri commands registered and ready for frontend
+- Build succeeds, ffprobe tested and working
+- Comprehensive documentation: README-FFMPEG.md, SETUP-NOTES.md
+- Ready for PR-004 (video import) which depends on this
 
 **Planning Notes (Orange):**
 
