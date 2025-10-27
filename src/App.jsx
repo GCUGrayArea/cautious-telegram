@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import MediaLibrary from './components/MediaLibrary';
 import Timeline from './components/Timeline';
+import { TimelineProvider } from './store/timelineStore.jsx';
 
 function App() {
   const [selectedMedia, setSelectedMedia] = useState(null);
@@ -12,7 +13,8 @@ function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-white">
+    <TimelineProvider>
+      <div className="flex flex-col h-screen bg-gray-900 text-white">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-gray-800 border-b border-gray-700">
         <h1 className="text-2xl font-bold">ClipForge</h1>
@@ -26,7 +28,7 @@ function App() {
           <MediaLibrary onMediaSelect={handleMediaSelect} />
         </div>
 
-        {/* Main Editor Area (Timeline + Preview - Coming in future PRs) */}
+        {/* Main Editor Area (Timeline + Preview) */}
         <div className="flex-1 flex flex-col">
           {/* Preview Area */}
           <div className="flex-1 flex items-center justify-center bg-black">
@@ -44,7 +46,8 @@ function App() {
           <Timeline />
         </div>
       </div>
-    </div>
+      </div>
+    </TimelineProvider>
   );
 }
 

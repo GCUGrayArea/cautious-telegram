@@ -8,13 +8,20 @@ import {
   formatFileSize,
   formatDuration,
 } from '../utils/api';
+import { useTimeline } from '../store/timelineStore.jsx';
+import MediaDetailModal from './MediaDetailModal';
 
 function MediaLibrary({ onMediaSelect }) {
+  const { addClip } = useTimeline();
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState(() => {
+    return localStorage.getItem('mediaLibraryViewMode') || 'grid';
+  });
+  const [selectedMedia, setSelectedMedia] = useState(null);
 
   // Load media library on mount
   useEffect(() => {
@@ -108,6 +115,18 @@ function MediaLibrary({ onMediaSelect }) {
     e.stopPropagation();
   };
 
+  const toggleViewMode = (mode) => {
+    setViewMode(mode);
+    localStorage.setItem('mediaLibraryViewMode', mode);
+  };
+
+  const handleMediaSelect = (item) => {
+    setSelectedMedia(item);
+    if (onMediaSelect) {
+      onMediaSelect(item);
+    }
+  };
+
   const filteredMedia = media.filter((item) =>
     item.filename.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -117,13 +136,54 @@ function MediaLibrary({ onMediaSelect }) {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-700">
         <h2 className="text-xl font-bold">Media Library</h2>
-        <button
-          onClick={handleImportClick}
-          disabled={importing}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded transition-colors"
-        >
-          {importing ? 'Importing...' : 'Import Video'}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* View Mode Toggle */}
+          <div className="flex border border-gray-600 rounded">
+            <button
+              onClick={() => toggleViewMode('grid')}
+              className={`p-2 ${
+                viewMode === 'grid'
+                  ? 'bg-gray-700 text-white'
+                  : 'bg-gray-800 text-gray-400 hover:text-white'
+              } transition-colors`}
+              title="Grid View"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={() => toggleViewMode('list')}
+              className={`p-2 ${
+                viewMode === 'list'
+                  ? 'bg-gray-700 text-white'
+                  : 'bg-gray-800 text-gray-400 hover:text-white'
+              } transition-colors`}
+              title="List View"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+          </div>
+          <button
+            onClick={handleImportClick}
+            disabled={importing}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded transition-colors"
+          >
+            {importing ? 'Importing...' : 'Import Video'}
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -160,27 +220,111 @@ function MediaLibrary({ onMediaSelect }) {
             <p className="text-sm">Import videos or drag and drop them here</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div
+            className={
+              viewMode === 'grid'
+                ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'
+                : 'flex flex-col gap-2'
+            }
+          >
             {filteredMedia.map((item) => (
               <MediaCard
                 key={item.id}
                 media={item}
+                viewMode={viewMode}
                 onDelete={(e) => handleDeleteMedia(item.id, e)}
-                onSelect={() => onMediaSelect && onMediaSelect(item)}
+                onSelect={() => handleMediaSelect(item)}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Media Detail Modal */}
+      {selectedMedia && (
+        <MediaDetailModal
+          media={selectedMedia}
+          onClose={() => setSelectedMedia(null)}
+        />
+      )}
     </div>
   );
 }
 
-function MediaCard({ media, onDelete, onSelect }) {
+function MediaCard({ media, viewMode, onDelete, onSelect }) {
   const thumbnailUrl = media.thumbnail_path
     ? getAssetUrl(media.thumbnail_path)
     : null;
 
+  if (viewMode === 'list') {
+    return (
+      <div
+        className="group relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-700 transition-colors flex items-center p-3"
+        onClick={onSelect}
+      >
+        {/* Thumbnail */}
+        <div className="w-32 h-18 bg-gray-900 flex items-center justify-center flex-shrink-0 rounded">
+          {thumbnailUrl ? (
+            <img
+              src={thumbnailUrl}
+              alt={media.filename}
+              className="w-full h-full object-cover rounded"
+            />
+          ) : (
+            <div className="text-gray-600">
+              <svg
+                className="w-12 h-12"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+              </svg>
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 ml-4">
+          <p className="font-medium text-sm truncate" title={media.filename}>
+            {media.filename}
+          </p>
+          <div className="mt-1 text-xs text-gray-400 flex gap-4">
+            {media.duration && <span>{formatDuration(media.duration)}</span>}
+            {media.width && media.height && (
+              <span>
+                {media.width}x{media.height}
+              </span>
+            )}
+            {media.file_size && <span>{formatFileSize(media.file_size)}</span>}
+          </div>
+        </div>
+
+        {/* Delete button */}
+        <button
+          onClick={onDelete}
+          className="p-2 bg-red-600 hover:bg-red-700 rounded opacity-0 group-hover:opacity-100 transition-opacity ml-4"
+          title="Delete"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+    );
+  }
+
+  // Grid view (default)
   return (
     <div
       className="group relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-700 transition-colors"

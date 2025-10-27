@@ -423,7 +423,7 @@ Implement video file import via drag-and-drop and file picker. Extract metadata 
 ---
 
 ### PR-005: Media Library Management UI
-**Status:** In Progress
+**Status:** Complete
 **Agent:** Orange
 **Dependencies:** PR-004 ✅
 **Priority:** Medium
@@ -431,11 +431,11 @@ Implement video file import via drag-and-drop and file picker. Extract metadata 
 **Description:**
 Enhance media library with grid/list view toggle, search/filter, delete functionality, and detailed metadata display. Improve UX with hover states and selection.
 
-**Files (PLANNED by Orange):**
-- src/components/MediaLibrary.jsx (modify) - Add grid/list view toggle and detailed metadata modal
-- src/components/MediaDetailModal.jsx (create) - Modal to display full metadata when clicking a media item
+**Files (COMPLETED by Orange):**
+- src/components/MediaLibrary.jsx (modified) - Added grid/list view toggle, detailed metadata modal integration
+- src/components/MediaDetailModal.jsx (created) - Modal component to display full metadata when clicking a media item
 
-**Planning Notes (Orange):**
+**Implementation Details (Orange):**
 
 **Already Implemented in PR-004:**
 - ✅ Search/filter media by filename (lines 111-113, 130-138 in MediaLibrary.jsx)
@@ -444,36 +444,33 @@ Enhance media library with grid/list view toggle, search/filter, delete function
 - ✅ Empty state when no media imported (lines 157-161)
 - ✅ MediaCard component separation (lines 179-249)
 
-**Remaining Work for PR-005:**
+**New Features Added in PR-005:**
 1. **Grid/List View Toggle:**
-   - Add view mode state (useState for 'grid' or 'list')
-   - Add toggle buttons in header (grid icon, list icon)
-   - Implement list view layout (single column with horizontal card layout)
-   - Persist view preference to localStorage
+   - Added view mode state with localStorage persistence (lines 18-20)
+   - Added toggle buttons in header with grid/list SVG icons (lines 138-175)
+   - Implemented list view layout: single column with horizontal card layout (lines 248-313 in MediaCard)
+   - Grid view: Responsive grid-cols-2/3/4 layout (preserved existing)
+   - Smooth transitions between view modes
 
-2. **Detailed Metadata Modal:**
-   - Create MediaDetailModal component
-   - Display all metadata fields (filename, path, duration, resolution, file size, format, fps, created_at)
-   - Show larger thumbnail preview
-   - Add close button and click-outside-to-close behavior
-   - Triggered by clicking MediaCard (already has onSelect prop)
-
-**Implementation Approach:**
-- Grid view: Keep existing grid-cols-2/3/4 responsive layout
-- List view: Single column with flex layout, thumbnail on left, metadata on right
-- Modal: Fixed overlay with dark backdrop, centered white card, escape key to close
-- Icons: Use inline SVG for grid/list toggle buttons
+2. **Detailed Metadata Modal (MediaDetailModal.jsx):**
+   - Created modal component with dark overlay backdrop
+   - Displays large thumbnail preview
+   - Shows all metadata: filename, path, duration, resolution, file size, format, fps, created_at
+   - Displays additional metadata_json if available
+   - Close on Escape key or click outside
+   - Close button in header
+   - Clean, centered layout with proper spacing
 
 **Acceptance Criteria:**
 - [x] Search/filter media by filename (already in PR-004)
 - [x] Delete media from library (already in PR-004)
 - [x] Hover states and visual feedback (already in PR-004)
 - [x] Empty state when no media imported (already in PR-004)
-- [ ] Toggle between grid and list view
-- [ ] Click media card to view detailed metadata
+- [x] Toggle between grid and list view
+- [x] Click media card to view detailed metadata
 
-**Notes:**
-Consider lazy loading thumbnails if media library becomes large.
+**Completion Notes:**
+All acceptance criteria met. Media library now has professional UI with both grid and list views, persistent view preference, and comprehensive metadata display in modal.
 
 ---
 
@@ -571,7 +568,7 @@ Set up Konva.js canvas for timeline editor. Create timeline component with time 
 ---
 
 ### PR-007: Timeline Clip Rendering
-**Status:** In Progress
+**Status:** Complete
 **Agent:** White
 **Dependencies:** PR-006 ✅
 **Priority:** High
@@ -579,19 +576,19 @@ Set up Konva.js canvas for timeline editor. Create timeline component with time 
 **Description:**
 Render video clips on timeline as Konva rectangles. Display clip thumbnails, duration, and visual boundaries. Implement clip selection (click to select).
 
-**Files (PLANNED by White):**
-- src/store/timelineStore.js (create) - Timeline state management with clips array and selection
-- src/components/timeline/TimelineClip.jsx (create) - Konva clip component (Group with Rect, Image, Text)
-- src/components/Timeline.jsx (modify) - Integrate timeline store, render clips from state
-- src/utils/timeline.js (no changes needed) - Already has clip positioning utilities
+**Files (COMPLETED by White):**
+- src/store/timelineStore.jsx (created) - Timeline state management using Preact Context + useReducer
+- src/components/timeline/TimelineClip.jsx (created) - Konva clip component with thumbnail, filename, duration rendering
+- src/components/Timeline.jsx (modified) - Integrated timeline store, renders clips layer with selection handling
+- src/App.jsx (modified) - Wrapped app in TimelineProvider for global timeline state access
 
 **Acceptance Criteria:**
-- [ ] Clips rendered as rectangles on timeline
-- [ ] Clip width proportional to duration
-- [ ] Clip shows thumbnail and filename
-- [ ] Click clip to select (highlight border)
-- [ ] Selected clip visually distinguished
-- [ ] Clips positioned correctly on tracks
+- [x] Clips rendered as rectangles on timeline (Konva Rect with rounded corners, shadow effects)
+- [x] Clip width proportional to duration (calculated as duration * pixelsPerSecond)
+- [x] Clip shows thumbnail and filename (Konva Image node + Text node, thumbnail loads from asset protocol)
+- [x] Click clip to select (highlight border) (onClick handler calls selectClip action)
+- [x] Selected clip visually distinguished (red #ef4444 for selected vs blue #3b82f6, 3px vs 1px border)
+- [x] Clips positioned correctly on tracks (uses getTrackY utility, respects scrollX offset)
 
 **Planning Notes (White):**
 
@@ -620,6 +617,38 @@ Render video clips on timeline as Konva rectangles. Display clip thumbnails, dur
 **No File Lock Conflicts:**
 - Checked all In Progress and Suspended PRs
 - No conflicts detected with PR-007 files
+
+**Implementation Details:**
+
+**Timeline Store (timelineStore.jsx):**
+- Reducer-based state management with actions: ADD_CLIP, REMOVE_CLIP, UPDATE_CLIP, SELECT_CLIP, CLEAR_SELECTION
+- Auto-generates unique clip IDs with nextClipId counter
+- Auto-selects newly added clips for immediate visual feedback
+- Provides useTimeline hook for accessing state and actions throughout app
+
+**TimelineClip Component:**
+- Renders as Konva Group positioned at (clipX, clipY) based on startTime and track
+- Background Rect with rounded corners (4px radius) and drop shadow
+- Thumbnail Image (80px max width) with error handling for failed loads
+- Filename Text (bold, 12px) with dynamic truncation based on clip width
+- Duration Text (10px) in MM:SS format below filename
+- Selection visual: Red #ef4444 color + 3px border when selected, Blue #3b82f6 + 1px when not
+- Respects scrollX for proper positioning during timeline panning
+- Event propagation prevented to avoid stage click conflicts
+
+**Timeline Integration:**
+- Clips rendered in dedicated Layer between tracks and playhead for correct z-ordering
+- Selection cleared when clicking empty timeline areas
+- Timeline remains responsive with multiple clips due to Konva's efficient rendering
+- All clips receive current pixelsPerSecond for accurate width scaling during zoom
+
+**Testing Notes:**
+- Build succeeds with all new code (verified with npm run build)
+- All acceptance criteria verified against implementation
+- Ready for PR-008 (Drag Clips from Media Library) which will add user-facing clip addition
+- Current implementation provides full rendering and selection infrastructure
+
+**Completion:** All acceptance criteria met (6/6). Timeline clip rendering system fully functional. Ready for PR-008.
 
 ---
 
