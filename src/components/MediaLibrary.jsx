@@ -256,11 +256,25 @@ function MediaCard({ media, viewMode, onDelete, onSelect }) {
     ? getAssetUrl(media.thumbnail_path)
     : null;
 
+  // Handle drag start
+  const handleDragStart = (e) => {
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('application/json', JSON.stringify(media));
+    // Optionally set drag image using thumbnail
+    if (thumbnailUrl) {
+      const img = new Image();
+      img.src = thumbnailUrl;
+      e.dataTransfer.setDragImage(img, 50, 50);
+    }
+  };
+
   if (viewMode === 'list') {
     return (
       <div
         className="group relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-700 transition-colors flex items-center p-3"
         onClick={onSelect}
+        draggable={true}
+        onDragStart={handleDragStart}
       >
         {/* Thumbnail */}
         <div className="w-32 h-18 bg-gray-900 flex items-center justify-center flex-shrink-0 rounded">
@@ -329,6 +343,8 @@ function MediaCard({ media, viewMode, onDelete, onSelect }) {
     <div
       className="group relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-700 transition-colors"
       onClick={onSelect}
+      draggable={true}
+      onDragStart={handleDragStart}
     >
       {/* Thumbnail */}
       <div className="aspect-video bg-gray-900 flex items-center justify-center">

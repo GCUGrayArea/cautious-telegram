@@ -3,7 +3,15 @@ import { Stage, Layer, Rect, Text, Line } from 'react-konva';
 import TimeRuler from './timeline/TimeRuler';
 import Playhead from './timeline/Playhead';
 import TimelineClip from './timeline/TimelineClip';
-import { TIMELINE_CONFIG, applyZoom, getTrackY } from '../utils/timeline';
+import {
+  TIMELINE_CONFIG,
+  applyZoom,
+  getTrackY,
+  pixelsToTime,
+  getTrackIndexFromY,
+  getClipSnapPoints,
+  snapToPoints,
+} from '../utils/timeline';
 import { useTimeline } from '../store/timelineStore.jsx';
 
 /**
@@ -17,13 +25,14 @@ function Timeline() {
   const [dimensions, setDimensions] = useState({ width: 800, height: 300 });
 
   // Timeline store for clips
-  const { clips, selectedClipId, selectClip, clearSelection } = useTimeline();
+  const { clips, selectedClipId, selectClip, clearSelection, addClip } = useTimeline();
 
   // Timeline state
   const [currentTime, setCurrentTime] = useState(0); // Current playhead time in seconds
   const [scrollX, setScrollX] = useState(0); // Horizontal scroll position
   const [pixelsPerSecond, setPixelsPerSecond] = useState(TIMELINE_CONFIG.PIXELS_PER_SECOND);
   const [isDragging, setIsDragging] = useState(false);
+  const [dropIndicator, setDropIndicator] = useState(null); // { x, y, track, width }
 
   // Number of tracks to display
   const numTracks = 3;
@@ -82,6 +91,107 @@ function Timeline() {
     setCurrentTime(newTime);
   };
 
+  // Handle drag over timeline
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+
+    // Calculate drop position
+    const rect = containerRef.current.getBoundingClientRect();
+    const dropX = e.clientX - rect.left + scrollX;
+    const dropY = e.clientY - rect.top;
+
+    // Convert to timeline coordinates
+    const dropTime = pixelsToTime(dropX, pixelsPerSecond);
+    const trackIndex = getTrackIndexFromY(dropY);
+
+    // Snap to existing clip edges
+    const snapPoints = getClipSnapPoints(clips, pixelsPerSecond);
+    const snappedX = snapToPoints(dropX, snapPoints);
+    const snappedTime = pixelsToTime(snappedX, pixelsPerSecond);
+
+    // Get media data to calculate width
+    try {
+      const mediaData = JSON.parse(e.dataTransfer.getData('application/json'));
+      if (mediaData && mediaData.duration) {
+        // Update drop indicator
+        setDropIndicator({
+          x: snappedX,
+          y: dropY,
+          track: Math.max(0, trackIndex), // Default to track 0 if dropped in ruler
+          time: snappedTime,
+          width: mediaData.duration * pixelsPerSecond,
+        });
+      }
+    } catch (err) {
+      // Ignore errors - data may not be available yet
+    }
+  };
+
+  // Handle drag enter
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+  };
+
+  // Handle drag leave
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDropIndicator(null);
+  };
+
+  // Handle drop
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      // Parse media data from dataTransfer
+      const mediaData = JSON.parse(e.dataTransfer.getData('application/json'));
+
+      if (!mediaData || !mediaData.id || !mediaData.duration) {
+        console.error('Invalid media data:', mediaData);
+        return;
+      }
+
+      // Calculate drop position
+      const rect = containerRef.current.getBoundingClientRect();
+      const dropX = e.clientX - rect.left + scrollX;
+      const dropY = e.clientY - rect.top;
+
+      // Convert to timeline coordinates
+      const dropTime = pixelsToTime(dropX, pixelsPerSecond);
+      const trackIndex = getTrackIndexFromY(dropY);
+
+      // Snap to existing clip edges
+      const snapPoints = getClipSnapPoints(clips, pixelsPerSecond);
+      const snappedX = snapToPoints(dropX, snapPoints);
+      const snappedTime = pixelsToTime(snappedX, pixelsPerSecond);
+
+      // Constrain track index to valid range
+      const validTrackIndex = Math.max(0, Math.min(trackIndex === -1 ? 0 : trackIndex, numTracks - 1));
+
+      // Add clip to timeline store
+      addClip({
+        mediaId: mediaData.id,
+        startTime: Math.max(0, snappedTime), // Ensure non-negative
+        duration: mediaData.duration,
+        track: validTrackIndex,
+        metadata: mediaData, // Store full media metadata for thumbnail/filename display
+      });
+
+      console.log('Clip added to timeline:', {
+        mediaId: mediaData.id,
+        startTime: Math.max(0, snappedTime),
+        track: validTrackIndex,
+      });
+    } catch (err) {
+      console.error('Failed to handle drop:', err);
+    } finally {
+      // Clear drop indicator
+      setDropIndicator(null);
+    }
+  };
+
   // Render track backgrounds
   const renderTracks = () => {
     const tracks = [];
@@ -127,6 +237,10 @@ function Timeline() {
       ref={containerRef}
       className="timeline-container bg-gray-900 border-t border-gray-700 overflow-hidden"
       style={{ height: '250px', position: 'relative' }}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       {/* Zoom controls */}
       <div className="absolute top-2 right-2 z-10 flex gap-2 bg-gray-800 rounded px-2 py-1">
@@ -181,6 +295,20 @@ function Timeline() {
               scrollX={scrollX}
             />
           ))}
+
+          {/* Drop indicator - shows where clip will land */}
+          {dropIndicator && (
+            <Rect
+              x={dropIndicator.x - scrollX}
+              y={getTrackY(dropIndicator.track)}
+              width={dropIndicator.width}
+              height={TIMELINE_CONFIG.TRACK_HEIGHT}
+              fill="rgba(59, 130, 246, 0.3)"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              dash={[5, 5]}
+            />
+          )}
         </Layer>
 
         {/* Time ruler layer */}

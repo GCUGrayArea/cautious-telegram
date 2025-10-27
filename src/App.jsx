@@ -46,7 +46,7 @@ function App() {
           <Timeline />
         </div>
       </div>
-      </div>
+    </div>
     </TimelineProvider>
   );
 }
