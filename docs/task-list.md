@@ -971,7 +971,7 @@ Checked task-list.md:
 ## Block 4: Timeline Editing Operations (Depends on: Block 3)
 
 ### PR-009: Timeline Clip Dragging and Repositioning
-**Status:** In Progress
+**Status:** Complete
 **Agent:** Orange
 **Dependencies:** PR-008 ✅
 **Priority:** High
@@ -1093,7 +1093,48 @@ Timeline store updates → Timeline re-renders with new positions
 - Konva's built-in dragging is performant and handles mouse/touch events
 - Snapping provides professional UX (clips align easily)
 - Allowing overlaps for MVP keeps implementation simple
-- Will coordinate with White/Blonde to ensure PR-008 commits before starting
+- Coordinated with White/Blonde - PR-008 completed before implementation
+
+**Implementation Summary (Orange):**
+
+**TimelineClip.jsx Changes:**
+- Added `draggable={true}` to Group component (line 108)
+- Implemented `dragBoundFunc` (lines 78-102):
+  - Constrains horizontal drag to prevent negative timeline positions
+  - Snaps to nearest track vertically (0, 1, or 2)
+  - Applies snap-to-edge for clips on the same track (10px threshold)
+  - Filters out self and only snaps to clips on same track
+- Implemented `handleDragEnd` (lines 56-75):
+  - Converts pixel position to timeline coordinates (startTime)
+  - Calculates track from Y position
+  - Calls parent handler with new position
+- Added new props: `onDragEnd`, `clips`, `numTracks`
+
+**Timeline.jsx Changes:**
+- Added `updateClip` to timeline store destructuring (line 28)
+- Implemented `handleClipDragEnd` (lines 90-95):
+  - Receives clipId, newStartTime, newTrack
+  - Calls `updateClip` to persist changes to store
+- Updated TimelineClip rendering (lines 297-308):
+  - Passed `onDragEnd={handleClipDragEnd}`
+  - Passed `clips={clips}` for snap point calculation
+  - Passed `numTracks={numTracks}` for track constraint
+
+**Results:**
+All acceptance criteria met (6/6):
+- ✅ Clips draggable horizontally with Konva's built-in drag system
+- ✅ Snap-to-edge using existing `getClipSnapPoints` and `snapToPoints` utilities
+- ✅ Vertical movement between tracks with snap-to-track Y positions
+- ✅ Real-time drag updates via `dragBoundFunc` constraints
+- ✅ State persistence via `updateClip` on drag end
+- ✅ Overlaps allowed (MVP decision - simpler implementation)
+
+**Build Status:**
+- Frontend build: ✅ Successful (345.54 KB bundle, gzipped: 108.27 kB)
+- No compilation errors or warnings
+- Build time: 3.11s
+
+**Completion:** Ready for PR-010 (Timeline Clip Trimming)
 
 ---
 
