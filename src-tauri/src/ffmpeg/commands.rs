@@ -16,7 +16,7 @@ impl FFmpegState {
     }
 
     /// Get or initialize the FFmpeg wrapper
-    fn get_wrapper(&self) -> Result<FFmpegWrapper, String> {
+    pub fn get_wrapper(&self) -> Result<FFmpegWrapper, String> {
         let mut wrapper_guard = self.wrapper.lock().unwrap();
 
         if wrapper_guard.is_none() {

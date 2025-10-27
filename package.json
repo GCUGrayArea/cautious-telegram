@@ -12,7 +12,9 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
-    "preact": "^10.19.3"
+    "preact": "^10.19.3",
+    "konva": "^9.3.3",
+    "react-konva": "^18.2.10"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.8.1",

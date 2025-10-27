@@ -1,6 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod commands;
 mod database;
 mod ffmpeg;
 
@@ -34,6 +35,9 @@ fn main() {
             ffmpeg::commands::ffmpeg_generate_thumbnail,
             ffmpeg::commands::ffmpeg_trim_video,
             ffmpeg::commands::ffmpeg_concat_videos,
+            commands::import::import_video,
+            commands::import::get_media_library,
+            commands::import::delete_media_item,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

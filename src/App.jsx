@@ -1,28 +1,47 @@
 import { useState } from 'preact/hooks';
+import MediaLibrary from './components/MediaLibrary';
+import Timeline from './components/Timeline';
 
 function App() {
-  const [count, setCount] = useState(0);
+  const [selectedMedia, setSelectedMedia] = useState(null);
+
+  const handleMediaSelect = (media) => {
+    console.log('Selected media:', media);
+    setSelectedMedia(media);
+    // TODO: Add to timeline when drag-and-drop is implemented (PR-008)
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">ClipForge</h1>
-        <p className="text-xl mb-8">Desktop Video Editor</p>
+    <div className="flex flex-col h-screen bg-gray-900 text-white">
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 py-4 bg-gray-800 border-b border-gray-700">
+        <h1 className="text-2xl font-bold">ClipForge</h1>
+        <p className="text-sm text-gray-400">Desktop Video Editor</p>
+      </header>
 
-        <div className="space-y-4">
-          <div className="p-4 bg-gray-800 rounded-lg">
-            <p className="mb-2">Hello World from Preact + Tauri!</p>
-            <button
-              onClick={() => setCount(count + 1)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors"
-            >
-              Count: {count}
-            </button>
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Media Library Sidebar */}
+        <div className="w-96 border-r border-gray-700">
+          <MediaLibrary onMediaSelect={handleMediaSelect} />
+        </div>
+
+        {/* Main Editor Area (Timeline + Preview - Coming in future PRs) */}
+        <div className="flex-1 flex flex-col">
+          {/* Preview Area */}
+          <div className="flex-1 flex items-center justify-center bg-black">
+            {selectedMedia ? (
+              <div className="text-center">
+                <p className="text-gray-400 mb-2">Selected: {selectedMedia.filename}</p>
+                <p className="text-sm text-gray-500">Timeline and preview coming soon (PR-006, PR-012)</p>
+              </div>
+            ) : (
+              <p className="text-gray-500">Import videos to get started</p>
+            )}
           </div>
 
-          <div className="text-sm text-gray-400">
-            <p>Tauri v1.x + Preact + Tailwind CSS</p>
-          </div>
+          {/* Timeline Area */}
+          <Timeline />
         </div>
       </div>
     </div>
