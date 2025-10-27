@@ -2,7 +2,9 @@ import { useState, useRef, useEffect } from 'preact/hooks';
 import { Stage, Layer, Rect, Text, Line } from 'react-konva';
 import TimeRuler from './timeline/TimeRuler';
 import Playhead from './timeline/Playhead';
+import TimelineClip from './timeline/TimelineClip';
 import { TIMELINE_CONFIG, applyZoom, getTrackY } from '../utils/timeline';
+import { useTimeline } from '../store/timelineStore.jsx';
 
 /**
  * Timeline Component
@@ -13,6 +15,9 @@ import { TIMELINE_CONFIG, applyZoom, getTrackY } from '../utils/timeline';
 function Timeline() {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 300 });
+
+  // Timeline store for clips
+  const { clips, selectedClipId, selectClip, clearSelection } = useTimeline();
 
   // Timeline state
   const [currentTime, setCurrentTime] = useState(0); // Current playhead time in seconds
@@ -55,14 +60,21 @@ function Timeline() {
     }
   };
 
-  // Handle click on timeline to jump playhead
+  // Handle click on timeline to jump playhead or clear selection
   const handleStageClick = (e) => {
     // Only handle clicks on the stage background, not on other elements
     if (e.target === e.target.getStage()) {
       const clickX = e.evt.layerX + scrollX;
       const newTime = clickX / pixelsPerSecond;
       setCurrentTime(Math.max(0, newTime));
+      // Clear clip selection when clicking empty timeline
+      clearSelection();
     }
+  };
+
+  // Handle clip selection
+  const handleClipClick = (clipId) => {
+    selectClip(clipId);
   };
 
   // Handle playhead time change from dragging
@@ -155,6 +167,20 @@ function Timeline() {
         {/* Track layers */}
         <Layer>
           {renderTracks()}
+        </Layer>
+
+        {/* Clips layer */}
+        <Layer>
+          {clips.map(clip => (
+            <TimelineClip
+              key={clip.id}
+              clip={clip}
+              selected={clip.id === selectedClipId}
+              onClick={handleClipClick}
+              pixelsPerSecond={pixelsPerSecond}
+              scrollX={scrollX}
+            />
+          ))}
         </Layer>
 
         {/* Time ruler layer */}
