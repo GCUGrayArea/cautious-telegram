@@ -96,7 +96,8 @@ Will move to In Progress once PR-001 is Complete.
 ---
 
 ### PR-003: FFmpeg Integration Setup
-**Status:** New
+**Status:** Planning
+**Agent:** Orange
 **Dependencies:** None
 **Priority:** High
 
