@@ -25,7 +25,7 @@ function Timeline() {
   const [dimensions, setDimensions] = useState({ width: 800, height: 300 });
 
   // Timeline store for clips
-  const { clips, selectedClipId, selectClip, clearSelection, addClip } = useTimeline();
+  const { clips, selectedClipId, selectClip, clearSelection, addClip, updateClip } = useTimeline();
 
   // Timeline state
   const [currentTime, setCurrentTime] = useState(0); // Current playhead time in seconds
@@ -84,6 +84,14 @@ function Timeline() {
   // Handle clip selection
   const handleClipClick = (clipId) => {
     selectClip(clipId);
+  };
+
+  // Handle clip drag end - update clip position in store
+  const handleClipDragEnd = (clipId, newStartTime, newTrack) => {
+    updateClip(clipId, {
+      startTime: newStartTime,
+      track: newTrack,
+    });
   };
 
   // Handle playhead time change from dragging
@@ -291,8 +299,11 @@ function Timeline() {
               clip={clip}
               selected={clip.id === selectedClipId}
               onClick={handleClipClick}
+              onDragEnd={handleClipDragEnd}
               pixelsPerSecond={pixelsPerSecond}
               scrollX={scrollX}
+              clips={clips}
+              numTracks={numTracks}
             />
           ))}
 

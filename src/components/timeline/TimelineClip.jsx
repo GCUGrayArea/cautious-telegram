@@ -7,8 +7,9 @@ import { timeToPixels, getTrackY, TIMELINE_CONFIG } from '../../utils/timeline';
  *
  * Renders a single video clip on the timeline as a Konva Group.
  * Displays thumbnail, filename, and visual boundaries.
+ * Supports dragging to reposition clips on the timeline.
  */
-function TimelineClip({ clip, selected, onClick, pixelsPerSecond, scrollX }) {
+function TimelineClip({ clip, selected, onClick, onDragEnd, pixelsPerSecond, scrollX, clips, numTracks = 3 }) {
   const [thumbnailImage, setThumbnailImage] = useState(null);
 
   // Calculate clip position and dimensions
@@ -51,10 +52,62 @@ function TimelineClip({ clip, selected, onClick, pixelsPerSecond, scrollX }) {
     }
   };
 
+  // Handle drag end - update clip position in store
+  const handleDragEnd = (e) => {
+    if (!onDragEnd) return;
+
+    const newX = e.target.x() + scrollX; // Account for scroll offset
+    const newY = e.target.y() - 2; // Remove padding
+
+    // Convert pixel position to timeline coordinates
+    const newStartTime = newX / pixelsPerSecond;
+
+    // Calculate which track based on Y position
+    const trackHeight = TIMELINE_CONFIG.TRACK_HEIGHT;
+    const rulerHeight = TIMELINE_CONFIG.RULER_HEIGHT;
+    let newTrack = Math.floor((newY - rulerHeight) / trackHeight);
+
+    // Constrain to valid track range
+    newTrack = Math.max(0, Math.min(newTrack, numTracks - 1));
+
+    // Call parent handler with new position
+    onDragEnd(clip.id, Math.max(0, newStartTime), newTrack);
+  };
+
+  // Drag bound function - constrains and snaps drag position
+  const handleDragBound = (pos) => {
+    // Import snap utilities
+    const { pixelsToTime, getClipSnapPoints, snapToPoints, getTrackIndexFromY } =
+      require('../../utils/timeline');
+
+    // Constrain horizontal: Don't allow dragging before timeline start
+    const minX = -scrollX;
+    const constrainedX = Math.max(minX, pos.x);
+
+    // Constrain vertical: Snap to nearest track
+    const trackIndex = getTrackIndexFromY(pos.y - 2); // Remove padding
+    const validTrackIndex = Math.max(0, Math.min(trackIndex === -1 ? 0 : trackIndex, numTracks - 1));
+    const constrainedY = getTrackY(validTrackIndex);
+
+    // Apply snapping to adjacent clip edges (only clips on same track, excluding self)
+    const absoluteX = constrainedX + scrollX;
+    const sameTrackClips = (clips || []).filter(c => c.id !== clip.id && c.track === validTrackIndex);
+    const snapPoints = getClipSnapPoints(sameTrackClips, pixelsPerSecond);
+    const snappedX = snapToPoints(absoluteX, snapPoints) - scrollX;
+
+    return {
+      x: snappedX,
+      y: constrainedY + 2, // Add padding back
+    };
+  };
+
   return (
     <Group
       x={clipX}
       y={clipY + 2} // 2px top padding
+      draggable={true}
+      dragBoundFunc={handleDragBound}
+      onDragEnd={handleDragEnd}
       onClick={handleClick}
       onTap={handleClick}
     >
