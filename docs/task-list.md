@@ -3,7 +3,7 @@
 ## Block 1: Foundation and Configuration (No dependencies)
 
 ### PR-001: Project Setup and Tauri Configuration
-**Status:** Planning
+**Status:** In Progress
 **Agent:** White
 **Dependencies:** None
 **Priority:** High
@@ -11,16 +11,20 @@
 **Description:**
 Initialize Tauri project with Preact frontend, configure build system, set up development environment, and establish project structure. This PR creates the foundation for all subsequent work.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src-tauri/Cargo.toml (create) - Tauri backend dependencies
+**Files (PLANNED by White):**
+- src-tauri/Cargo.toml (create) - Tauri v1.x backend dependencies
 - src-tauri/src/main.rs (create) - Tauri entry point and window configuration
-- src-tauri/tauri.conf.json (create) - Tauri app configuration
-- package.json (create) - Frontend dependencies (Preact, Vite, Konva)
-- vite.config.js (create) - Vite build configuration
+- src-tauri/tauri.conf.json (create) - Tauri app configuration (Windows primary)
+- src-tauri/build.rs (create) - Build script for Tauri
+- package.json (create) - Frontend dependencies (Preact, Vite, Tailwind CSS)
+- vite.config.js (create) - Vite build configuration for Preact
+- tailwind.config.js (create) - Tailwind CSS configuration
+- postcss.config.js (create) - PostCSS configuration for Tailwind
 - src/main.jsx (create) - Preact app entry point
-- src/App.jsx (create) - Root component skeleton
-- .gitignore (modify) - Add build artifacts and dependencies
-- README.md (create) - Setup instructions and architecture overview
+- src/App.jsx (create) - Root component with basic layout
+- src/index.css (create) - Tailwind imports and global styles
+- .gitignore (modify) - Add node_modules, target, dist directories
+- README.md (modify) - Add setup instructions and prerequisites
 
 **Acceptance Criteria:**
 - [ ] Tauri app launches with "Hello World" Preact UI
