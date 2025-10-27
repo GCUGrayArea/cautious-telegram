@@ -96,8 +96,8 @@ Will move to In Progress once PR-001 is Complete.
 ---
 
 ### PR-003: FFmpeg Integration Setup
-**Status:** Blocked-Ready
-**Agent:** Orange (planning complete, awaiting PR-001)
+**Status:** In Progress
+**Agent:** White (implementing Orange's plan)
 **Dependencies:** PR-001 (file conflicts: Cargo.toml, tauri.conf.json, main.rs, .gitignore)
 **Priority:** High
 
