@@ -423,7 +423,8 @@ Implement video file import via drag-and-drop and file picker. Extract metadata 
 ---
 
 ### PR-005: Media Library Management UI
-**Status:** New
+**Status:** Planning
+**Agent:** Orange
 **Dependencies:** PR-004
 **Priority:** Medium
 
