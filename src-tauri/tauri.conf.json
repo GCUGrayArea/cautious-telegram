@@ -13,6 +13,26 @@
   "tauri": {
     "allowlist": {
       "all": false,
+      "dialog": {
+        "all": false,
+        "open": true,
+        "save": true
+      },
+      "fs": {
+        "all": false,
+        "readFile": true,
+        "writeFile": true,
+        "readDir": true,
+        "createDir": true,
+        "removeFile": true,
+        "exists": true,
+        "scope": ["$APPDATA/**", "$RESOURCE/**", "**"]
+      },
+      "protocol": {
+        "all": false,
+        "asset": true,
+        "assetScope": ["$APPDATA/**", "**"]
+      },
       "shell": {
         "all": false,
         "open": true
@@ -45,7 +65,8 @@
         "width": 1280,
         "height": 800,
         "minWidth": 800,
-        "minHeight": 600
+        "minHeight": 600,
+        "fileDropEnabled": true
       }
     ]
   }

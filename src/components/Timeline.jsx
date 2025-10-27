@@ -278,7 +278,7 @@ function Timeline() {
       </div>
 
       {/* Current time display */}
-      <div className="absolute top-2 left-2 z-10 bg-gray-800 rounded px-3 py-1">
+      <div className="absolute top-2 left-2 z-10 bg-gray-800 rounded px-3 py-1" style={{ pointerEvents: 'none' }}>
         <span className="text-xs text-gray-400">
           Time: {currentTime.toFixed(2)}s
         </span>
@@ -349,7 +349,7 @@ function Timeline() {
       </Stage>
 
       {/* Instructions */}
-      <div className="absolute bottom-2 left-2 text-xs text-gray-500">
+      <div className="absolute bottom-2 left-2 text-xs text-gray-500" style={{ pointerEvents: 'none' }}>
         <p>Ctrl+Scroll: Zoom | Scroll: Pan | Click: Jump playhead | Drag red handle: Scrub</p>
       </div>
     </div>

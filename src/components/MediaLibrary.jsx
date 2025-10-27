@@ -10,6 +10,7 @@ import {
 } from '../utils/api';
 import { useTimeline } from '../store/timelineStore.jsx';
 import MediaDetailModal from './MediaDetailModal';
+import { listen } from '@tauri-apps/api/event';
 
 function MediaLibrary({ onMediaSelect }) {
   const { addClip } = useTimeline();
@@ -23,9 +24,28 @@ function MediaLibrary({ onMediaSelect }) {
   });
   const [selectedMedia, setSelectedMedia] = useState(null);
 
-  // Load media library on mount
+  // Load media library on mount and setup file drop listener
   useEffect(() => {
     loadMedia();
+
+    // Setup Tauri file drop listener
+    let unlisten;
+    listen('tauri://file-drop', async (event) => {
+      console.log('File drop event:', event);
+      const filePaths = event.payload;
+      if (filePaths && filePaths.length > 0) {
+        await handleImportFiles(filePaths);
+      }
+    }).then(unlistenFn => {
+      unlisten = unlistenFn;
+    });
+
+    // Cleanup listener on unmount
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
   }, []);
 
   const loadMedia = async () => {
@@ -271,7 +291,7 @@ function MediaCard({ media, viewMode, onDelete, onSelect }) {
   if (viewMode === 'list') {
     return (
       <div
-        className="group relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-700 transition-colors flex items-center p-3"
+        className="group relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-700 transition-colors flex items-center p-3 gap-4"
         onClick={onSelect}
         draggable={true}
         onDragStart={handleDragStart}
@@ -304,7 +324,7 @@ function MediaCard({ media, viewMode, onDelete, onSelect }) {
         </div>
 
         {/* Info */}
-        <div className="flex-1 ml-4">
+        <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate" title={media.filename}>
             {media.filename}
           </p>
@@ -322,7 +342,7 @@ function MediaCard({ media, viewMode, onDelete, onSelect }) {
         {/* Delete button */}
         <button
           onClick={onDelete}
-          className="p-2 bg-red-600 hover:bg-red-700 rounded opacity-0 group-hover:opacity-100 transition-opacity ml-4"
+          className="p-2 bg-red-600 hover:bg-red-700 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
           title="Delete"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
