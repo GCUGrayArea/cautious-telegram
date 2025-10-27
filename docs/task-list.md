@@ -36,7 +36,8 @@ This PR establishes the technical foundation. Ensure Rust toolchain and Node.js 
 ---
 
 ### PR-002: SQLite Database Setup and Schema
-**Status:** New
+**Status:** Planning
+**Agent:** Orange
 **Dependencies:** None
 **Priority:** High
 
