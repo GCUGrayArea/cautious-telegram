@@ -971,7 +971,7 @@ Checked task-list.md:
 ## Block 4: Timeline Editing Operations (Depends on: Block 3)
 
 ### PR-009: Timeline Clip Dragging and Repositioning
-**Status:** Planning
+**Status:** In Progress
 **Agent:** Orange
 **Dependencies:** PR-008 ✅
 **Priority:** High
