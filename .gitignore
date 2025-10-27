@@ -72,7 +72,8 @@ src-tauri/target/
 *.db-shm
 *.db-wal
 
-# FFmpeg binaries (if bundled, keep in src-tauri/ffmpeg/ but ignore temp)
+# FFmpeg binaries (large static builds, not committed to repo)
+src-tauri/binaries/
 ffmpeg-temp/
 *.ffmpeg
 *.ffprobe
