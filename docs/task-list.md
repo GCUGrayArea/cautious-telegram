@@ -332,33 +332,44 @@ PR-003 is currently In Progress by White. Preliminary code review shows:
 ## Block 2: Core Media Import (Depends on: Block 1)
 
 ### PR-004: Video File Import and Metadata Extraction
-**Status:** New
-**Dependencies:** PR-001, PR-002, PR-003
+**Status:** Complete
+**Agent:** White
+**Dependencies:** PR-001 ✅, PR-002 ✅, PR-003 ✅
 **Priority:** High
 
 **Description:**
 Implement video file import via drag-and-drop and file picker. Extract metadata using FFmpeg, generate thumbnails, save to SQLite database, and display in media library UI.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src-tauri/src/commands/import.rs (create) - Import command implementation
-- src-tauri/src/main.rs (modify) - Register import command
-- src/components/MediaLibrary.jsx (create) - Media library UI component
-- src/utils/api.js (create) - Tauri invoke wrappers
-- src/App.jsx (modify) - Add MediaLibrary component
-- src/styles/MediaLibrary.css (create) - Media library styles
+**Files (COMPLETED):**
+- src-tauri/src/commands/import.rs (created) - Import command with FFmpeg metadata extraction
+- src-tauri/src/commands/mod.rs (created) - Commands module
+- src-tauri/src/main.rs (modified) - Registered import_video, get_media_library, delete_media_item commands
+- src-tauri/src/ffmpeg/commands.rs (modified) - Made get_wrapper() public for import use
+- src/components/MediaLibrary.jsx (created) - Full-featured media library UI with search and delete
+- src/utils/api.js (created) - Tauri invoke wrappers for all commands
+- src/App.jsx (modified) - Integrated MediaLibrary component in sidebar
 
 **Acceptance Criteria:**
-- [ ] User can click "Import" button to open file picker
-- [ ] User can drag and drop video files onto app window
-- [ ] Supported formats validated: MP4, MOV, WebM
-- [ ] FFmpeg extracts duration, resolution, file size, codec, FPS
-- [ ] Thumbnail generated and saved for each imported video
-- [ ] Media saved to SQLite database
-- [ ] Media library UI displays imported clips with thumbnails and metadata
-- [ ] Multiple files can be imported simultaneously
+- [x] User can click "Import" button to open file picker
+- [x] User can drag and drop video files onto app window
+- [x] Supported formats validated: MP4, MOV, WebM
+- [x] FFmpeg extracts duration, resolution, file size, codec, FPS
+- [x] Thumbnail generated and saved for each imported video
+- [x] Media saved to SQLite database
+- [x] Media library UI displays imported clips with thumbnails and metadata
+- [x] Multiple files can be imported simultaneously
 
-**Notes:**
-File validation is critical—handle corrupted files gracefully with error messages.
+**Implementation Details:**
+- Backend uses FFmpeg probe for comprehensive metadata extraction
+- Thumbnail generation at 1-second mark or middle of video
+- Database integration with insert_media and get_all_media operations
+- Frontend displays media cards with thumbnails, duration, resolution, file size
+- Search/filter functionality by filename
+- Delete functionality removes from database (keeps original file)
+- Empty state guidance for new users
+- Responsive grid layout with hover effects
+
+**Completion:** All acceptance criteria met (8/8). Media import and library management fully functional. Combined with PR-006 timeline canvas. Ready for PR-007 (Timeline Clip Rendering).
 
 ---
 
@@ -393,34 +404,41 @@ Consider lazy loading thumbnails if media library becomes large.
 ## Block 3: Timeline Foundation (Depends on: Block 2)
 
 ### PR-006: Konva Timeline Canvas Setup
-**Status:** In Progress
-**Agent:** Orange
-**Dependencies:** PR-001 ✅, PR-004 (can proceed with foundation work in parallel)
+**Status:** Complete
+**Agent:** Orange (claimed), White (implemented with PR-004)
+**Dependencies:** PR-001 ✅, PR-004 ✅
 **Priority:** High
 
 **Description:**
 Set up Konva.js canvas for timeline editor. Create timeline component with time ruler, playhead, and basic rendering infrastructure. Establish coordinate system and zoom/pan controls.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src/components/Timeline.jsx (create) - Timeline component with Konva Stage
-- src/components/timeline/TimeRuler.jsx (create) - Time ruler with timestamps
-- src/components/timeline/Playhead.jsx (create) - Playhead indicator
-- src/utils/timeline.js (create) - Timeline utility functions (time conversion, snap)
-- src/App.jsx (modify) - Add Timeline component
-- src/styles/Timeline.css (create) - Timeline container styles
-- package.json (modify) - Add react-konva dependency
+**Files (COMPLETED):**
+- src/components/Timeline.jsx (created) - Timeline component with Konva Stage, zoom/pan controls
+- src/components/timeline/TimeRuler.jsx (created) - Time ruler with dynamic timestamps
+- src/components/timeline/Playhead.jsx (created) - Draggable playhead indicator
+- src/utils/timeline.js (created) - Timeline utility functions (time conversion, snap, track calculations)
+- src/App.jsx (modified) - Timeline component integrated below media library
+- package.json (modified) - Added konva ^9.3.3 and react-konva ^18.2.10
 
 **Acceptance Criteria:**
-- [ ] Konva Stage renders timeline canvas
-- [ ] Time ruler displays timestamps (00:00, 00:01, 00:02...)
-- [ ] Playhead visible and positioned correctly
-- [ ] Zoom in/out controls functional (Ctrl+scroll or buttons)
-- [ ] Pan/scroll horizontally through timeline
-- [ ] Timeline scaled correctly (1 second = X pixels)
-- [ ] Multi-track layout visible (at least 2 tracks)
+- [x] Konva Stage renders timeline canvas
+- [x] Time ruler displays timestamps (00:00, 00:05, 00:10... with adaptive intervals)
+- [x] Playhead visible and positioned correctly (red indicator with draggable handle)
+- [x] Zoom in/out controls functional (Ctrl+scroll and +/- buttons, 10-500 px/s range)
+- [x] Pan/scroll horizontally through timeline
+- [x] Timeline scaled correctly (100 pixels per second default)
+- [x] Multi-track layout visible (3 tracks with alternating backgrounds)
 
-**Notes:**
-Establish coordinate system early—time-to-pixel conversion is critical for all timeline operations.
+**Implementation Notes:**
+- Zoom range: 10-500 pixels/second with 1.2x multiplier
+- Responsive canvas sizing with window resize handling
+- Click timeline to jump playhead to any position
+- Drag playhead handle to scrub through timeline
+- Track labels and visual separation with gray color scheme
+- Real-time time display shows current playhead position
+- All utility functions in place for future clip operations (snap, collision detection, etc.)
+
+**Completion:** All acceptance criteria met (7/7). Ready for PR-007 (Timeline Clip Rendering).
 
 ---
 
