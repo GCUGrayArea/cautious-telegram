@@ -41,8 +41,8 @@ This PR establishes the technical foundation. Rust toolchain and Node.js are pro
 ---
 
 ### PR-002: SQLite Database Setup and Schema
-**Status:** Blocked-Ready
-**Agent:** Orange (planning complete, awaiting PR-001)
+**Status:** In Progress
+**Agent:** White (implementing Orange's plan)
 **Dependencies:** PR-001 (file conflicts: Cargo.toml, main.rs)
 **Priority:** High
 
