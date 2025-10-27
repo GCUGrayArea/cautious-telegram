@@ -13,6 +13,7 @@ const initialState = {
   clips: [], // Array of clip objects on the timeline
   selectedClipId: null, // ID of currently selected clip
   nextClipId: 1, // Counter for generating unique clip IDs
+  playheadTime: 0, // Current playhead position in seconds
 };
 
 // Action types
@@ -21,6 +22,7 @@ const REMOVE_CLIP = 'REMOVE_CLIP';
 const UPDATE_CLIP = 'UPDATE_CLIP';
 const SELECT_CLIP = 'SELECT_CLIP';
 const CLEAR_SELECTION = 'CLEAR_SELECTION';
+const SET_PLAYHEAD_TIME = 'SET_PLAYHEAD_TIME';
 
 // Reducer
 function timelineReducer(state, action) {
@@ -78,6 +80,13 @@ function timelineReducer(state, action) {
       };
     }
 
+    case SET_PLAYHEAD_TIME: {
+      return {
+        ...state,
+        playheadTime: action.payload,
+      };
+    }
+
     default:
       return state;
   }
@@ -114,14 +123,20 @@ export function TimelineProvider({ children }) {
     dispatch({ type: CLEAR_SELECTION });
   }, []);
 
+  const setPlayheadTime = useCallback((time) => {
+    dispatch({ type: SET_PLAYHEAD_TIME, payload: time });
+  }, []);
+
   const value = {
     clips: state.clips,
     selectedClipId: state.selectedClipId,
+    playheadTime: state.playheadTime,
     addClip,
     removeClip,
     updateClip,
     selectClip,
     clearSelection,
+    setPlayheadTime,
   };
 
   return (

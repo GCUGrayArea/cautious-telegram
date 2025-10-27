@@ -24,11 +24,11 @@ function Timeline() {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 300 });
 
-  // Timeline store for clips
-  const { clips, selectedClipId, selectClip, clearSelection, addClip, updateClip } = useTimeline();
+  // Timeline store for clips and playhead time
+  const { clips, selectedClipId, playheadTime, selectClip, clearSelection, addClip, updateClip, setPlayheadTime } = useTimeline();
 
-  // Timeline state
-  const [currentTime, setCurrentTime] = useState(0); // Current playhead time in seconds
+  // Timeline state (currentTime is local, synced to store)
+  const [currentTime, setCurrentTime] = useState(playheadTime);
   const [scrollX, setScrollX] = useState(0); // Horizontal scroll position
   const [pixelsPerSecond, setPixelsPerSecond] = useState(TIMELINE_CONFIG.PIXELS_PER_SECOND);
   const [isDragging, setIsDragging] = useState(false);
@@ -97,7 +97,13 @@ function Timeline() {
   // Handle playhead time change from dragging
   const handlePlayheadTimeChange = (newTime) => {
     setCurrentTime(newTime);
+    setPlayheadTime(newTime); // Sync to store for PreviewPlayer
   };
+
+  // Sync currentTime to store whenever it changes
+  useEffect(() => {
+    setPlayheadTime(currentTime);
+  }, [currentTime, setPlayheadTime]);
 
   // Handle drag over timeline
   const handleDragOver = (e) => {

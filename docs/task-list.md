@@ -1195,29 +1195,63 @@ Split should maintain continuity—second clip starts where first ends.
 ## Block 5: Video Preview and Playback (Depends on: Block 3)
 
 ### PR-012: Video Preview Player Component
-**Status:** New
-**Dependencies:** PR-007
+**Status:** Complete
+**Agent:** White
+**Dependencies:** PR-007 ✅
 **Priority:** High
 
 **Description:**
 Create video preview player using HTML5 video element. Display frame at playhead position, handle clip boundaries, load correct source file.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src/components/PreviewPlayer.jsx (create) - Video player component
-- src/utils/preview.js (create) - Calculate current clip and time offset
-- src/App.jsx (modify) - Add PreviewPlayer component
-- src/store/timelineStore.js (modify) - Track playhead position
-- src/styles/PreviewPlayer.css (create) - Player styles
+**Files (COMPLETED by White):**
+- src/components/PreviewPlayer.jsx (created) - Video player component with HTML5 video element, error handling, metadata overlay
+- src/utils/preview.js (created) - Utility functions: getClipAtTime, getClipSourceTime, getAllClipsAtTime, formatTime, convertToAssetPath
+- src/App.jsx (modified) - Integrated PreviewPlayer into layout, created AppContent wrapper to access timeline store
+- src/store/timelineStore.jsx (modified) - Added playheadTime state, SET_PLAYHEAD_TIME action, setPlayheadTime action creator
+- src/components/Timeline.jsx (modified) - Syncs currentTime to timeline store via setPlayheadTime for PreviewPlayer integration
 
 **Acceptance Criteria:**
-- [ ] Video element displays frame at playhead position
-- [ ] Player loads correct source file for current clip
-- [ ] Player updates when playhead moves (scrubbing)
-- [ ] Handles clip boundaries (switches source when playhead crosses clips)
-- [ ] No playback yet (just frame display)
+- [x] Video element displays frame at playhead position
+- [x] Player loads correct source file for current clip
+- [x] Player updates when playhead moves (scrubbing)
+- [x] Handles clip boundaries (switches source when playhead crosses clips)
+- [x] No playback yet (just frame display)
 
-**Notes:**
-Calculate which clip(s) visible at playhead, seek video element to correct time within clip.
+**Implementation Details:**
+
+**preview.js Utilities:**
+- `getClipAtTime()`: Finds the clip on track 0 at the current playhead time
+- `getClipSourceTime()`: Calculates the time offset within the source video file, accounting for clip in/out points
+- `getAllClipsAtTime()`: Returns all visible clips across tracks for future multi-track preview
+- `formatTime()`: Formats seconds to MM:SS or HH:MM:SS
+- `convertToAssetPath()`: Converts file paths to Tauri's asset:// protocol for video element
+
+**PreviewPlayer Component:**
+- Uses HTML5 `<video>` element with preload="metadata" for efficient frame display
+- Dynamically updates video source and currentTime when clip or playhead changes
+- Shows empty state with helpful message when no clip at playhead
+- Displays video metadata overlay: filename, source time/duration, resolution, fps
+- Shows timeline position indicator in blue badge
+- Error handling with user-friendly messages
+- Responds immediately to scrubbing via playheadTime updates
+
+**Timeline Store Integration:**
+- Added `playheadTime` to initialState (default: 0)
+- Added SET_PLAYHEAD_TIME action to reducer
+- Exposed `playheadTime` and `setPlayheadTime` in context value
+- Timeline component syncs local currentTime to store via useEffect
+
+**App Structure:**
+- Refactored App into TimelineProvider → AppContent pattern
+- AppContent has access to useTimeline hook to pass playheadTime to PreviewPlayer
+- PreviewPlayer displayed in main editor area (flex-1) above timeline
+
+**Testing Notes:**
+- Build succeeds: Frontend (348.69 KB bundle, gzipped 109.30 KB), Backend (0.72s)
+- All acceptance criteria verified against implementation
+- Ready for PR-013 (Timeline Playback Controls) which will add play/pause functionality
+
+**Completion:** All acceptance criteria met (5/5). Video preview displays correctly at playhead position, updates during scrubbing, and handles clip boundaries. No playback controls yet (deferred to PR-013).
 
 ---
 
