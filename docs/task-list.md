@@ -40,21 +40,22 @@ This PR establishes the technical foundation. Ensure Rust toolchain and Node.js 
 ---
 
 ### PR-002: SQLite Database Setup and Schema
-**Status:** Planning
-**Agent:** Orange
-**Dependencies:** None
+**Status:** Blocked-Ready
+**Agent:** Orange (planning complete, awaiting PR-001)
+**Dependencies:** PR-001 (file conflicts: Cargo.toml, main.rs)
 **Priority:** High
 
 **Description:**
 Set up SQLite database integration in Tauri backend, define schema for media library and projects, create database initialization and migration logic.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src-tauri/Cargo.toml (modify) - Add rusqlite or sqlx dependency
-- src-tauri/src/database.rs (create) - Database connection and initialization
-- src-tauri/src/schema.sql (create) - SQL schema definitions
-- src-tauri/src/models/media.rs (create) - Media model structs
-- src-tauri/src/models/project.rs (create) - Project model structs
-- src-tauri/src/main.rs (modify) - Initialize database on app start
+**Files (PLANNED by Orange):**
+- src-tauri/Cargo.toml (modify) - Add rusqlite dependency (~1.0)
+- src-tauri/src/database.rs (create) - Database connection, initialization, and schema migrations
+- src-tauri/src/database/mod.rs (create) - Database module exports
+- src-tauri/src/database/schema.rs (create) - SQL schema definitions as constants
+- src-tauri/src/database/models.rs (create) - Media and Project model structs with Serialize/Deserialize
+- src-tauri/src/database/operations.rs (create) - CRUD operations for media and projects
+- src-tauri/src/main.rs (modify) - Initialize database on app start, manage app state
 
 **Acceptance Criteria:**
 - [ ] SQLite database file created on first app launch
@@ -64,8 +65,33 @@ Set up SQLite database integration in Tauri backend, define schema for media lib
 - [ ] Basic CRUD operations functional
 - [ ] Database file stored in appropriate app data directory
 
-**Notes:**
-Use platform-appropriate data directory (AppData on Windows, Application Support on macOS).
+**Planning Notes (Orange):**
+
+**Schema Design:**
+- **media table:** id (PK), path (UNIQUE), filename, duration (REAL), width, height, file_size, format, fps, thumbnail_path, created_at (ISO 8601), metadata_json
+- **projects table:** id (PK), name, timeline_json, created_at, updated_at, last_opened_at
+- Indexes on created_at/updated_at for efficient sorting
+- Indexes on filename for search functionality
+
+**Implementation Approach:**
+1. Use `rusqlite` for synchronous database access (simpler than sqlx for this use case)
+2. Use `tauri::api::path::app_data_dir()` for platform-appropriate database location
+3. Schema migrations via version table (future-proof for schema changes)
+4. Connection pool not needed initially (single-user desktop app), but will use `Mutex<Connection>` for thread safety
+5. All timestamps stored as ISO 8601 strings (e.g., "2025-10-27T15:30:00Z")
+6. Metadata JSON field allows extensibility without schema changes
+
+**Database Location:**
+- Windows: `%APPDATA%\ClipForge\clipforge.db`
+- macOS: `~/Library/Application Support/ClipForge/clipforge.db`
+
+**Blocking Reason:**
+This PR is blocked by PR-001 (Tauri project setup) because it requires:
+- src-tauri/Cargo.toml to exist
+- src-tauri/src/main.rs to exist
+- Tauri project structure to be established
+
+Will move to In Progress once PR-001 is Complete.
 
 ---
 
