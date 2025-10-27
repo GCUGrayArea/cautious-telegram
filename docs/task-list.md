@@ -3,7 +3,8 @@
 ## Block 1: Foundation and Configuration (No dependencies)
 
 ### PR-001: Project Setup and Tauri Configuration
-**Status:** New
+**Status:** Planning
+**Agent:** White
 **Dependencies:** None
 **Priority:** High
 
