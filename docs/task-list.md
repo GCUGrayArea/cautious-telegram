@@ -971,18 +971,19 @@ Checked task-list.md:
 ## Block 4: Timeline Editing Operations (Depends on: Block 3)
 
 ### PR-009: Timeline Clip Dragging and Repositioning
-**Status:** New
-**Dependencies:** PR-008
+**Status:** Planning
+**Agent:** Orange
+**Dependencies:** PR-008 ✅
 **Priority:** High
 
 **Description:**
 Enable dragging clips within timeline to reposition them. Support moving between tracks, snap to adjacent clips, update timeline state on drag end.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src/components/timeline/TimelineClip.jsx (modify) - Enable Konva dragging
-- src/components/Timeline.jsx (modify) - Handle drag events, update state
-- src/utils/timeline.js (modify) - Drag constraints, snap logic
-- src/store/timelineStore.js (modify) - Update clip position in state
+**Files (PLANNED by Orange):**
+- src/components/timeline/TimelineClip.jsx (modify) - Enable Konva dragging with draggable={true}
+- src/components/Timeline.jsx (modify) - Handle dragend events, update state via updateClip
+- src/utils/timeline.js (no changes needed) - Existing snap utilities sufficient
+- src/store/timelineStore.jsx (no changes needed) - UPDATE_CLIP action already exists
 
 **Acceptance Criteria:**
 - [ ] User can drag clips horizontally on timeline
@@ -992,8 +993,107 @@ Enable dragging clips within timeline to reposition them. Support moving between
 - [ ] State updated on drag end
 - [ ] Clips cannot overlap (or handle overlaps appropriately)
 
+**Planning Notes (Orange):**
+
+**Implementation Approach:**
+
+**1. TimelineClip.jsx Changes:**
+- Enable Konva dragging: Set `draggable={true}` on the Group component
+- Add drag bounds to constrain dragging:
+  - `dragBoundFunc`: Custom function to constrain drag position
+  - Allow horizontal movement (adjust for scrollX)
+  - Allow vertical movement between tracks (snap to track Y positions)
+  - Prevent dragging before timeline start (x >= 0)
+- Add drag event handlers:
+  - `onDragStart`: Store initial position, set dragging state
+  - `onDragMove`: Apply snapping to adjacent clips and tracks in real-time
+  - `onDragEnd`: Calculate final position, call updateClip with new startTime and track
+- Visual feedback during drag:
+  - Keep current visual selection (red border maintained)
+  - Optionally add opacity or shadow change during drag
+
+**2. Timeline.jsx Changes:**
+- Add handler for clip drag end: `handleClipDragEnd(clipId, newStartTime, newTrack)`
+- Call `updateClip` from timeline store to persist position changes
+- Ensure clips array updates trigger re-render
+
+**3. Snap Logic:**
+- Use existing `getClipSnapPoints()` to get snap positions from other clips
+- Implement snap-to-track for vertical movement:
+  - Calculate which track Y position is closest
+  - Snap to track boundaries (0, 1, 2)
+- Snap threshold: Use `TIMELINE_CONFIG.SNAP_THRESHOLD` (10 pixels)
+- Only snap to clips on the SAME track during horizontal drag
+
+**4. Collision Detection Decision:**
+For MVP, **ALLOW OVERLAPS**. Reasons:
+- Simpler implementation (no complex repositioning logic)
+- Faster to implement and test
+- User can manually adjust overlapping clips
+- Future PR can add collision prevention or auto-repositioning
+
+**5. Drag Bounds Function:**
+```javascript
+const handleDragBound = (pos) => {
+  // Constrain horizontal: Don't allow dragging before timeline start
+  const minX = -scrollX; // Account for scroll offset
+  const constrainedX = Math.max(minX, pos.x);
+
+  // Constrain vertical: Snap to nearest track
+  const trackIndex = getTrackIndexFromY(pos.y);
+  const constrainedY = getTrackY(Math.max(0, Math.min(trackIndex, numTracks - 1)));
+
+  // Apply snapping to adjacent clip edges
+  const absoluteX = constrainedX + scrollX;
+  const snapPoints = getClipSnapPoints(clips.filter(c => c.id !== clip.id && c.track === clip.track), pixelsPerSecond);
+  const snappedX = snapToPoints(absoluteX, snapPoints) - scrollX;
+
+  return {
+    x: snappedX,
+    y: constrainedY + 2, // +2 for padding
+  };
+};
+```
+
+**6. Update Clip on Drag End:**
+```javascript
+const handleDragEnd = (e) => {
+  const newX = e.target.x() + scrollX; // Account for scroll
+  const newY = e.target.y();
+
+  // Convert pixel position to timeline coordinates
+  const newStartTime = pixelsToTime(newX, pixelsPerSecond);
+  const newTrack = getTrackIndexFromY(newY);
+
+  // Update clip in store
+  onDragEnd(clip.id, Math.max(0, newStartTime), Math.max(0, Math.min(newTrack, numTracks - 1)));
+};
+```
+
+**7. Data Flow:**
+```
+User drags clip → Konva handles visual drag with dragBoundFunc constraints
+  ↓
+DragMove event → Apply real-time snapping and track constraints
+  ↓
+DragEnd event → Calculate newStartTime and newTrack
+  ↓
+Call updateClip(clipId, { startTime, track })
+  ↓
+Timeline store updates → Timeline re-renders with new positions
+```
+
+**8. File Lock Conflict Check:**
+- White: Working on PR-008 (modifies MediaLibrary.jsx, Timeline.jsx)
+- Blonde: Working on PR-008 (same files)
+- **POTENTIAL CONFLICT:** Timeline.jsx is being modified by PR-008
+- **Resolution:** Wait for PR-008 commits to complete before starting implementation
+
 **Notes:**
-Consider collision detection—should clips push others, or overlap?
+- Konva's built-in dragging is performant and handles mouse/touch events
+- Snapping provides professional UX (clips align easily)
+- Allowing overlaps for MVP keeps implementation simple
+- Will coordinate with White/Blonde to ensure PR-008 commits before starting
 
 ---
 
