@@ -544,7 +544,7 @@ Set up Konva.js canvas for timeline editor. Create timeline component with time 
 ---
 
 ### PR-007: Timeline Clip Rendering
-**Status:** Planning
+**Status:** In Progress
 **Agent:** White
 **Dependencies:** PR-006 ✅
 **Priority:** High
@@ -566,8 +566,33 @@ Render video clips on timeline as Konva rectangles. Display clip thumbnails, dur
 - [ ] Selected clip visually distinguished
 - [ ] Clips positioned correctly on tracks
 
-**Notes:**
-Use Konva Image node for thumbnails. Consider caching thumbnail images for performance.
+**Planning Notes (White):**
+
+**State Management Approach:**
+- Use Preact Context + useReducer for timeline store
+- Store: clips array (id, mediaId, startTime, duration, track, inPoint, outPoint, metadata)
+- Store: selectedClipId for selection state
+- Actions: addClip, removeClip, updateClip, selectClip
+
+**TimelineClip Component:**
+- Konva Group containing:
+  - Rect for clip background (#3b82f6 blue, #ef4444 for selected)
+  - Image for thumbnail (loaded from media library thumbnail_path)
+  - Text for filename (truncated if too long)
+  - Border highlight for selected state
+- Props: clip data, selected state, onClick handler, pixelsPerSecond, scrollX
+- Position calculated from clip.startTime and clip.track
+- Width calculated from clip.duration * pixelsPerSecond
+
+**Integration:**
+- Timeline.jsx imports timelineStore context
+- Renders TimelineClip for each clip in the store
+- Passes selection handler to clips
+- Clips layer rendered between tracks and playhead
+
+**No File Lock Conflicts:**
+- Checked all In Progress and Suspended PRs
+- No conflicts detected with PR-007 files
 
 ---
 
