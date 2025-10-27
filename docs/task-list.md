@@ -423,28 +423,54 @@ Implement video file import via drag-and-drop and file picker. Extract metadata 
 ---
 
 ### PR-005: Media Library Management UI
-**Status:** Planning
+**Status:** In Progress
 **Agent:** Orange
-**Dependencies:** PR-004
+**Dependencies:** PR-004 ✅
 **Priority:** Medium
 
 **Description:**
 Enhance media library with grid/list view toggle, search/filter, delete functionality, and detailed metadata display. Improve UX with hover states and selection.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src/components/MediaLibrary.jsx (modify) - Add grid/list toggle, search, delete
-- src/components/MediaCard.jsx (create) - Individual media item component
-- src-tauri/src/commands/media.rs (create) - Delete media command
-- src-tauri/src/main.rs (modify) - Register media commands
-- src/styles/MediaLibrary.css (modify) - Enhanced styles
+**Files (PLANNED by Orange):**
+- src/components/MediaLibrary.jsx (modify) - Add grid/list view toggle and detailed metadata modal
+- src/components/MediaDetailModal.jsx (create) - Modal to display full metadata when clicking a media item
+
+**Planning Notes (Orange):**
+
+**Already Implemented in PR-004:**
+- ✅ Search/filter media by filename (lines 111-113, 130-138 in MediaLibrary.jsx)
+- ✅ Delete media from library (lines 78-92, 233-246 with confirmation dialog)
+- ✅ Hover states and visual feedback (group-hover classes on MediaCard)
+- ✅ Empty state when no media imported (lines 157-161)
+- ✅ MediaCard component separation (lines 179-249)
+
+**Remaining Work for PR-005:**
+1. **Grid/List View Toggle:**
+   - Add view mode state (useState for 'grid' or 'list')
+   - Add toggle buttons in header (grid icon, list icon)
+   - Implement list view layout (single column with horizontal card layout)
+   - Persist view preference to localStorage
+
+2. **Detailed Metadata Modal:**
+   - Create MediaDetailModal component
+   - Display all metadata fields (filename, path, duration, resolution, file size, format, fps, created_at)
+   - Show larger thumbnail preview
+   - Add close button and click-outside-to-close behavior
+   - Triggered by clicking MediaCard (already has onSelect prop)
+
+**Implementation Approach:**
+- Grid view: Keep existing grid-cols-2/3/4 responsive layout
+- List view: Single column with flex layout, thumbnail on left, metadata on right
+- Modal: Fixed overlay with dark backdrop, centered white card, escape key to close
+- Icons: Use inline SVG for grid/list toggle buttons
 
 **Acceptance Criteria:**
+- [x] Search/filter media by filename (already in PR-004)
+- [x] Delete media from library (already in PR-004)
+- [x] Hover states and visual feedback (already in PR-004)
+- [x] Empty state when no media imported (already in PR-004)
 - [ ] Toggle between grid and list view
-- [ ] Search/filter media by filename
 - [ ] Click media card to view detailed metadata
-- [ ] Delete media from library (removes from DB, keeps file)
-- [ ] Hover states and visual feedback
-- [ ] Empty state when no media imported
 
 **Notes:**
 Consider lazy loading thumbnails if media library becomes large.
