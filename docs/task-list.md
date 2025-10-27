@@ -96,20 +96,25 @@ Will move to In Progress once PR-001 is Complete.
 ---
 
 ### PR-003: FFmpeg Integration Setup
-**Status:** Planning
-**Agent:** Orange
-**Dependencies:** None
+**Status:** Blocked-Ready
+**Agent:** Orange (planning complete, awaiting PR-001)
+**Dependencies:** PR-001 (file conflicts: Cargo.toml, tauri.conf.json, main.rs, .gitignore)
 **Priority:** High
 
 **Description:**
-Integrate FFmpeg into Tauri application for video processing. Download/bundle FFmpeg binaries, create Rust wrapper for FFmpeg commands, test basic operations (probe, thumbnail generation).
+Integrate FFmpeg into Tauri application for video processing. Bundle FFmpeg static binaries with app, create Rust wrapper for FFmpeg commands, test basic operations (probe, thumbnail generation).
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src-tauri/Cargo.toml (modify) - Add FFmpeg-related dependencies
-- src-tauri/src/ffmpeg.rs (create) - FFmpeg wrapper functions
-- src-tauri/build.rs (create) - Build script to bundle FFmpeg binaries
-- src-tauri/ffmpeg/ (create directory) - FFmpeg binaries for each platform
+**Files (PLANNED by Orange):**
+- src-tauri/Cargo.toml (modify) - Add serde_json, tokio dependencies
+- src-tauri/tauri.conf.json (modify) - Add externalBin configuration for FFmpeg binaries
+- src-tauri/src/ffmpeg/mod.rs (create) - FFmpeg module exports
+- src-tauri/src/ffmpeg/wrapper.rs (create) - FFmpegWrapper struct and implementation
+- src-tauri/src/ffmpeg/metadata.rs (create) - VideoMetadata struct and JSON parsing
+- src-tauri/src/ffmpeg/commands.rs (create) - Tauri command implementations (probe, thumbnail)
 - src-tauri/src/main.rs (modify) - Register FFmpeg commands
+- src-tauri/binaries/ (create directory) - FFmpeg static binaries (gitignored)
+- .gitignore (modify) - Add src-tauri/binaries/* to ignore list
+- src-tauri/README-FFMPEG.md (create) - Instructions for downloading FFmpeg binaries
 
 **Acceptance Criteria:**
 - [ ] FFmpeg binary bundled with app or downloaded on first run
@@ -119,8 +124,47 @@ Integrate FFmpeg into Tauri application for video processing. Download/bundle FF
 - [ ] FFmpeg output/errors captured and logged
 - [ ] Cross-platform compatibility (macOS and Windows)
 
-**Notes:**
-Consider using static FFmpeg builds. Binaries are large (~50-100MB), plan for download or bundling strategy.
+**Planning Notes (Orange):**
+
+**Binary Bundling Strategy:**
+- Use static FFmpeg binaries (no external dependencies required)
+- Bundle using Tauri's `externalBin` feature (handles permissions automatically)
+- Binary sources:
+  - Windows: gyan.dev/ffmpeg/builds/ (static x64 build)
+  - macOS: evermeet.cx/ffmpeg/ (static arm64 and x64 builds)
+- Binaries stored in src-tauri/binaries/ (gitignored due to size ~50-100MB)
+- README-FFMPEG.md provides download instructions for developers
+
+**Rust Wrapper API:**
+```rust
+FFmpegWrapper {
+  - new() -> Result<Self> // Resolves binary path from Tauri resources
+  - probe(video_path) -> VideoMetadata // Extract duration, resolution, codec, fps
+  - generate_thumbnail(video_path, output_path, timestamp) -> Result<()>
+  - trim_video(input, output, start, end) -> Result<()>
+  - concat_videos(inputs, output) -> Result<()>
+  - execute_command(args) -> Result<String> // Internal: run FFmpeg, capture output
+}
+```
+
+**Tauri Commands:**
+- `ffmpeg_probe(video_path: String) -> VideoMetadata`
+- `ffmpeg_generate_thumbnail(video_path, output_path, timestamp) -> Result<()>`
+
+**Implementation Details:**
+- Use `tokio::process::Command` for async FFmpeg execution
+- Parse FFmpeg JSON output for metadata (ffmpeg -print_format json -show_format -show_streams)
+- Capture stdout/stderr for error handling and logging
+- Platform-specific binary selection (Windows .exe vs macOS executable)
+
+**Blocking Reason:**
+This PR is blocked by PR-001 because it requires:
+- src-tauri/Cargo.toml to exist
+- src-tauri/tauri.conf.json to exist
+- src-tauri/src/main.rs to exist
+- Tauri project structure to be established
+
+Will move to In Progress once PR-001 is Complete.
 
 ---
 
