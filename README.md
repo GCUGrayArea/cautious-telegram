@@ -1,100 +1,93 @@
-## Picatrix: Multi-Agent Claude Code Coordination Template
+# ClipForge - Desktop Video Editor
 
-A meta-repository template for running multiple Claude Code agents in parallel with automatic coordination, source control safety, and quality control.
+A native desktop video editing application built with Tauri, Preact, Konva.js, FFmpeg, and SQLite. Record your screen and webcam, edit on a timeline, and export professional-quality videos.
 
 ## Features
 
-- **Parallel agent coordination** - Up to 6 agents working simultaneously without conflicts
-- **File locking** - Prevents agents from interfering with each other's work
-- **Automatic QC** - Quality control agent tests completed work
-- **Source control safety** - Atomic commits, race condition resolution, commit policies
-- **Planning workflow** - Generates PRD and task list from specs
+- **Screen Recording** - Capture full screen or specific windows
+- **Webcam Recording** - Record from your camera with audio
+- **Timeline Editor** - Drag, trim, split, and arrange clips visually
+- **Video Preview** - Real-time preview with playback controls
+- **Multi-track Support** - Layer videos with picture-in-picture overlays
+- **Professional Export** - Export to MP4 with customizable quality settings
+- **Media Library** - Organize and manage your imported media
 
-## Setup
+## Tech Stack
 
-1. **Fork this meta-repo** for your new project
-2. **Install Claude Code essentials plugin:**
+- **Tauri 1.x** - Rust-based desktop framework for small bundle size and native performance
+- **Preact** - Lightweight React alternative (3KB) for fast UI rendering
+- **Konva.js** - Canvas-based timeline rendering with drag-and-drop
+- **FFmpeg** - Industry-standard video processing and encoding
+- **SQLite** - Embedded database for media library and project persistence
+
+## Prerequisites
+
+- **Node.js** 18+ and npm
+- **Rust** 1.70+ (install from [rustup.rs](https://rustup.rs))
+- **System Requirements**:
+  - Windows 10/11 or macOS 11+
+  - 4GB RAM minimum (8GB recommended)
+
+## Setup Instructions
+
+1. **Clone the repository:**
    ```bash
-   /plugin marketplace add https://github.com/wshobson/agents
-   ```
-3. **Initialize your project:**
-   ```bash
-   /plan <path-to-spec>
-   ```
-   This generates `docs/prd.md` and `docs/task-list.md` from your specification.
-
-4. **Start parallel agents with `/work`:**
-   ```bash
-   # In terminal 1
-   claude /work
-
-   # In terminal 2
-   claude /work
-
-   # In terminal 3
-   claude /work
-   ```
-
-5. **Monitor progress:**
-   ```bash
-   /status
+   git clone <repository-url>
+   cd cautious-telegram
    ```
 
-6. **Run quality control:**
+2. **Install dependencies:**
    ```bash
-   /qc
+   npm install
    ```
 
-## Important User Documentation
+3. **Run in development mode:**
+   ```bash
+   npm run tauri:dev
+   ```
+   This will start the Vite dev server and launch the Tauri application with hot reload.
 
-**READ THESE if you're running parallel agents:**
+## Build for Production
 
-- **`.claude/timeout-policy.md`** - PR timeout rules, when agents can reclaim abandoned work, how to handle long debugging sessions
-- **`.claude/agent-identity.md`** - How agents claim and release identities (White, Orange, Blonde, Pink, Blue, Brown)
-- **`.claude/race-conditions.md`** - How agents avoid claiming the same PR simultaneously
-- **`.claude/emergency-stop.md`** - How to halt all agents immediately with `/halt` and resume with `/resume`
+1. **Build the application:**
+   ```bash
+   npm run tauri:build
+   ```
 
-These documents contain important information about edge cases and best practices.
+2. **Find the installer:**
+   - Windows: `src-tauri/target/release/bundle/msi/ClipForge_0.1.0_x64_en-US.msi`
+   - macOS: `src-tauri/target/release/bundle/dmg/ClipForge_0.1.0_x64.dmg`
 
-## Workflow Overview
+## Project Structure
 
-1. **Planning Agent** (`/plan`) - Reads spec, generates PRD and task list
-2. **Work Agents** (`/work`) - Claim identity, select PR, implement, commit, release identity
-3. **QC Agent** (`/qc`) - Tests completed PRs, marks as Broken/Approved/Certified
+```
+cautious-telegram/
+├── src/                    # Preact frontend
+│   ├── App.jsx            # Root component
+│   ├── main.jsx           # Entry point
+│   └── index.css          # Global styles (Tailwind)
+├── src-tauri/             # Rust backend
+│   ├── src/
+│   │   └── main.rs        # Tauri entry point
+│   ├── Cargo.toml         # Rust dependencies
+│   └── tauri.conf.json    # Tauri configuration
+├── index.html             # HTML template
+├── package.json           # Node dependencies
+└── vite.config.js         # Vite configuration
+```
 
-## Agent Coordination Files
+## Development Workflow
 
-- `docs/prd.md` - Product Requirements Document
-- `docs/task-list.md` - PR task list with statuses and file locks
-- `.claude/agent-identity.lock` - Tracks which agent identities are in use
+This project uses a multi-agent coordination system. For details on the development workflow:
 
-These files are auto-committed by agents. Implementation code always requires user approval before committing.
+- See `docs/prd.md` for the Product Requirements Document
+- See `docs/task-list.md` for the PR task breakdown
+- See `.claude/` directory for agent coordination rules
 
-## Example Workflow
+## Contributing
 
-See `docs/example-task-list.md` for a realistic example of what task-list.md looks like during active development.
+This project is under active development. PRs are implemented incrementally using the task list in `docs/task-list.md`.
 
-## Commands
+## License
 
-- `/plan <spec>` - Generate PRD and task list from specification
-- `/work` - Start agent work session (claims identity, selects PR, implements)
-- `/qc` - Run quality control on completed PRs
-- `/status` - Show current project status
-- `/halt [reason]` - Emergency stop all running agents (suspends work, releases identities)
-- `/resume` - Resume normal operations after halt
-
-## Customizing for Your Project
-
-Once you've initialized with `/plan` and started development:
-
-1. Replace this README with your project-specific README
-2. The `.claude/` directory contains the coordination rules
-3. The `docs/` directory contains your PRD, task list, and (eventually) architecture docs
-
-## Architecture
-
-For details on how parallel agent coordination works, see:
-
-- `.claude/agent-defaults.md` - Agent workflow and rules
-- `.claude/atomic-commits.md` - Commit discipline for coordination
-- `.claude/commit-policy.md` - What agents can commit automatically
+MIT
