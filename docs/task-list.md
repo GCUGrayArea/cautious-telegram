@@ -393,8 +393,9 @@ Consider lazy loading thumbnails if media library becomes large.
 ## Block 3: Timeline Foundation (Depends on: Block 2)
 
 ### PR-006: Konva Timeline Canvas Setup
-**Status:** New
-**Dependencies:** PR-001, PR-004
+**Status:** In Progress
+**Agent:** Orange
+**Dependencies:** PR-001 ✅, PR-004 (can proceed with foundation work in parallel)
 **Priority:** High
 
 **Description:**
