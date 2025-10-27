@@ -1,7 +1,5 @@
-# Picatrix Meta-Repo Template
-# This is a minimal .gitignore for the template itself.
-# When the planning agent generates a PRD for a real project, it will
-# replace this with a comprehensive language-specific .gitignore.
+# ClipForge Desktop Video Editor
+# Tech Stack: Tauri + Preact + Konva + FFmpeg + SQLite
 
 # OS files
 .DS_Store
@@ -26,3 +24,100 @@ $RECYCLE.BIN/
 # Claude Code local settings
 .claude/settings.local.json
 .claude/halt.lock
+
+# Node.js / Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Preact / Vite build outputs
+dist/
+dist-ssr/
+build/
+out/
+.vite/
+*.local
+
+# Environment variables (keep .env.example)
+.env
+.env.local
+.env.*.local
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/Cargo.lock
+src-tauri/WixTools/
+
+# Tauri build outputs
+src-tauri/target/
+*.deb
+*.rpm
+*.dmg
+*.exe
+*.msi
+*.AppImage
+*.app
+
+# SQLite databases (development)
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# FFmpeg binaries (if bundled, keep in src-tauri/ffmpeg/ but ignore temp)
+ffmpeg-temp/
+*.ffmpeg
+*.ffprobe
+
+# Video files (test fixtures should be small and committed)
+# Ignore large test videos in temp directories
+temp/
+tmp/
+recordings/
+exports/
+*.mp4.tmp
+*.mov.tmp
+
+# Thumbnails and cache
+thumbnails/
+.cache/
+.thumbnail-cache/
+
+# Test coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Logs
+logs/
+*.log
+
+# macOS specific
+*.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.stackdump
+
+# Editor artifacts
+.history/
+*.bak
+*.tmp
+*~
+
+# Debug files
+*.pdb
+*.dSYM/
