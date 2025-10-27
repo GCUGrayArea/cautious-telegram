@@ -624,29 +624,154 @@ Render video clips on timeline as Konva rectangles. Display clip thumbnails, dur
 ---
 
 ### PR-008: Drag Clips from Media Library to Timeline
-**Status:** New
-**Dependencies:** PR-007
+**Status:** Planning
+**Agent:** Blonde
+**Dependencies:** PR-007 ✅ (assuming complete)
 **Priority:** High
 
 **Description:**
-Implement drag-and-drop from media library to timeline. Calculate drop position, add clip to timeline state, render on appropriate track.
+Implement drag-and-drop from media library to timeline. Calculate drop position, add clip to timeline state, render on appropriate track with visual feedback and snap-to-edge functionality.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src/components/MediaLibrary.jsx (modify) - Make clips draggable
-- src/components/Timeline.jsx (modify) - Accept drops, calculate position
-- src/store/timelineStore.js (modify) - Add clip to timeline state
-- src/utils/timeline.js (modify) - Drop position calculation, snap logic
+**Files (PLANNED by Blonde):**
+- src/components/MediaLibrary.jsx (modify) - Make MediaCard draggable (HTML5 drag events)
+- src/components/Timeline.jsx (modify) - Accept drops, calculate drop position, show drop indicator
+- src/store/timelineStore.jsx (no changes needed) - Already has addClip action
+- src/utils/timeline.js (no major changes) - Existing utilities (timeToPixels, getTrackIndexFromY, getClipSnapPoints, snapToPoints) are sufficient
 
 **Acceptance Criteria:**
-- [ ] User can drag clip from media library
-- [ ] Drop indicator shows where clip will land on timeline
-- [ ] Clip added to timeline at correct position and track
-- [ ] Timeline state updated with new clip
-- [ ] Clip rendered immediately after drop
-- [ ] Snap-to-grid or snap-to-edge works
+- [ ] User can drag clip from media library (draggable attribute + dragstart event)
+- [ ] Drop indicator shows where clip will land on timeline (ghost rectangle on hover)
+- [ ] Clip added to timeline at correct position and track (calculated from drop coordinates)
+- [ ] Timeline state updated with new clip (via addClip action)
+- [ ] Clip rendered immediately after drop (TimelineClip component already handles this)
+- [ ] Snap-to-grid or snap-to-edge works (using existing snapToPoints utility)
+
+**Planning Notes (Blonde):**
+
+**Implementation Approach:**
+
+**1. MediaLibrary.jsx Changes:**
+- Add `draggable={true}` attribute to MediaCard div
+- Implement `onDragStart` handler to store media item data in `e.dataTransfer`
+  - Use `e.dataTransfer.setData('application/json', JSON.stringify(media))`
+  - Set drag effect: `e.dataTransfer.effectAllowed = 'copy'`
+  - Optionally set drag image using thumbnail
+- No changes needed to drag events - HTML5 drag API handles visual feedback automatically
+
+**2. Timeline.jsx Changes:**
+- Add drop zone event handlers to Konva Stage or wrapper div:
+  - `onDragOver`: Prevent default, allow drop (`e.preventDefault()`, `e.dataTransfer.dropEffect = 'copy'`)
+  - `onDragEnter`: Set dragging state to show drop indicator
+  - `onDragLeave`: Clear dragging state
+  - `onDrop`: Handle the drop event
+- **Drop handler logic:**
+  ```javascript
+  const handleDrop = (e) => {
+    e.preventDefault();
+
+    // Parse media data from dataTransfer
+    const mediaData = JSON.parse(e.dataTransfer.getData('application/json'));
+
+    // Calculate drop position (need to account for Timeline wrapper vs Stage coordinates)
+    const rect = timelineRef.current.getBoundingClientRect();
+    const dropX = e.clientX - rect.left + scrollX;
+    const dropY = e.clientY - rect.top;
+
+    // Convert to timeline coordinates
+    const dropTime = pixelsToTime(dropX, pixelsPerSecond);
+    const trackIndex = getTrackIndexFromY(dropY);
+
+    // Snap to existing clip edges
+    const snapPoints = getClipSnapPoints(clips, pixelsPerSecond);
+    const snappedX = snapToPoints(dropX, snapPoints);
+    const snappedTime = pixelsToTime(snappedX, pixelsPerSecond);
+
+    // Add clip to timeline store
+    addClip({
+      mediaId: mediaData.id,
+      startTime: snappedTime,
+      duration: mediaData.duration,
+      track: Math.max(0, trackIndex), // Default to track 0 if dropped in ruler
+      metadata: mediaData, // Store full media metadata for thumbnail/filename display
+    });
+  };
+  ```
+- **Drop indicator (visual feedback during drag):**
+  - State: `const [dropIndicator, setDropIndicator] = useState(null);` (stores {x, y, track})
+  - Update dropIndicator in `onDragOver` to show where clip will land
+  - Render semi-transparent rectangle in Konva Layer at dropIndicator position
+  - Clear dropIndicator on drop or drag leave
+
+**3. Coordinate System Considerations:**
+- **Challenge:** Konva Stage uses canvas coordinates, but HTML drag events use page coordinates
+- **Solution:** Use Timeline wrapper div for drop events, not Konva Stage directly
+  - Timeline already wrapped in `<div ref={containerRef} className="timeline-container">`
+  - Add drop handlers to this div element
+  - Calculate drop position relative to this div using `getBoundingClientRect()`
+  - Account for scrollX offset when converting to timeline time
+
+**4. Snap Behavior:**
+- Use existing `getClipSnapPoints()` and `snapToPoints()` utilities
+- Snap threshold: 10 pixels (already defined in TIMELINE_CONFIG.SNAP_THRESHOLD)
+- Snap points: Timeline start (0), start/end of all existing clips on same track
+- Visual feedback: Show snapped position in drop indicator (not raw mouse position)
+
+**5. Track Selection:**
+- Use existing `getTrackIndexFromY()` utility
+- If dropped in ruler area (trackIndex = -1), default to track 0
+- If dropped below all tracks, default to last track (track 2 for now)
+- Constrain trackIndex: `Math.max(0, Math.min(trackIndex, numTracks - 1))`
+
+**6. Data Flow:**
+```
+MediaCard dragstart → store media data in dataTransfer
+  ↓
+Timeline dragover → calculate drop position, show indicator, update state
+  ↓
+Timeline drop → parse media, calculate position/track, snap to edges, call addClip()
+  ↓
+timelineStore → ADD_CLIP action creates new clip object
+  ↓
+Timeline re-renders → TimelineClip component renders new clip
+```
+
+**7. Edge Cases to Handle:**
+- Drop outside timeline area: Ignore drop (check if dropY is within valid range)
+- Drop on ruler: Default to track 0
+- Multiple clips at same position: Allow overlaps for now (PR-009 will handle repositioning/collision)
+- Invalid media data: Validate mediaData has required fields (id, duration)
+- Negative drop time: Constrain to 0 (startTime = Math.max(0, snappedTime))
+
+**8. No File Lock Conflicts:**
+Checked task-list.md:
+- White is working on PR-007 (different files: timelineStore.jsx created, TimelineClip.jsx created)
+- Orange is working on PR-005 (MediaLibrary.jsx - potential conflict!)
+- **CONFLICT DETECTED:** Orange may be modifying MediaLibrary.jsx for PR-005
+- **Resolution:** Wait for PR-005 status update OR coordinate with Orange
+
+**Blocking Dependency Check:**
+- PR-007 status: Planning (not yet complete)
+- PR-007 creates: timelineStore.jsx ✓ (already exists), TimelineClip.jsx ✓ (already exists)
+- **PR-008 can proceed once PR-007 moves to Complete**
+
+**Testing Plan:**
+1. Manual test: Drag clip from media library, drop on timeline track 0, verify clip appears
+2. Manual test: Drag clip, drop on track 1/2, verify correct track placement
+3. Manual test: Drag clip near existing clip edge, verify snap behavior
+4. Manual test: Drag clip to ruler area, verify defaults to track 0
+5. Manual test: Drop multiple clips, verify each gets unique ID and renders correctly
+
+**Estimated Implementation Time:** 30-45 minutes
+- MediaLibrary drag setup: 10 mins
+- Timeline drop handlers: 15 mins
+- Drop indicator rendering: 10 mins
+- Testing and refinement: 10 mins
 
 **Notes:**
-Implement snap-to-edge early—makes editing much more intuitive.
+- Snap-to-edge implemented using existing timeline.js utilities (no new code needed)
+- Drop indicator provides crucial visual feedback for intuitive UX
+- HTML5 drag API is well-supported, no additional libraries needed
+- MediaLibrary conflict with PR-005 needs coordination
 
 ---
 
