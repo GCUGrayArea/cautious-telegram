@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'preact/hooks';
+import { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Rect, Text, Line } from 'react-konva';
 import TimeRuler from './timeline/TimeRuler';
 import Playhead from './timeline/Playhead';
@@ -13,6 +13,7 @@ import {
   snapToPoints,
 } from '../utils/timeline';
 import { useTimeline } from '../store/timelineStore.jsx';
+import { useDrag } from '../store/dragStore.jsx';
 
 /**
  * Timeline Component
@@ -27,12 +28,16 @@ function Timeline() {
   // Timeline store for clips and playhead time
   const { clips, selectedClipId, playheadTime, selectClip, clearSelection, addClip, updateClip, setPlayheadTime } = useTimeline();
 
+  // Drag store for custom drag-drop
+  const { draggedItem, isDragging: isExternalDragActive, endDrag } = useDrag();
+
   // Timeline state (currentTime is local, synced to store)
   const [currentTime, setCurrentTime] = useState(playheadTime);
   const [scrollX, setScrollX] = useState(0); // Horizontal scroll position
   const [pixelsPerSecond, setPixelsPerSecond] = useState(TIMELINE_CONFIG.PIXELS_PER_SECOND);
   const [isDragging, setIsDragging] = useState(false);
   const [dropIndicator, setDropIndicator] = useState(null); // { x, y, track, width }
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 }); // Track mouse for custom drag
 
   // Number of tracks to display
   const numTracks = 3;
@@ -105,6 +110,67 @@ function Timeline() {
     setPlayheadTime(currentTime);
   }, [currentTime, setPlayheadTime]);
 
+  // Handle custom drag - track mouse position and show drop indicator
+  const handleMouseMove = (e) => {
+    if (!isExternalDragActive || !draggedItem) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left + scrollX;
+    const mouseY = e.clientY - rect.top;
+
+    setMousePosition({ x: mouseX, y: mouseY });
+
+    // Calculate drop position
+    const dropTime = pixelsToTime(mouseX, pixelsPerSecond);
+    const trackIndex = getTrackIndexFromY(mouseY);
+
+    // Snap to existing clip edges
+    const snapPoints = getClipSnapPoints(clips, pixelsPerSecond);
+    const snappedX = snapToPoints(mouseX, snapPoints);
+    const snappedTime = pixelsToTime(snappedX, pixelsPerSecond);
+
+    if (draggedItem.duration) {
+      setDropIndicator({
+        x: snappedX,
+        y: mouseY,
+        track: Math.max(0, trackIndex),
+        time: snappedTime,
+        width: draggedItem.duration * pixelsPerSecond,
+      });
+    }
+  };
+
+  // Handle custom drop
+  const handleMouseUp = (e) => {
+    if (!isExternalDragActive || !draggedItem) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const dropX = e.clientX - rect.left + scrollX;
+    const dropY = e.clientY - rect.top;
+
+    const dropTime = pixelsToTime(dropX, pixelsPerSecond);
+    const trackIndex = getTrackIndexFromY(dropY);
+
+    const snapPoints = getClipSnapPoints(clips, pixelsPerSecond);
+    const snappedX = snapToPoints(dropX, snapPoints);
+    const snappedTime = pixelsToTime(snappedX, pixelsPerSecond);
+
+    const validTrackIndex = Math.max(0, Math.min(trackIndex === -1 ? 0 : trackIndex, numTracks - 1));
+
+    // Add clip to timeline
+    addClip({
+      mediaId: draggedItem.id,
+      startTime: Math.max(0, snappedTime),
+      duration: draggedItem.duration,
+      track: validTrackIndex,
+      metadata: draggedItem,
+    });
+
+    // Clear drop indicator
+    setDropIndicator(null);
+    endDrag();
+  };
+
   // Handle drag over timeline
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -126,7 +192,12 @@ function Timeline() {
 
     // Get media data to calculate width
     try {
-      const mediaData = JSON.parse(e.dataTransfer.getData('application/json'));
+      const dataTransferData = e.dataTransfer.getData('application/json');
+      console.log('⏱️ [Timeline] DragOver - DataTransfer data:', dataTransferData);
+
+      const mediaData = JSON.parse(dataTransferData);
+      console.log('⏱️ [Timeline] DragOver - Parsed media data:', mediaData);
+
       if (mediaData && mediaData.duration) {
         // Update drop indicator
         setDropIndicator({
@@ -136,34 +207,46 @@ function Timeline() {
           time: snappedTime,
           width: mediaData.duration * pixelsPerSecond,
         });
+        console.log('⏱️ [Timeline] DragOver - Drop indicator updated');
+      } else {
+        console.log('⏱️ [Timeline] DragOver - No valid media data or duration');
       }
     } catch (err) {
-      // Ignore errors - data may not be available yet
+      console.log('⏱️ [Timeline] DragOver - Error parsing data:', err.message);
     }
   };
 
   // Handle drag enter
   const handleDragEnter = (e) => {
+    console.log('⏱️ [Timeline] DragEnter event');
     e.preventDefault();
+    setIsExternalDragActive(true);
   };
 
   // Handle drag leave
   const handleDragLeave = (e) => {
+    console.log('⏱️ [Timeline] DragLeave event');
     e.preventDefault();
     setDropIndicator(null);
+    setIsExternalDragActive(false);
   };
 
   // Handle drop
   const handleDrop = (e) => {
+    console.log('⏱️ [Timeline] Drop event received!');
     e.preventDefault();
     e.stopPropagation();
 
     try {
       // Parse media data from dataTransfer
-      const mediaData = JSON.parse(e.dataTransfer.getData('application/json'));
+      const dataTransferData = e.dataTransfer.getData('application/json');
+      console.log('⏱️ [Timeline] Drop - DataTransfer data:', dataTransferData);
+
+      const mediaData = JSON.parse(dataTransferData);
+      console.log('⏱️ [Timeline] Drop - Parsed media data:', mediaData);
 
       if (!mediaData || !mediaData.id || !mediaData.duration) {
-        console.error('Invalid media data:', mediaData);
+        console.error('⏱️ [Timeline] Drop - Invalid media data:', mediaData);
         return;
       }
 
@@ -193,16 +276,18 @@ function Timeline() {
         metadata: mediaData, // Store full media metadata for thumbnail/filename display
       });
 
-      console.log('Clip added to timeline:', {
+      console.log('⏱️ [Timeline] Drop - Clip added to timeline:', {
         mediaId: mediaData.id,
         startTime: Math.max(0, snappedTime),
         track: validTrackIndex,
       });
     } catch (err) {
-      console.error('Failed to handle drop:', err);
+      console.error('⏱️ [Timeline] Drop - Failed to handle drop:', err);
     } finally {
-      // Clear drop indicator
+      // Clear drop indicator and drag state
       setDropIndicator(null);
+      setIsExternalDragActive(false);
+      console.log('⏱️ [Timeline] Drop - Completed');
     }
   };
 
@@ -251,13 +336,19 @@ function Timeline() {
       ref={containerRef}
       className="timeline-container bg-gray-900 border-t border-gray-700 overflow-hidden"
       style={{ height: '250px', position: 'relative' }}
-      onDragOver={handleDragOver}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
     >
+      {/* Visual feedback for drag */}
+      {isExternalDragActive && (
+        <div
+          className="absolute inset-0 z-40 bg-blue-500 bg-opacity-10 border-2 border-dashed border-blue-500"
+          style={{ pointerEvents: 'none' }}
+        />
+      )}
+
       {/* Zoom controls */}
-      <div className="absolute top-2 right-2 z-10 flex gap-2 bg-gray-800 rounded px-2 py-1">
+      <div className="absolute top-2 right-2 z-50 flex gap-2 bg-gray-800 rounded px-2 py-1">
         <button
           className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded"
           onClick={() => setPixelsPerSecond(applyZoom(pixelsPerSecond, -1))}
@@ -278,20 +369,25 @@ function Timeline() {
       </div>
 
       {/* Current time display */}
-      <div className="absolute top-2 left-2 z-10 bg-gray-800 rounded px-3 py-1" style={{ pointerEvents: 'none' }}>
+      <div className="absolute top-2 left-2 z-50 bg-gray-800 rounded px-3 py-1" style={{ pointerEvents: 'none' }}>
         <span className="text-xs text-gray-400">
           Time: {currentTime.toFixed(2)}s
         </span>
       </div>
 
-      {/* Konva Stage */}
-      <Stage
-        width={dimensions.width}
-        height={dimensions.height}
-        onWheel={handleWheel}
-        onClick={handleStageClick}
-        style={{ cursor: isDragging ? 'grabbing' : 'default' }}
-      >
+      {/* Konva Stage - disable pointer events during external drag */}
+      <div style={{ pointerEvents: isExternalDragActive ? 'none' : 'auto' }}>
+        <Stage
+          width={dimensions.width}
+          height={dimensions.height}
+          onWheel={handleWheel}
+          onClick={handleStageClick}
+          style={{
+            cursor: isDragging ? 'grabbing' : 'default',
+            position: 'relative',
+            zIndex: 10
+          }}
+        >
         {/* Track layers */}
         <Layer>
           {renderTracks()}
@@ -346,10 +442,11 @@ function Timeline() {
             draggable={true}
           />
         </Layer>
-      </Stage>
+        </Stage>
+      </div>
 
       {/* Instructions */}
-      <div className="absolute bottom-2 left-2 text-xs text-gray-500" style={{ pointerEvents: 'none' }}>
+      <div className="absolute bottom-2 left-2 text-xs text-gray-500 z-50" style={{ pointerEvents: 'none' }}>
         <p>Ctrl+Scroll: Zoom | Scroll: Pan | Click: Jump playhead | Drag red handle: Scrub</p>
       </div>
     </div>

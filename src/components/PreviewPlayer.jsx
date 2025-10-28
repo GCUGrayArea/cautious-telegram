@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'preact/hooks';
+import { useRef, useEffect, useState } from 'react';
 import { useTimeline } from '../store/timelineStore.jsx';
 import { getClipAtTime, getClipSourceTime, formatTime, convertToAssetPath } from '../utils/preview';
 

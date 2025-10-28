@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect } from 'react';
 import { Group, Rect, Text, Image } from 'react-konva';
 import { timeToPixels, getTrackY, TIMELINE_CONFIG } from '../../utils/timeline';
+import { getAssetUrl } from '../../utils/api';
 
 /**
  * TimelineClip Component
@@ -22,12 +23,12 @@ function TimelineClip({ clip, selected, onClick, onDragEnd, pixelsPerSecond, scr
   useEffect(() => {
     if (clip.metadata?.thumbnail_path) {
       const img = new window.Image();
-      img.src = `asset://localhost/${clip.metadata.thumbnail_path}`;
+      img.src = getAssetUrl(clip.metadata.thumbnail_path);
       img.onload = () => {
         setThumbnailImage(img);
       };
       img.onerror = (err) => {
-        console.error('Failed to load thumbnail:', err);
+        console.error('Failed to load thumbnail:', clip.metadata.thumbnail_path, err);
       };
     }
   }, [clip.metadata?.thumbnail_path]);

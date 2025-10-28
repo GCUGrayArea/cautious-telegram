@@ -1,4 +1,4 @@
-import { useRef } from 'preact/hooks';
+import { useRef } from 'react';
 import { Group, Line, Rect, Circle } from 'react-konva';
 import { TIMELINE_CONFIG, timeToPixels } from '../../utils/timeline';
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect } from 'react';
 import {
   getMediaLibrary,
   importVideo,
@@ -9,6 +9,7 @@ import {
   formatDuration,
 } from '../utils/api';
 import { useTimeline } from '../store/timelineStore.jsx';
+import { useDrag } from '../store/dragStore.jsx';
 import MediaDetailModal from './MediaDetailModal';
 import { listen } from '@tauri-apps/api/event';
 
@@ -272,29 +273,50 @@ function MediaLibrary({ onMediaSelect }) {
 }
 
 function MediaCard({ media, viewMode, onDelete, onSelect }) {
+  const { startDrag, endDrag, updateDragPosition } = useDrag();
   const thumbnailUrl = media.thumbnail_path
     ? getAssetUrl(media.thumbnail_path)
     : null;
 
-  // Handle drag start
-  const handleDragStart = (e) => {
-    e.dataTransfer.effectAllowed = 'copy';
-    e.dataTransfer.setData('application/json', JSON.stringify(media));
-    // Optionally set drag image using thumbnail
-    if (thumbnailUrl) {
-      const img = new Image();
-      img.src = thumbnailUrl;
-      e.dataTransfer.setDragImage(img, 50, 50);
-    }
+  // Handle mouse down - start custom drag
+  const handleMouseDown = (e) => {
+    // Only start drag on left click, and ignore clicks on buttons
+    if (e.button !== 0) return;
+    if (e.target.closest('button')) return;
+
+    // Prevent text selection
+    e.preventDefault();
+
+    startDrag(media);
+
+    // Change cursor to indicate dragging
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+
+    // Track mouse movement to continue drag
+    const handleMouseMove = (e) => {
+      // Update drag position for ghost preview
+      updateDragPosition(e.clientX, e.clientY);
+    };
+
+    const handleMouseUp = (e) => {
+      endDrag();
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
   };
 
   if (viewMode === 'list') {
     return (
       <div
-        className="group relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-700 transition-colors flex items-center p-3 gap-4"
+        className="group relative bg-gray-800 rounded-lg overflow-hidden cursor-grab active:cursor-grabbing hover:bg-gray-700 transition-colors flex items-center p-3 gap-4 select-none"
         onClick={onSelect}
-        draggable={true}
-        onDragStart={handleDragStart}
+        onMouseDown={handleMouseDown}
       >
         {/* Thumbnail */}
         <div className="w-32 h-18 bg-gray-900 flex items-center justify-center flex-shrink-0 rounded">
@@ -361,10 +383,9 @@ function MediaCard({ media, viewMode, onDelete, onSelect }) {
   // Grid view (default)
   return (
     <div
-      className="group relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-700 transition-colors"
+      className="group relative bg-gray-800 rounded-lg overflow-hidden cursor-grab active:cursor-grabbing hover:bg-gray-700 transition-colors select-none"
       onClick={onSelect}
-      draggable={true}
-      onDragStart={handleDragStart}
+      onMouseDown={handleMouseDown}
     >
       {/* Thumbnail */}
       <div className="aspect-video bg-gray-900 flex items-center justify-center">

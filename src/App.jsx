@@ -1,8 +1,9 @@
-import { useState } from 'preact/hooks';
+import { useState } from 'react';
 import MediaLibrary from './components/MediaLibrary';
 import Timeline from './components/Timeline';
 import PreviewPlayer from './components/PreviewPlayer';
 import { TimelineProvider, useTimeline } from './store/timelineStore.jsx';
+import { DragProvider } from './store/dragStore.jsx';
 
 /**
  * AppContent - Inner component that has access to timeline store
@@ -47,13 +48,15 @@ function AppContent() {
 }
 
 /**
- * App - Root component with TimelineProvider
+ * App - Root component with providers
  */
 function App() {
   return (
-    <TimelineProvider>
-      <AppContent />
-    </TimelineProvider>
+    <DragProvider>
+      <TimelineProvider>
+        <AppContent />
+      </TimelineProvider>
+    </DragProvider>
   );
 }
 

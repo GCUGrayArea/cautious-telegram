@@ -1,5 +1,5 @@
-import { createContext } from 'preact';
-import { useContext, useReducer, useCallback } from 'preact/hooks';
+import { createContext } from 'react';
+import { useContext, useReducer, useCallback } from 'react';
 
 /**
  * Timeline Store

@@ -89,15 +89,11 @@ export function formatTime(seconds) {
  * @param {string} path - File path (may include asset:// protocol)
  * @returns {string} Path usable by HTML5 video element
  */
+import { convertFileSrc } from '@tauri-apps/api/tauri';
+
 export function convertToAssetPath(path) {
   if (!path) return '';
 
-  // If already an asset:// URL, return as-is
-  if (path.startsWith('asset://')) {
-    return path;
-  }
-
-  // Convert absolute file path to asset:// protocol
-  // Tauri will serve the file through this protocol
-  return `asset://localhost/${encodeURIComponent(path)}`;
+  // Use Tauri's convertFileSrc for proper asset URL generation
+  return convertFileSrc(path);
 }

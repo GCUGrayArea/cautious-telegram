@@ -1,4 +1,4 @@
-import { useEffect } from 'preact/hooks';
+import { useEffect } from 'react';
 import { getAssetUrl, formatFileSize, formatDuration } from '../utils/api';
 
 function MediaDetailModal({ media, onClose }) {
