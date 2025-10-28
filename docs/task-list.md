@@ -4184,7 +4184,7 @@ All acceptance criteria met. The playhead now syncs bidirectionally with video p
 ---
 
 ### PR-POST-MVP-007: Fix Video Preview Massive Growth When Clip Starts at 0:00
-**Status:** Planning
+**Status:** In Progress
 **Agent:** White
 **Dependencies:** None
 **Priority:** High (blocks timeline workflow)
@@ -4192,23 +4192,11 @@ All acceptance criteria met. The playhead now syncs bidirectionally with video p
 **Description:**
 When a clip is dragged on the timeline so that it starts at 0:00, the video preview immediately grows dramatically in size, making the timeline unusable. The preview expands to the point that even full screen on a 4K TV isn't big enough to see more than the top of the timeline.
 
-**Root Cause:**
-Unknown - needs investigation. Likely related to:
-- Video element sizing in PreviewPlayer.jsx (line 114: `className="max-w-full max-h-full"`)
-- Timeline canvas dimensions calculation when clip starts at 0:00
-- Possible CSS or layout issue triggered by specific clip positioning
-
-**Suspected Issues:**
-1. Video element may be ignoring max-width/max-height constraints when clip.startTime === 0
-2. Preview container may be calculating dimensions incorrectly
-3. Possible conflict between Tailwind CSS constraints and inline video dimensions
-4. Timeline Stage height calculation may be affected by clip position
+**Root Cause (White - identified):**
+The video element in PreviewPlayer.jsx (line 107) uses `max-w-full max-h-full` Tailwind classes but is missing the `object-fit: contain` CSS property. Without this, the video element uses its intrinsic dimensions and doesn't properly scale to fit within the constrained container, causing massive overflow.
 
 **Files:**
-- src/components/PreviewPlayer.jsx (investigate) - Video element sizing and container
-- src/components/Timeline.jsx (investigate) - Dimensions calculation
-- src/utils/preview.js (investigate) - Preview utility functions
-- src/index.css (investigate) - Global styles that may affect sizing
+- src/components/PreviewPlayer.jsx (modify) - Add object-fit: contain to video element styling
 
 **Acceptance Criteria:**
 - [ ] Clip starting at 0:00 does not cause preview to grow excessively
@@ -4217,19 +4205,11 @@ Unknown - needs investigation. Likely related to:
 - [ ] Preview maintains aspect ratio without overflow
 - [ ] Fix works on various screen sizes (tested on 4K display)
 
-**Implementation Approach:**
-1. Reproduce the bug by dragging a clip to start at 0:00
-2. Inspect video element dimensions and CSS when bug occurs
-3. Check if video.videoWidth/videoHeight are being applied incorrectly
-4. Verify max-w-full and max-h-full are being respected
-5. Add explicit width/height constraints if Tailwind classes insufficient
-6. Test with clips of various resolutions
-
-**Debugging Steps:**
-1. Add console.log to track video dimensions when clip.startTime changes
-2. Check if PreviewPlayer re-renders differently when currentTime === 0
-3. Verify getClipAtTime returns correct clip at time 0:00
-4. Inspect computed CSS when bug occurs vs normal state
+**Implementation Approach (White):**
+1. Add `object-fit: contain` to video element in PreviewPlayer.jsx
+2. This ensures video scales to fit container while maintaining aspect ratio
+3. The fix applies to all clip positions, not just 0:00 (improves overall behavior)
+4. Test with clips at various positions and resolutions
 
 ---
 
