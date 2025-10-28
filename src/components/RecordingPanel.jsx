@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { saveRecording, importRecording, formatDuration } from '../utils/api';
 import { WebcamRecorder } from '../utils/webcamRecorder';
 import { useTimeline } from '../store/timelineStore.jsx';
@@ -30,10 +30,80 @@ function RecordingPanel({
 }) {
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [previewPosition, setPreviewPosition] = useState({ x: 20, y: 20 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const { addClip } = useTimeline();
+  const previewRef = useRef(null);
 
-  // No cleanup useEffect needed - state persists in parent App component
+  // Setup preview stream when recording starts
+  useEffect(() => {
+    if (!isRecording || !previewRef.current) return;
+
+    const setupPreview = async () => {
+      try {
+        if (recordingMode === 'screen' || recordingMode === 'both') {
+          // For screen recording, use the screen stream
+          if (screenStreamRef.current) {
+            previewRef.current.srcObject = screenStreamRef.current;
+            previewRef.current.play();
+          }
+        } else if (recordingMode === 'webcam') {
+          // For webcam, get the stream from the webcam recorder
+          if (webcamRecorderRef.current && webcamRecorderRef.current.stream) {
+            previewRef.current.srcObject = webcamRecorderRef.current.stream;
+            previewRef.current.play();
+          }
+        }
+      } catch (err) {
+        console.error('Failed to setup preview:', err);
+      }
+    };
+
+    setupPreview();
+
+    // Cleanup preview when recording stops
+    return () => {
+      if (previewRef.current) {
+        previewRef.current.srcObject = null;
+      }
+    };
+  }, [isRecording, recordingMode, screenStreamRef, webcamRecorderRef]);
+
+  // Drag handlers for preview window
+  const handlePreviewMouseDown = (e) => {
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - previewPosition.x,
+      y: e.clientY - previewPosition.y
+    });
+    e.preventDefault();
+  };
+
+  const handlePreviewMouseMove = (e) => {
+    if (!isDragging) return;
+    setPreviewPosition({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  };
+
+  const handlePreviewMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Add global mouse event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handlePreviewMouseMove);
+      document.addEventListener('mouseup', handlePreviewMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handlePreviewMouseMove);
+        document.removeEventListener('mouseup', handlePreviewMouseUp);
+      };
+    }
+  }, [isDragging, dragStart]);
 
   /**
    * Start recording based on selected mode
@@ -411,6 +481,41 @@ function RecordingPanel({
           </div>
         )}
       </div>
+
+      {/* Recording Preview (Picture-in-Picture) */}
+      {isRecording && (
+        <div
+          className="recording-preview"
+          style={{
+            position: 'fixed',
+            left: `${previewPosition.x}px`,
+            top: `${previewPosition.y}px`,
+            width: '320px',
+            height: '180px',
+            zIndex: 1000,
+            cursor: isDragging ? 'grabbing' : 'grab',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+            border: '2px solid rgba(255, 255, 255, 0.1)',
+            backgroundColor: '#000'
+          }}
+          onMouseDown={handlePreviewMouseDown}
+        >
+          <video
+            ref={previewRef}
+            autoPlay
+            muted
+            playsInline
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              pointerEvents: 'none'
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
