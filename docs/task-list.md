@@ -1882,7 +1882,7 @@ getUserMedia() is cross-platform and simpler than native APIs for webcam. Reusin
 ---
 
 ### PR-018: Simultaneous Screen + Webcam Recording
-**Status:** Planning
+**Status:** In Progress
 **Agent:** White
 **Dependencies:** PR-016, PR-017
 **Priority:** Medium
