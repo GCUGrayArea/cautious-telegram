@@ -11,7 +11,7 @@ import { getClipAtTime, getClipSourceTime, formatTime, convertToAssetPath } from
  */
 function PreviewPlayer({ currentTime }) {
   const videoRef = useRef(null);
-  const { clips } = useTimeline();
+  const { clips, isPlaying } = useTimeline();
   const [currentClip, setCurrentClip] = useState(null);
   const [videoError, setVideoError] = useState(null);
 
@@ -64,6 +64,24 @@ function PreviewPlayer({ currentTime }) {
   const handleVideoLoad = () => {
     setVideoError(null);
   };
+
+  // Handle playback state changes
+  useEffect(() => {
+    if (!videoRef.current || !currentClip) return;
+
+    const video = videoRef.current;
+
+    if (isPlaying) {
+      // Start video playback
+      video.play().catch(err => {
+        console.error('Failed to play video:', err);
+        setVideoError('Failed to play video. Please try again.');
+      });
+    } else {
+      // Pause video playback
+      video.pause();
+    }
+  }, [isPlaying, currentClip]);
 
   return (
     <div className="preview-player flex flex-col items-center justify-center w-full h-full bg-black">

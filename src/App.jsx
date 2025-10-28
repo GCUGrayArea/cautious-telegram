@@ -1,21 +1,63 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import MediaLibrary from './components/MediaLibrary';
 import Timeline from './components/Timeline';
 import PreviewPlayer from './components/PreviewPlayer';
+import PlaybackControls from './components/PlaybackControls';
 import { TimelineProvider, useTimeline } from './store/timelineStore.jsx';
 import { DragProvider } from './store/dragStore.jsx';
+import { PlaybackEngine, calculateTimelineDuration } from './utils/playback';
 
 /**
  * AppContent - Inner component that has access to timeline store
  */
 function AppContent() {
   const [selectedMedia, setSelectedMedia] = useState(null);
-  const { playheadTime } = useTimeline();
+  const { playheadTime, clips, isPlaying, setPlayheadTime, setPlaybackState } = useTimeline();
+  const playbackEngineRef = useRef(null);
 
   const handleMediaSelect = (media) => {
     console.log('Selected media:', media);
     setSelectedMedia(media);
   };
+
+  // Initialize playback engine
+  useEffect(() => {
+    playbackEngineRef.current = new PlaybackEngine({
+      onTimeUpdate: (time) => {
+        setPlayheadTime(time);
+      },
+      onPlaybackEnd: () => {
+        setPlaybackState(false);
+      },
+    });
+
+    // Cleanup on unmount
+    return () => {
+      if (playbackEngineRef.current) {
+        playbackEngineRef.current.destroy();
+      }
+    };
+  }, [setPlayheadTime, setPlaybackState]);
+
+  // Handle playback state changes
+  useEffect(() => {
+    if (!playbackEngineRef.current) return;
+
+    const engine = playbackEngineRef.current;
+    const totalDuration = calculateTimelineDuration(clips);
+
+    if (isPlaying) {
+      // If at end of timeline, restart from beginning
+      if (playheadTime >= totalDuration - 0.1) {
+        setPlayheadTime(0);
+        engine.start(0, totalDuration);
+      } else {
+        engine.start(playheadTime, totalDuration);
+      }
+    } else {
+      engine.pause();
+    }
+  }, [isPlaying, clips, playheadTime, setPlayheadTime]);
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white">
@@ -40,7 +82,10 @@ function AppContent() {
           </div>
 
           {/* Timeline Area */}
-          <Timeline />
+          <div className="flex flex-col">
+            <Timeline />
+            <PlaybackControls />
+          </div>
         </div>
       </div>
     </div>
