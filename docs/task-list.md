@@ -1949,8 +1949,8 @@ ffmpeg -f concat -safe 0 -i concat_list.txt \
 ---
 
 ### PR-020: Export Dialog and Progress Indicator
-**Status:** Planning
-**Dependencies:** PR-019
+**Status:** New
+**Dependencies:** PR-019 ✅
 **Priority:** High
 
 **Description:**
