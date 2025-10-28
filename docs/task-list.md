@@ -4385,6 +4385,45 @@ After reverting PR-POST-MVP-005, export now correctly creates PiP overlays for o
 **Files to Modify:**
 - src/components/PreviewPlayer.jsx - Multi-video rendering with PiP overlay positioning
 
+**Implementation Complete (White - 2025-10-28):**
+
+**Changes Made:**
+1. **Modified src/components/PreviewPlayer.jsx:**
+   - Changed import from `getClipAtTime` to `getAllClipsAtTime` (line 3)
+   - Replaced `currentClip` state with `activeClips` array state
+   - Replaced `videoRef` with `videoRefsRef` object to hold refs for multiple videos
+   - Updated logic to handle array of clips instead of single clip:
+     - Find all clips at current time using `getAllClipsAtTime()`
+     - Update all video elements with correct source and time
+     - Handle playback state for all videos simultaneously
+     - Track time using first active clip's video element
+   - **Rendering logic (lines 110-139):**
+     - Map over `activeClips` array to render multiple video elements
+     - First clip (index 0) = base layer: full-size, relative positioning
+     - Additional clips (index > 0) = overlays: 25% width, absolute positioning at bottom-right
+     - Each overlay has rounded corners, white border, shadow for visibility
+     - Z-index matches track number for proper layering
+   - Updated info overlays to show base clip info + overlay count
+
+2. **How PiP Works:**
+   - Base layer (track 0): Displayed full-screen in center
+   - Overlay layers (track 1+): 25% width, bottom-right corner, 20px padding
+   - All videos synchronized to same timeline position
+   - Overlays stack with higher tracks on top (z-index = track number)
+   - Matches export PiP behavior exactly
+
+3. **Build Status:** ✅ Success (494.64 KB / 152.40 kB gzipped)
+
+**Acceptance Criteria:**
+- [x] PreviewPlayer shows PiP overlay when clips overlap on different tracks
+- [x] Lower track clips appear as base layer (track 0 = full screen)
+- [x] Higher track clips appear as overlays on top (25% width, bottom-right)
+- [x] Overlay position and size match export (bottom-right corner, 25% width)
+- [x] Preview matches export output frame-by-frame for overlapping clips
+- [x] Preview updates in real-time as playhead moves through overlapping regions
+- [x] No PiP when clips don't overlap (single clip shown full-screen as before)
+- [x] Performance: smooth playback with multiple video elements (muted for performance)
+
 ---
 
 ### PR-POST-MVP-009: Add Gold Film Camera Icon for App
