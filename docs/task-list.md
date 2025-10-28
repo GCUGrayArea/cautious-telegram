@@ -3675,7 +3675,7 @@ Change Timeline.jsx line 465 from `height: '250px'` to either:
 ---
 
 ### PR-POST-MVP-002: Fix Zero-Length Recorded Clips
-**Status:** Planning
+**Status:** In Progress
 **Agent:** White
 **Dependencies:** None
 **Priority:** High (blocks recording workflow)
@@ -3728,6 +3728,34 @@ let duration = output
 
 **Alternative Approach:**
 Use FFmpeg to remux WebM files before import: `ffmpeg -i input.webm -c copy output.webm` to fix container metadata. More robust but slower.
+
+**Planning Notes (White - 2025-10-28):**
+
+**Root Cause Analysis:**
+- WebM files from MediaRecorder API lack duration metadata in container header
+- FFprobe returns `duration: None` → defaults to 0.0 in metadata.rs:63
+- Zero duration causes clips to have zero width on timeline
+- RecordingPanel.jsx already tracks `recordingTime` in seconds (line 15)
+
+**Implementation Plan:**
+1. **Backend Changes (Rust):**
+   - Modify `import_recording()` in recording.rs to accept `duration_override: Option<f64>`
+   - Modify `import_video()` in import.rs to accept and use duration override
+   - If duration_override provided, use it; otherwise fallback to FFprobe
+   - Update metadata.duration assignment in import.rs:85
+
+2. **Frontend Changes (JavaScript):**
+   - Modify `importRecording()` in api.js to accept duration parameter
+   - Modify RecordingPanel.jsx to pass `recordingTime` to importRecording
+   - Lines 188, 202: Pass recordingTime as second parameter
+
+**Files to Modify:**
+- src-tauri/src/commands/recording.rs - Add duration_override parameter
+- src-tauri/src/commands/import.rs - Accept and use duration override
+- src/utils/api.js - Add duration parameter to importRecording
+- src/components/RecordingPanel.jsx - Pass recordingTime to import calls
+
+**No File Conflicts:** All other agents available, no overlapping work
 
 ---
 
