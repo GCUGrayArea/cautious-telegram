@@ -158,8 +158,37 @@ function Timeline() {
   // Keyboard event handler
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Only handle keyboard shortcuts if not typing in an input field
+      const isTyping = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
+
+      // Playhead navigation: Arrow keys (frame-by-frame)
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !isTyping) {
+        e.preventDefault();
+        const FRAME_DURATION = 1 / 30; // Assume 30fps for frame-by-frame navigation
+        const direction = e.key === 'ArrowLeft' ? -1 : 1;
+        const newTime = Math.max(0, currentTime + (direction * FRAME_DURATION));
+        setCurrentTime(newTime);
+        setPlayheadTime(newTime);
+      }
+      // Playhead navigation: Home (jump to start)
+      else if (e.key === 'Home' && !isTyping) {
+        e.preventDefault();
+        setCurrentTime(0);
+        setPlayheadTime(0);
+      }
+      // Playhead navigation: End (jump to end of timeline)
+      else if (e.key === 'End' && !isTyping) {
+        e.preventDefault();
+        // Calculate max time as the end of the last clip
+        const maxTime = clips.reduce((max, clip) => {
+          const clipEnd = clip.startTime + clip.duration;
+          return Math.max(max, clipEnd);
+        }, 0);
+        setCurrentTime(maxTime);
+        setPlayheadTime(maxTime);
+      }
       // Split clip: S key or Ctrl+K
-      if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.metaKey) {
+      else if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.metaKey && !isTyping) {
         e.preventDefault();
         handleSplitClip();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -167,18 +196,15 @@ function Timeline() {
         handleSplitClip();
       }
       // Delete clip: Delete or Backspace key
-      else if (e.key === 'Delete' || e.key === 'Backspace') {
-        // Only handle if not typing in an input field
-        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-          e.preventDefault();
-          handleDeleteClip();
-        }
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && !isTyping) {
+        e.preventDefault();
+        handleDeleteClip();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedClipId, clips, playheadTime, splitClip, removeClip]);
+  }, [selectedClipId, clips, playheadTime, currentTime, splitClip, removeClip, setPlayheadTime]);
 
   // Handle playhead time change from dragging
   const handlePlayheadTimeChange = (newTime) => {
