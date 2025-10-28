@@ -3633,3 +3633,340 @@ Used Explore agent to conduct comprehensive codebase analysis, then documented t
 
 **Status:** Ready for commit
 
+---
+
+## Block 11: Post-MVP Bugfixes (No dependencies - all can run in parallel)
+
+### PR-POST-MVP-001: Fix Track 3 Height Issue
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** None
+**Priority:** Low (visual polish)
+
+**Description:**
+Track 3 in the timeline is not as tall as tracks 1 and 2, regardless of window height. The timeline container has a hardcoded 250px height, but needs 280px minimum (40px ruler + 3 × 80px tracks). This causes Track 3 to be visually cut off at the bottom.
+
+**Root Cause:**
+Timeline.jsx:465 sets `style={{ height: '250px' }}` but actual requirement is:
+- RULER_HEIGHT: 40px
+- TRACK_HEIGHT: 80px × 3 tracks = 240px
+- **Total needed:** 280px
+- **Current height:** 250px
+- **Deficit:** 30px (exactly cuts off bottom of Track 3)
+
+**Files:**
+- src/components/Timeline.jsx (modify) - Change fixed height from 250px to 280px minimum or make dynamic
+- src/utils/timeline.js (reference) - TIMELINE_CONFIG constants
+
+**Acceptance Criteria:**
+- [ ] Track 3 is fully visible at all window heights
+- [ ] Timeline height matches or exceeds calculated total (RULER_HEIGHT + 3×TRACK_HEIGHT)
+- [ ] No visual clipping or scroll bars needed to see Track 3
+- [ ] Timeline fills available vertical space properly
+- [ ] Tracks 1, 2, and 3 all have equal heights (80px each)
+- [ ] Playback bar height matches track heights
+
+**Implementation Approach:**
+Change Timeline.jsx line 465 from `height: '250px'` to either:
+- Option 1: `height: '280px'` (simple fix, matches exact calculation)
+- Option 2: Dynamic calculation using `height: ${RULER_HEIGHT + (TRACK_HEIGHT * 3)}px`
+- Option 3: Use flexbox to fill available vertical space
+
+---
+
+### PR-POST-MVP-002: Fix Zero-Length Recorded Clips
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** None
+**Priority:** High (blocks recording workflow)
+
+**Description:**
+Clips recorded with webcam or screen recording have zero length when dragged to timeline. They appear to arrive in the media library (filename shows), but can't be clicked on and don't play. This completely breaks the recording-to-editing workflow.
+
+**Root Cause:**
+Located in `src-tauri/src/ffmpeg/metadata.rs` lines 58-63. FFmpeg fails to extract duration metadata from freshly recorded WebM files, returning `duration: 0.0`:
+
+```rust
+let duration = output
+    .format
+    .duration
+    .as_ref()
+    .and_then(|d| d.parse::<f64>().ok())
+    .unwrap_or(0.0);  // ← Returns 0.0 if parsing fails
+```
+
+**Why it happens:**
+1. WebM files from MediaRecorder may not have duration metadata written in container header
+2. FFprobe can't read duration from WebM files that are still being finalized
+3. `import_recording` command (via `import_video`) extracts metadata immediately after file save
+4. Without a duration, clips appear in media library but have zero width on timeline
+
+**Files:**
+- src-tauri/src/commands/recording.rs (modify) - Accept duration_override parameter in import_recording
+- src-tauri/src/commands/import.rs (modify) - Use duration override if provided, fallback to FFmpeg probe
+- src-tauri/src/ffmpeg/metadata.rs (modify) - Add fallback duration validation
+- src/components/RecordingPanel.jsx (modify) - Calculate duration from elapsed recordingTime, pass to import
+- src/utils/webcamRecorder.js (reference) - Existing WebM recording implementation
+
+**Acceptance Criteria:**
+- [ ] Recorded clips import with correct duration (matches actual recording time)
+- [ ] Clips appear with correct length on timeline when dragged
+- [ ] Clips are clickable and playable in timeline
+- [ ] Media library shows correct duration for recordings (not 0:00:00)
+- [ ] Works for webcam recordings
+- [ ] Works for screen recordings
+- [ ] Works for simultaneous screen + webcam recordings
+- [ ] FFmpeg fallback still works if duration override not provided
+
+**Implementation Approach (Recommended):**
+1. Track recording start time in RecordingPanel state
+2. Calculate duration from elapsed time (already tracked in `recordingTime` state)
+3. Modify `import_recording` command to accept optional `duration_override: Option<f64>`
+4. Pass calculated duration from frontend: `importRecording(filePath, recordingTime)`
+5. Backend uses override if provided, falls back to FFmpeg probe if not
+6. This ensures accurate duration even if WebM container metadata is incomplete
+
+**Alternative Approach:**
+Use FFmpeg to remux WebM files before import: `ffmpeg -i input.webm -c copy output.webm` to fix container metadata. More robust but slower.
+
+---
+
+### PR-POST-MVP-003: Add Recording Preview (Picture-in-Picture)
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** None (recommended after PR-POST-MVP-002 and PR-POST-MVP-004)
+**Priority:** Medium (UX enhancement)
+
+**Description:**
+No preview exists for recording either screen or webcam. Users can't see what's being captured during recording. A picture-in-picture preview should appear that can be dragged within the window while recording.
+
+**Root Cause:**
+RecordingPanel.jsx has no preview implementation. The webcamRecorder utility (`src/utils/webcamRecorder.js`) provides a `startPreview()` method (lines 42-58) but it's never called from the RecordingPanel component.
+
+**What's Missing:**
+1. Video element to display preview stream
+2. Picture-in-picture (PiP) overlay during recording
+3. Drag functionality to reposition preview
+4. Preview stream management (start/stop)
+
+**Files:**
+- src/components/RecordingPanel.jsx (modify) - Add video preview element, drag handlers, preview state management
+- src/utils/webcamRecorder.js (reference) - Use existing startPreview/stopPreview methods
+- src/index.css (modify) - Add PiP preview styles (positioned overlay, rounded corners, shadow)
+
+**Acceptance Criteria:**
+- [ ] Webcam preview appears as PiP overlay when webcam recording starts
+- [ ] Screen recording preview shows captured content during recording
+- [ ] Preview window can be dragged to reposition within app window
+- [ ] Preview is visible during entire recording session
+- [ ] Preview stops/hides when recording stops
+- [ ] Preview doesn't interfere with recording quality or performance
+- [ ] Preview defaults to bottom-right corner at ~20% width
+- [ ] Preview shows live feed, not frozen frame
+
+**Implementation Approach:**
+1. Add `<video>` element with absolute positioning for PiP overlay
+2. Call `webcamRecorder.startPreview(videoElement)` for webcam mode
+3. For screen recording, attach `screenStreamRef.current` to video.srcObject
+4. Add drag handlers: track mouse position, update CSS transform
+5. Apply PiP styling: fixed position, z-index, rounded corners, box-shadow
+6. Show/hide based on `isRecording` state
+7. Clean up preview on unmount or recording stop
+
+**Optional Enhancement:**
+Add resize handles to let user adjust preview size (small/medium/large presets).
+
+---
+
+### PR-POST-MVP-004: Prevent Tab Switching from Aborting Recording
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** None
+**Priority:** High (blocks recording workflow)
+
+**Description:**
+Webcam and screen recording both abort and try to save when clicking from Record tab to Media Library tab. Users can't switch tabs during recording without losing their recording in progress.
+
+**Root Cause:**
+Located in `src/components/RecordingPanel.jsx` lines 35-45. The component has a cleanup effect that stops recording on unmount:
+
+```javascript
+useEffect(() => {
+  return () => {
+    stopRecording();  // ← Called when component unmounts
+    // ... cleanup
+  };
+}, []);
+```
+
+**Flow:**
+1. User starts recording
+2. User clicks "Media Library" tab
+3. App.jsx (lines 119-124) conditionally renders tabs
+4. RecordingPanel unmounts
+5. Cleanup effect runs → `stopRecording()` called
+6. Recording stops and tries to save prematurely
+
+**Files:**
+- src/App.jsx (modify) - Lift recording state to App component level
+- src/components/RecordingPanel.jsx (modify) - Accept recording state as props, become presentational component
+
+**Acceptance Criteria:**
+- [ ] Switching tabs does NOT stop active recording
+- [ ] Recording continues when switching to Media Library tab
+- [ ] Recording state persists across tab switches
+- [ ] User can switch back to Record tab to stop recording normally
+- [ ] Recording stops only when user explicitly clicks "Stop Recording"
+- [ ] No memory leaks from recording streams
+- [ ] Recording indicator remains visible regardless of active tab
+- [ ] Timer continues counting during tab switches
+
+**Implementation Approach (Recommended - Option 1):**
+Lift recording state to App.jsx:
+1. Move recording state (`isRecording`, `recordingTime`, `mediaRecorder` refs) to parent App component
+2. Pass recording state and handlers as props to RecordingPanel:
+   - `isRecording`, `recordingTime`, `onStartRecording`, `onStopRecording`
+3. RecordingPanel becomes a presentational component (no lifecycle cleanup)
+4. Recording cleanup happens in App.jsx only on app close
+5. Prevents unmounting from stopping recording
+
+**Alternative Approach (Option 2 - Less User-Friendly):**
+Prevent tab switching during recording:
+1. Disable Media Library tab button when `isRecording === true`
+2. Show warning message: "Stop recording before switching tabs"
+3. Simpler implementation but worse UX
+
+---
+
+### PR-POST-MVP-005: Fix Export to Match Preview (Sequential Playback)
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** None
+**Priority:** Medium (functional correctness)
+
+**Description:**
+The video export currently doesn't combine clips the same way as the preview. Preview shows clips sequentially (one at a time based on playhead position), but export tries to create picture-in-picture compositions when clips overlap in time. This creates a "what you see is NOT what you get" problem.
+
+**Root Cause:**
+Located in `src-tauri/src/export/pipeline.rs` lines 54-72. The export pipeline has complex logic to detect temporal overlaps and treat them as picture-in-picture compositions, but the preview player (`src/components/PreviewPlayer.jsx`) shows ONE clip at a time based on playhead position.
+
+**Specific Problems:**
+1. **Temporal overlap detection** (lines 57-63): Complex logic that doesn't match visual preview
+2. **Multi-track routing** (lines 65-71): Exports as PiP if ANY temporal overlap exists, even partial
+3. **Track-based composition** vs **time-based playback**: Export uses track composition, preview uses time-based clip switching
+
+**Example Mismatch:**
+- Track 0: Clip A (0s-10s)
+- Track 1: Clip B (5s-15s)
+- **Preview shows:** Clip A from 0-10s, then Clip B from 10-15s (switches at playhead)
+- **Export produces:** Clip A with Clip B overlaid from 5-10s (PiP composition)
+
+**Files:**
+- src-tauri/src/export/pipeline.rs (modify) - Simplify to sequential concatenation, remove PiP overlay logic
+- src/components/PreviewPlayer.jsx (reference) - This behavior is CORRECT, don't modify
+- src/utils/preview.js (reference) - This behavior is CORRECT, don't modify
+
+**Acceptance Criteria:**
+- [ ] Export concatenates clips sequentially in timeline order
+- [ ] Export does NOT create picture-in-picture overlays for overlapping tracks
+- [ ] Export output matches frame-by-frame what preview showed
+- [ ] Clips play in order: Track 0 Clip 1, Track 0 Clip 2, Track 1 Clip 1, etc.
+- [ ] No unexpected PiP compositions in exported video
+- [ ] User can understand from preview exactly how clips will be combined
+- [ ] Export ignores track numbers, uses only temporal order on timeline
+- [ ] Multi-clip exports produce single sequential video file
+
+**Implementation Approach:**
+1. Modify `pipeline.rs` export logic to:
+   - Sort all clips by `startTime` (ignore track number)
+   - Concatenate clips sequentially using FFmpeg concat demuxer
+   - Remove overlap detection logic (lines 57-63)
+   - Remove multi-track PiP composition logic (lines 65-71)
+2. Simplify to: collect clips → sort by time → concatenate → encode
+3. This makes export behavior match preview exactly
+
+**Note:** This removes the PiP feature from export entirely. If PiP is desired in future, the preview player should be updated to show PiP when clips overlap, making "what you see is what you get" accurate.
+
+---
+
+### PR-POST-MVP-006: Fix Playhead Not Moving During Preview Playback
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** None
+**Priority:** High (blocks timeline navigation)
+
+**Description:**
+The playhead does not move or update its displayed time while the preview video plays. Users can't see current position during playback, making it impossible to judge timing or navigate to specific frames visually.
+
+**Root Cause:**
+PreviewPlayer.jsx plays video but doesn't sync playhead position back to timeline. The `<video>` element has a `timeupdate` event that fires during playback, but there's no handler connecting it to the timeline playhead state.
+
+**What's Missing:**
+1. Event handler for video `timeupdate` event
+2. Update store playheadTime during playback
+3. Sync timeline playhead visual position with video currentTime
+
+**Files:**
+- src/components/PreviewPlayer.jsx (modify) - Add timeupdate event listener, update playheadTime in store
+- src/components/Timeline.jsx (reference) - Playhead already reads from store, no changes needed
+- src/store/timelineStore.js (reference) - setPlayheadTime action already exists
+
+**Acceptance Criteria:**
+- [ ] Playhead moves smoothly during video playback
+- [ ] Playhead position matches video currentTime exactly
+- [ ] Time display updates in real-time during playback (shows MM:SS.mmm)
+- [ ] Playhead stops moving when video pauses
+- [ ] Playhead continues from correct position after pause/resume
+- [ ] Scrubbing timeline updates video position (already works)
+- [ ] Video playback updates timeline position (NEW - needs implementation)
+- [ ] No performance issues or lag during playback
+
+**Implementation Approach:**
+1. In PreviewPlayer.jsx, add event listener to video element:
+   ```javascript
+   useEffect(() => {
+     const video = videoRef.current;
+     if (!video) return;
+
+     const handleTimeUpdate = () => {
+       setPlayheadTime(video.currentTime);
+     };
+
+     video.addEventListener('timeupdate', handleTimeUpdate);
+     return () => video.removeEventListener('timeupdate', handleTimeUpdate);
+   }, [setPlayheadTime]);
+   ```
+2. Import `setPlayheadTime` from timelineStore
+3. This creates two-way sync: timeline scrubbing updates video, video playback updates timeline
+
+**Testing:**
+1. Import clip to timeline
+2. Click play in preview
+3. Verify playhead moves along timeline ruler
+4. Verify time display updates continuously
+5. Pause video, verify playhead stops at correct position
+6. Scrub timeline, verify video jumps to new position
+
+---
+
+## Summary
+
+**Total PRs:** 33 (27 original + 6 post-MVP bugfixes)
+**Post-MVP Bugfix Block:** 6 PRs (all independent, can run in parallel)
+
+**Post-MVP Priority:**
+- **High Priority (must fix):**
+  - PR-POST-MVP-002: Zero-Length Recorded Clips
+  - PR-POST-MVP-004: Tab Switching Aborts Recording
+  - PR-POST-MVP-006: Playhead Not Moving During Playback
+
+- **Medium Priority (should fix):**
+  - PR-POST-MVP-003: Recording Preview (PiP)
+  - PR-POST-MVP-005: Export vs Preview Mismatch
+
+- **Low Priority (polish):**
+  - PR-POST-MVP-001: Track 3 Height Issue
+
+**Parallel Opportunities:**
+All 6 post-MVP bugfix PRs are independent and can be worked on simultaneously by different agents. No file lock conflicts exist between these PRs.
+
