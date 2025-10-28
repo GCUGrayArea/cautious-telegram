@@ -4278,8 +4278,8 @@ The fix applies to all clip positions and video resolutions, not just the 0:00 e
 ---
 
 ### PR-POST-MVP-008: Implement PiP Preview for Overlapping Clips (WYSIWYG)
-**Status:** Complete
-**Agent:** White
+**Status:** Redundant (Already Implemented)
+**Agent:** White (PR creation), QC (redundancy verification)
 **Dependencies:** None
 **Priority:** High (WYSIWYG consistency)
 
@@ -4363,10 +4363,32 @@ After reverting PR-POST-MVP-005, export now correctly creates PiP overlays for o
 - Drag-to-reposition overlays
 - Save overlay preferences per recording
 
+**REDUNDANCY VERIFICATION (QC - 2025-10-28):**
+
+Upon QC review, this PR is **REDUNDANT**. Both requested features were already implemented in previous PRs:
+
+**1. PreviewPlayer.jsx PiP Preview - ALREADY EXISTS:**
+- Line 3: `getAllClipsAtTime` already imported from preview.js
+- Line 9: Component comment confirms "Supports Picture-in-Picture for overlapping clips"
+- Lines 19-23: Uses `getAllClipsAtTime(clips, currentTime)` to find all overlapping clips
+- Lines 110-139: Renders multiple `<video>` elements with PiP layout
+- Lines 126-136: Overlay styling (25% width, bottom-right, rounded borders, shadow)
+- Lines 131: z-index layering by track number
+- Line 154: UI shows "+X overlay(s)" indicator
+
+**2. RecordingPanel.jsx Recording Preview - ALREADY EXISTS:**
+- Lines 485-518: Recording preview with draggable PiP
+- Lines 490-502: Fixed position, draggable preview window
+- Lines 505-516: Video element with proper styling
+- Supports drag-to-reposition functionality
+
+**Conclusion:**
+All acceptance criteria from this PR are already met. The preview correctly shows PiP overlays matching export output. No implementation needed.
+
 **Planning Notes (White - 2025-10-28):**
 **No File Conflicts:** PreviewPlayer.jsx is not locked by any other agent.
 
-**Implementation Plan:**
+**Implementation Plan (OBSOLETE - features already exist):**
 1. **Modify PreviewPlayer.jsx** to handle multiple overlapping clips:
    - Replace `getClipAtTime()` with `getAllClipsAtTime()`
    - Render array of video elements instead of single video
@@ -4977,6 +4999,7 @@ Add video filters for color correction and effects: brightness, contrast, satura
 - **Complete:**
   - PR-POST-MVP-001: Track 3 Height Issue ✓
   - PR-POST-MVP-002: Zero-Length Recorded Clips ✓
+  - PR-POST-MVP-003: Recording Preview (PiP) ✓
   - PR-POST-MVP-004: Tab Switching Aborts Recording ✓
   - PR-POST-MVP-006: Playhead Not Moving During Playback ✓
   - PR-POST-MVP-007: Video Preview Massive Growth at 0:00 ✓
@@ -4984,9 +5007,10 @@ Add video filters for color correction and effects: brightness, contrast, satura
 - **Reverted:**
   - PR-POST-MVP-005: Export vs Preview Mismatch (reverted to restore PiP for screen+webcam)
 
+- **Redundant (Already Implemented):**
+  - PR-POST-MVP-008: PiP Preview for Overlapping Clips (features already existed in PreviewPlayer.jsx and RecordingPanel.jsx)
+
 - **New:**
-  - PR-POST-MVP-003: Recording Preview (PiP) - Blocked-Ready (waiting for White)
-  - PR-POST-MVP-008: Implement PiP Preview for Overlapping Clips - New (High priority, WYSIWYG)
   - PR-POST-MVP-009: Add Gold Film Camera Icon - New (Low priority polish)
 
 **Parallel Opportunities:**
