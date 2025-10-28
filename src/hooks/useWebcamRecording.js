@@ -1,9 +1,9 @@
-import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { WebcamRecorder } from '../utils/webcamRecorder';
 
 /**
- * useWebcamRecording - Preact hook for managing webcam recording state
+ * useWebcamRecording - React hook for managing webcam recording state
  *
  * Features:
  * - Enumerate and select webcam devices

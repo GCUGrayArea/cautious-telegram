@@ -1,23 +1,35 @@
 import { useState, useRef, useEffect } from 'react';
 import { saveRecording, importRecording, formatDuration } from '../utils/api';
+import { WebcamRecorder } from '../utils/webcamRecorder';
+import { useTimeline } from '../store/timelineStore.jsx';
 
 /**
  * RecordingPanel Component
  *
- * Provides UI for screen recording with source selection,
+ * Provides UI for screen, webcam, and simultaneous recording with source selection,
  * recording controls, timer, and automatic media library import.
  */
 function RecordingPanel({ onRecordingImported }) {
+  const [recordingMode, setRecordingMode] = useState('screen'); // 'screen', 'webcam', 'both'
   const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const mediaRecorderRef = useRef(null);
-  const recordedChunksRef = useRef([]);
+  const { addClip } = useTimeline();
+
+  // Screen recording refs
+  const screenMediaRecorderRef = useRef(null);
+  const screenChunksRef = useRef([]);
+  const screenStreamRef = useRef(null);
+
+  // Webcam recording refs
+  const webcamRecorderRef = useRef(null);
+  const webcamChunksRef = useRef([]);
+
+  // Shared timer
   const timerIntervalRef = useRef(null);
-  const streamRef = useRef(null);
+  const startTimeRef = useRef(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -26,64 +38,28 @@ function RecordingPanel({ onRecordingImported }) {
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
       }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => track.stop());
       }
     };
   }, []);
 
   /**
-   * Start screen recording
+   * Start recording based on selected mode
    */
   const startRecording = async () => {
     try {
       setError(null);
+      startTimeRef.current = Date.now();
 
-      // Request screen capture
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          cursor: 'always',
-          displaySurface: 'monitor', // or 'window', 'application'
-        },
-        audio: false, // Can be changed to true for system audio
-      });
+      if (recordingMode === 'screen') {
+        await startScreenRecording();
+      } else if (recordingMode === 'webcam') {
+        await startWebcamRecording();
+      } else if (recordingMode === 'both') {
+        await startBothRecordings();
+      }
 
-      streamRef.current = stream;
-
-      // Create MediaRecorder
-      const mimeType = MediaRecorder.isTypeSupported('video/webm; codecs=vp9')
-        ? 'video/webm; codecs=vp9'
-        : 'video/webm';
-
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType,
-        videoBitsPerSecond: 2500000, // 2.5 Mbps
-      });
-
-      mediaRecorderRef.current = mediaRecorder;
-      recordedChunksRef.current = [];
-
-      // Handle data available
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
-      };
-
-      // Handle recording stop
-      mediaRecorder.onstop = async () => {
-        await handleRecordingStop();
-      };
-
-      // Handle stream end (user clicks browser's stop sharing button)
-      stream.getVideoTracks()[0].addEventListener('ended', () => {
-        if (isRecording) {
-          stopRecording();
-        }
-      });
-
-      // Start recording
-      mediaRecorder.start(100); // Collect data every 100ms
       setIsRecording(true);
       setRecordingTime(0);
 
@@ -92,7 +68,7 @@ function RecordingPanel({ onRecordingImported }) {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
 
-      console.log('Screen recording started');
+      console.log(`Recording started in ${recordingMode} mode`);
     } catch (err) {
       console.error('Failed to start recording:', err);
       setError('Failed to start recording: ' + err.message);
@@ -100,25 +76,88 @@ function RecordingPanel({ onRecordingImported }) {
   };
 
   /**
-   * Stop screen recording
+   * Start screen capture recording
    */
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
+  const startScreenRecording = async () => {
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        cursor: 'always',
+        displaySurface: 'monitor',
+      },
+      audio: false,
+    });
 
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
+    screenStreamRef.current = stream;
 
+    const mimeType = MediaRecorder.isTypeSupported('video/webm; codecs=vp9')
+      ? 'video/webm; codecs=vp9'
+      : 'video/webm';
+
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType,
+      videoBitsPerSecond: 2500000,
+    });
+
+    screenMediaRecorderRef.current = mediaRecorder;
+    screenChunksRef.current = [];
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) {
+        screenChunksRef.current.push(event.data);
+      }
+    };
+
+    // Handle stream end
+    stream.getVideoTracks()[0].addEventListener('ended', () => {
+      if (isRecording) {
+        stopRecording();
+      }
+    });
+
+    mediaRecorder.start(100);
+  };
+
+  /**
+   * Start webcam recording
+   */
+  const startWebcamRecording = async () => {
+    webcamRecorderRef.current = new WebcamRecorder();
+    webcamChunksRef.current = [];
+
+    // Create promise to collect chunks
+    const recorder = webcamRecorderRef.current;
+
+    await recorder.start({
+      deviceId: null, // Use default camera
+      audio: true,
+    });
+  };
+
+  /**
+   * Start both screen and webcam recordings simultaneously
+   */
+  const startBothRecordings = async () => {
+    // Start both in parallel
+    await Promise.all([
+      startScreenRecording(),
+      startWebcamRecording()
+    ]);
+  };
+
+  /**
+   * Stop recording
+   */
+  const stopRecording = async () => {
+    // Stop timer
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
 
     setIsRecording(false);
-    setIsPaused(false);
+
+    // Process recordings
+    await handleRecordingStop();
   };
 
   /**
@@ -128,36 +167,98 @@ function RecordingPanel({ onRecordingImported }) {
     setIsProcessing(true);
 
     try {
-      // Create blob from recorded chunks
-      const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
-
-      // Generate filename with timestamp
       const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').split('.')[0];
-      const filename = `recording_${timestamp}.webm`;
+      const recordings = [];
 
-      console.log('Saving recording:', filename, 'Size:', blob.size);
-
-      // Save recording to disk
-      const filePath = await saveRecording(blob, filename);
-      console.log('Recording saved to:', filePath);
-
-      // Import recording into media library
-      const importResult = await importRecording(filePath);
-
-      if (importResult.success) {
-        console.log('Recording imported successfully:', importResult.media);
-
-        // Notify parent component
-        if (onRecordingImported) {
-          onRecordingImported(importResult.media);
+      // Process screen recording
+      if (screenMediaRecorderRef.current && screenChunksRef.current.length > 0) {
+        // Stop screen recorder
+        if (screenMediaRecorderRef.current.state !== 'inactive') {
+          await new Promise((resolve) => {
+            screenMediaRecorderRef.current.onstop = resolve;
+            screenMediaRecorderRef.current.stop();
+          });
         }
-      } else {
-        throw new Error(importResult.error || 'Failed to import recording');
+
+        const screenBlob = new Blob(screenChunksRef.current, { type: 'video/webm' });
+        const screenFilename = `screen_${timestamp}.webm`;
+
+        console.log('Saving screen recording:', screenFilename, 'Size:', screenBlob.size);
+        const screenPath = await saveRecording(screenBlob, screenFilename);
+        const screenImport = await importRecording(screenPath);
+
+        if (screenImport.success) {
+          recordings.push({ media: screenImport.media, track: 0, type: 'screen' });
+        }
       }
 
-      // Reset state
+      // Process webcam recording
+      if (webcamRecorderRef.current && webcamRecorderRef.current.isRecording()) {
+        const webcamBlob = await webcamRecorderRef.current.stop();
+        const webcamFilename = `webcam_${timestamp}.webm`;
+
+        console.log('Saving webcam recording:', webcamFilename, 'Size:', webcamBlob.size);
+        const webcamPath = await saveRecording(webcamBlob, webcamFilename);
+        const webcamImport = await importRecording(webcamPath);
+
+        if (webcamImport.success) {
+          recordings.push({ media: webcamImport.media, track: 1, type: 'webcam' });
+        }
+      }
+
+      // Add recordings to timeline on separate tracks
+      if (recordingMode === 'both' && recordings.length === 2) {
+        console.log('Adding both recordings to timeline on separate tracks');
+
+        // Find screen and webcam recordings
+        const screenRec = recordings.find(r => r.type === 'screen');
+        const webcamRec = recordings.find(r => r.type === 'webcam');
+
+        // Add screen to track 0
+        if (screenRec) {
+          addClip({
+            mediaId: screenRec.media.id,
+            startTime: 0,
+            duration: screenRec.media.duration,
+            track: 0,
+            inPoint: 0,
+            outPoint: screenRec.media.duration,
+            metadata: screenRec.media,
+          });
+        }
+
+        // Add webcam to track 1
+        if (webcamRec) {
+          addClip({
+            mediaId: webcamRec.media.id,
+            startTime: 0,
+            duration: webcamRec.media.duration,
+            track: 1,
+            inPoint: 0,
+            outPoint: webcamRec.media.duration,
+            metadata: webcamRec.media,
+          });
+        }
+      }
+
+      // Notify parent for media library refresh
+      if (onRecordingImported && recordings.length > 0) {
+        onRecordingImported(recordings[0].media);
+      }
+
+      // Cleanup
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => track.stop());
+        screenStreamRef.current = null;
+      }
+
+      screenMediaRecorderRef.current = null;
+      screenChunksRef.current = [];
+      webcamRecorderRef.current = null;
+      webcamChunksRef.current = [];
       setRecordingTime(0);
-      recordedChunksRef.current = [];
+
+      console.log(`Recording(s) imported successfully:`, recordings.length, 'file(s)');
     } catch (err) {
       console.error('Failed to save/import recording:', err);
       setError('Failed to save recording: ' + err.message);
@@ -170,16 +271,36 @@ function RecordingPanel({ onRecordingImported }) {
     <div className="h-full bg-gray-800 flex flex-col">
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-700">
-        <h2 className="text-lg font-semibold">Screen Recording</h2>
+        <h2 className="text-lg font-semibold">Recording</h2>
       </div>
 
       {/* Content */}
       <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
+        {/* Recording Mode Selector */}
+        {!isRecording && !isProcessing && (
+          <div className="w-full max-w-md">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Recording Mode
+            </label>
+            <select
+              value={recordingMode}
+              onChange={(e) => setRecordingMode(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="screen">Screen Only</option>
+              <option value="webcam">Webcam Only</option>
+              <option value="both">Screen + Webcam</option>
+            </select>
+          </div>
+        )}
+
         {/* Recording Status Indicator */}
         {isRecording && (
           <div className="flex items-center space-x-3">
             <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse"></div>
-            <span className="text-lg font-medium">Recording...</span>
+            <span className="text-lg font-medium">
+              Recording {recordingMode === 'both' ? 'Screen + Webcam' : recordingMode === 'screen' ? 'Screen' : 'Webcam'}...
+            </span>
           </div>
         )}
 
@@ -190,7 +311,11 @@ function RecordingPanel({ onRecordingImported }) {
           </div>
           {!isRecording && !isProcessing && (
             <p className="text-sm text-gray-500 mt-2">
-              Click Start to begin recording your screen
+              {recordingMode === 'both'
+                ? 'Record screen and webcam simultaneously'
+                : recordingMode === 'webcam'
+                ? 'Record from your webcam'
+                : 'Record your screen'}
             </p>
           )}
         </div>
@@ -241,7 +366,7 @@ function RecordingPanel({ onRecordingImported }) {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            <span>Saving and importing recording...</span>
+            <span>Saving and importing recording(s)...</span>
           </div>
         )}
 
@@ -255,18 +380,41 @@ function RecordingPanel({ onRecordingImported }) {
         {/* Info Text */}
         {!isRecording && !isProcessing && (
           <div className="w-full max-w-md space-y-2 text-sm text-gray-400">
-            <p className="flex items-start space-x-2">
-              <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-              <span>Your recording will be automatically imported to the media library when you stop.</span>
-            </p>
-            <p className="flex items-start space-x-2">
-              <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-              <span>You can select which screen or window to record after clicking Start.</span>
-            </p>
+            {recordingMode === 'both' ? (
+              <>
+                <p className="flex items-start space-x-2">
+                  <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <span>Both recordings will be saved separately and added to your timeline on different tracks.</span>
+                </p>
+                <p className="flex items-start space-x-2">
+                  <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <span>Screen will be on track 0, webcam on track 1 - synchronized automatically.</span>
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="flex items-start space-x-2">
+                  <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <span>Your recording will be automatically imported to the media library when you stop.</span>
+                </p>
+                <p className="flex items-start space-x-2">
+                  <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <span>
+                    {recordingMode === 'screen'
+                      ? 'You can select which screen or window to record after clicking Start.'
+                      : 'Your default webcam will be used for recording.'}
+                  </span>
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>
