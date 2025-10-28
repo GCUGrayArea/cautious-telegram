@@ -1147,11 +1147,69 @@ All acceptance criteria met (6/6):
 **Description:**
 Implement clip trimming by dragging clip edges. Adjust in-point and out-point, update clip duration on timeline, visual feedback during trim.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src/components/timeline/TimelineClip.jsx (modify) - Edge resize handles
-- src/components/Timeline.jsx (modify) - Handle trim events
-- src/store/timelineStore.js (modify) - Update clip trim points
-- src/utils/timeline.js (modify) - Trim calculation logic
+**Files (PLANNED by White):**
+- src/components/timeline/TimelineClip.jsx (modify) - Add trim handles (left/right edge rects), handle trim dragging
+- src/components/Timeline.jsx (modify) - Add onTrimEnd handler to pass updateClip to TimelineClip
+- src/store/timelineStore.jsx (no changes needed) - UPDATE_CLIP action already supports inPoint/outPoint/duration updates
+- src/utils/timeline.js (no changes needed) - Existing utilities sufficient
+
+**Planning Notes (White):**
+
+**Implementation Approach:**
+
+**1. Trim Handle UI (TimelineClip.jsx):**
+- Add two invisible Rect elements at clip edges (left and right) as trim handles
+- Handle dimensions: 10px wide x full clipHeight, positioned at x=0 (left) and x=clipWidth-10 (right)
+- Make handles draggable independently of the main clip Group
+- Visual feedback: Change cursor to 'ew-resize' on hover
+- Optional: Add visible trim handle indicators (subtle vertical bars) when clip is selected
+
+**2. Trim Dragging Logic:**
+- Left handle drag: Adjusts clip.inPoint (source video offset) and clip.startTime (timeline position)
+  - As user drags right, increase inPoint and startTime (trim from beginning)
+  - Constrain: inPoint must stay between 0 and source duration
+  - Update: startTime += deltaTime, inPoint += deltaTime, duration -= deltaTime
+- Right handle drag: Adjusts clip.outPoint (source video end)
+  - As user drags left, decrease outPoint (trim from end)
+  - Constrain: outPoint must stay between inPoint and source duration
+  - Update: outPoint -= deltaTime, duration -= deltaTime
+
+**3. Trim Constraints:**
+- Min clip duration: 0.1 seconds (prevent clips from being trimmed to nothing)
+- Max inPoint: source video duration (can't trim beyond source)
+- Max outPoint: source video duration
+- Snap to frame boundaries: Optional enhancement (calculate frame duration from fps)
+
+**4. Data Flow:**
+```
+User drags trim handle → handleTrimDrag calculates new inPoint/outPoint/duration/startTime
+  ↓
+onTrimEnd(clipId, { inPoint, outPoint, duration, startTime })
+  ↓
+updateClip(clipId, { inPoint, outPoint, duration, startTime })
+  ↓
+Timeline re-renders with updated clip width and position
+```
+
+**5. Key Implementation Details:**
+- Trim handles must be separate Konva Groups within the clip Group
+- Disable main clip dragging when trim handle is being dragged (use isDragging state)
+- Calculate trim delta by comparing handle's new position to original position
+- Use pixelsToTime to convert pixel movement to time delta
+- Visual feedback: Highlight trim handles on hover, show updated duration during trim
+
+**6. File Lock Conflict Check:**
+No other PRs currently modifying these files. No conflicts detected.
+
+**7. Acceptance Criteria Mapping:**
+- Left edge drag → Adjust inPoint + startTime, update clip width
+- Right edge drag → Adjust outPoint, update clip width
+- Constrain to source duration → Clamp inPoint/outPoint to [0, sourceDuration]
+- Visual feedback → Cursor change, optional handle highlights
+- State updated → Call updateClip with new values
+- Width updates → Clip re-renders with new duration
+
+**Estimated Implementation Time:** 45-60 minutes
 
 **Acceptance Criteria:**
 - [ ] User can drag left edge to adjust clip start (in-point)
