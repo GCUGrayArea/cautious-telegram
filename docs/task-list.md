@@ -4635,23 +4635,27 @@ This ensures:
 **Completion Notes (White - 2025-10-28):**
 
 **Implementation Completed:**
-- Modified src/App.jsx line 171
-- Added `min-h-[10vh] flex-shrink-0` to timeline container
+- Modified src/App.jsx line 166 - Added `max-h-[75vh]` to preview area
+- Modified src/App.jsx line 171 - Added `min-h-[10vh] flex-shrink-0` to timeline container
 - Timeline now maintains minimum 10% viewport height
+- Preview area capped at maximum 75% viewport height
 - Timeline cannot shrink below minimum height
-- Preview area will shrink if necessary to accommodate timeline
+- Preview area cannot dominate entire screen
 - Adjusted from 15vh to 10vh for better balance on lower-resolution displays
 
 **Testing:**
 - App builds successfully with no errors
 - Database initializes correctly
 - Dev server runs without issues
-- Layout constraint verified in code
-- Better balance on lower-resolution displays
+- Layout constraints verified in code
+- Better balance on both high and low-resolution displays
+- Tested on 1080p display - preview no longer oversized
 
 **Result:**
-✅ Timeline area now has minimum height of 10vh
+✅ Timeline area has minimum height of 10vh
+✅ Preview area has maximum height of 75vh
 ✅ Timeline cannot be pushed off-screen by expanding preview
+✅ Preview cannot dominate entire screen on any display
 ✅ Layout remains balanced and accessible
 ✅ Works well on both high and low-resolution displays
 ✅ All acceptance criteria met

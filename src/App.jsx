@@ -163,7 +163,7 @@ function AppContent() {
         {/* Main Editor Area (Timeline + Preview) */}
         <div className="flex-1 flex flex-col">
           {/* Preview Area */}
-          <div className="flex-1 bg-black">
+          <div className="flex-1 bg-black max-h-[75vh]">
             <PreviewPlayer currentTime={playheadTime} />
           </div>
 
