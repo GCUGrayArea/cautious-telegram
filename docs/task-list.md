@@ -4552,8 +4552,8 @@ ClipForge currently uses default Tauri placeholder icons. Add a custom app icon 
 ---
 
 ### PR-POST-MVP-010: Set Timeline Area Minimum Height (15% of Window)
-**Status:** New
-**Agent:** (unassigned)
+**Status:** Planning
+**Agent:** White
 **Dependencies:** None
 **Priority:** Medium (prevents UI issues)
 
