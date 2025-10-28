@@ -8,10 +8,11 @@ import { convertFileSrc } from '@tauri-apps/api/tauri';
 /**
  * Import a video file and extract metadata
  * @param {string} videoPath - Path to the video file
+ * @param {number|null} durationOverride - Optional duration in seconds to use if FFprobe fails
  * @returns {Promise<{success: boolean, media: object|null, error: string|null}>}
  */
-export async function importVideo(videoPath) {
-  return await invoke('import_video', { videoPath });
+export async function importVideo(videoPath, durationOverride = null) {
+  return await invoke('import_video', { videoPath, durationOverride });
 }
 
 /**
@@ -109,10 +110,11 @@ export async function saveRecording(blob, filename) {
 /**
  * Import a recording into the media library
  * @param {string} filePath - Path to the recording file
+ * @param {number|null} durationOverride - Optional duration in seconds (from recording timer)
  * @returns {Promise<{success: boolean, media: object|null, error: string|null}>}
  */
-export async function importRecording(filePath) {
-  return await invoke('import_recording', { filePath });
+export async function importRecording(filePath, durationOverride = null) {
+  return await invoke('import_recording', { filePath, durationOverride });
 }
 
 /**

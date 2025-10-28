@@ -17,6 +17,7 @@ pub struct ImportResult {
 #[tauri::command]
 pub async fn import_video(
     video_path: String,
+    duration_override: Option<f64>,
     app_state: State<'_, AppState>,
     ffmpeg_state: State<'_, FFmpegState>,
 ) -> Result<ImportResult, String> {
@@ -82,7 +83,18 @@ pub async fn import_video(
 
     // Populate metadata if available
     if let Some(meta) = metadata {
-        media.duration = Some(meta.duration);
+        // Use duration override if provided and metadata duration is zero
+        let duration = if meta.duration == 0.0 && duration_override.is_some() {
+            let override_val = duration_override.unwrap();
+            println!("DEBUG: FFprobe duration is 0.0, using override: {} seconds", override_val);
+            override_val
+        } else {
+            println!("DEBUG: Using FFprobe duration: {} seconds", meta.duration);
+            meta.duration
+        };
+
+        println!("DEBUG: Final duration set to: {} seconds", duration);
+        media.duration = Some(duration);
         media.width = Some(meta.width as i32);
         media.height = Some(meta.height as i32);
         media.format = Some(meta.codec);
@@ -90,6 +102,10 @@ pub async fn import_video(
         media.file_size = file_size;
         media.thumbnail_path = thumbnail_path_opt;
     } else {
+        // If metadata extraction completely failed but we have duration override, use it
+        if let Some(dur) = duration_override {
+            media.duration = Some(dur);
+        }
         media.file_size = file_size;
         media.thumbnail_path = thumbnail_path_opt;
     }

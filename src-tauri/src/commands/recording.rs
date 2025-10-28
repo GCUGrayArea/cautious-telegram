@@ -40,6 +40,7 @@ pub async fn save_recording(blob_data: Vec<u8>, filename: String) -> Result<Stri
 ///
 /// # Arguments
 /// * `file_path` - The path to the recording file
+/// * `duration_override` - Optional duration in seconds to use if FFprobe fails
 /// * `app_state` - The application state containing the database
 /// * `ffmpeg_state` - The FFmpeg state for metadata extraction
 ///
@@ -48,9 +49,10 @@ pub async fn save_recording(blob_data: Vec<u8>, filename: String) -> Result<Stri
 #[tauri::command]
 pub async fn import_recording(
     file_path: String,
+    duration_override: Option<f64>,
     app_state: State<'_, AppState>,
     ffmpeg_state: State<'_, FFmpegState>,
 ) -> Result<ImportResult, String> {
-    // Reuse the existing import_video command
-    import_video(file_path, app_state, ffmpeg_state).await
+    // Reuse the existing import_video command with duration override
+    import_video(file_path, duration_override, app_state, ffmpeg_state).await
 }
