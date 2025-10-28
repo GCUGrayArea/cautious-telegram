@@ -6,21 +6,24 @@
  */
 
 /**
- * Find the clip that should be displayed at the given time on the primary track (track 0)
+ * Find the clip that should be displayed at the given time (topmost visible clip)
  *
  * @param {Array} clips - Array of clip objects from timeline
  * @param {number} currentTime - Current playhead time in seconds
  * @returns {Object|null} The clip object at the current time, or null if none
  */
 export function getClipAtTime(clips, currentTime) {
-  // Filter to track 0 clips (primary video track)
-  const track0Clips = clips.filter(clip => clip.track === 0);
-
-  // Find clip that contains the current time
-  return track0Clips.find(clip => {
+  // Find all clips that contain the current time
+  const visibleClips = clips.filter(clip => {
     const clipEndTime = clip.startTime + clip.duration;
     return currentTime >= clip.startTime && currentTime < clipEndTime;
-  }) || null;
+  });
+
+  // Return the topmost clip (highest track number)
+  // Sort descending by track number and return first
+  if (visibleClips.length === 0) return null;
+
+  return visibleClips.sort((a, b) => b.track - a.track)[0];
 }
 
 /**
