@@ -3018,6 +3018,60 @@ Configure Tauri for production builds. Set up code signing (if time permits), ap
 **Notes:**
 Code signing can be skipped for MVP—focus on functional build.
 
+**Planning Notes (White):**
+
+**Current State Analysis:**
+
+1. **Tauri Configuration (tauri.conf.json):**
+   - ✅ Bundle active with proper identifier: `com.clipforge.app`
+   - ✅ Icons configured for all platforms (32x32, 128x128, icon.icns, icon.ico)
+   - ✅ FFmpeg binaries configured in externalBin
+   - ✅ Window settings properly configured (1280x800, min 800x600)
+   - ✅ Permissions configured (dialog, fs, protocol, shell)
+
+2. **Icons (src-tauri/icons/):**
+   - ✅ Already exist and complete for all platforms
+   - macOS: icon.icns
+   - Windows: icon.ico (8456 bytes)
+   - Linux/Web: PNG files (32x32, 128x128, 256x256)
+   - Windows Store: Square logos for all sizes
+
+3. **FFmpeg Binaries (src-tauri/binaries/):**
+   - ✅ ffmpeg-x86_64-pc-windows-msvc.exe (98.7 MB)
+   - ✅ ffprobe-x86_64-pc-windows-msvc.exe (98.5 MB)
+   - Total: ~197 MB (within < 200MB requirement)
+
+4. **Build Scripts (package.json):**
+   - ✅ `tauri:build` script already configured
+   - ✅ `tauri:dev` for development
+   - Uses npm as package manager
+
+**Implementation Plan:**
+
+1. **Add Release Profile Optimization** (Cargo.toml):
+   - `opt-level = "z"` - Optimize for size
+   - `lto = true` - Link-time optimization
+   - `codegen-units = 1` - Maximum optimization
+   - `strip = true` - Strip debug symbols
+   - `panic = "abort"` - Reduce binary size
+
+2. **Test Production Build:**
+   - Run `npm run tauri:build`
+   - Verify output in `src-tauri/target/release/bundle/`
+   - Windows: Check for MSI/NSIS installer
+   - Measure total bundle size
+
+3. **Documentation:**
+   - Add build instructions to README.md
+   - Document prerequisites (Node.js, Rust, FFmpeg)
+   - Document build commands and output locations
+
+**Files Modified:**
+- src-tauri/Cargo.toml - Add [profile.release] optimization
+- README.md - Add build documentation (if needed)
+
+**No file conflicts** - All other agents available, no overlapping work
+
 ---
 
 ### PR-026: Demo Video and Documentation
