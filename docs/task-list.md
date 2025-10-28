@@ -3965,7 +3965,7 @@ Prevent tab switching during recording:
 ---
 
 ### PR-POST-MVP-005: Fix Export to Match Preview (Sequential Playback)
-**Status:** In Progress
+**Status:** Complete
 **Agent:** Blue
 **Dependencies:** None
 **Priority:** Medium (functional correctness)
