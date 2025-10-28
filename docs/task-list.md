@@ -3923,14 +3923,14 @@ Used Option 1 (State Lifting) as recommended:
    - No compilation errors or warnings
 
 **Acceptance Criteria:**
-- [ ] Switching tabs does NOT stop active recording
-- [ ] Recording continues when switching to Media Library tab
-- [ ] Recording state persists across tab switches
-- [ ] User can switch back to Record tab to stop recording normally
-- [ ] Recording stops only when user explicitly clicks "Stop Recording"
-- [ ] No memory leaks from recording streams
-- [ ] Recording indicator remains visible regardless of active tab
-- [ ] Timer continues counting during tab switches
+- [x] Switching tabs does NOT stop active recording (state lifted to App component)
+- [x] Recording continues when switching to Media Library tab (RecordingPanel no longer has cleanup useEffect)
+- [x] Recording state persists across tab switches (all state in parent AppContent)
+- [x] User can switch back to Record tab to stop recording normally (state persists in parent)
+- [x] Recording stops only when user explicitly clicks "Stop Recording" (cleanup only on app close)
+- [x] No memory leaks from recording streams (cleanup in App.jsx useEffect on unmount)
+- [x] Recording indicator remains visible regardless of active tab (timer state in parent, always accessible)
+- [x] Timer continues counting during tab switches (timerIntervalRef persists in parent)
 
 **Implementation Approach (Recommended - Option 1):**
 Lift recording state to App.jsx:
