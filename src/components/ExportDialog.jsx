@@ -75,23 +75,23 @@ export default function ExportDialog({ isOpen, onClose }) {
       return;
     }
 
-    // Get clips from track 0 (single-track export for MVP)
-    const track0Clips = clips
-      .filter(c => c.track === 0)
+    // Get all clips from all tracks (supports multi-track export with overlays)
+    const allClips = clips
       .sort((a, b) => a.startTime - b.startTime);
 
-    if (track0Clips.length === 0) {
+    if (allClips.length === 0) {
       setError('No clips on timeline to export');
       return;
     }
 
-    // Convert to backend format
-    const clipData = track0Clips.map(c => ({
+    // Convert to backend format (include track field for multi-track support)
+    const clipData = allClips.map(c => ({
       id: c.id,
       path: c.metadata.path,
       in_point: c.inPoint || 0,
       out_point: c.outPoint || c.metadata.duration,
       start_time: c.startTime,
+      track: c.track || 0,  // Include track field
     }));
 
     // Export settings
@@ -243,7 +243,7 @@ export default function ExportDialog({ isOpen, onClose }) {
 
           {/* Info */}
           <div className="text-gray-400 text-xs">
-            <p>• Export includes clips from track 0 only</p>
+            <p>• Export includes all tracks (overlays rendered as PiP)</p>
             <p>• Video format: H.264 MP4 with AAC audio</p>
             <p>• Quality: CRF 23 (high quality)</p>
           </div>
