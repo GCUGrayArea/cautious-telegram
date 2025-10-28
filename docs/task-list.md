@@ -1729,30 +1729,37 @@ Frame-by-frame navigation: calculate frame duration (1/fps), move playhead by th
 ## Block 6: Screen and Webcam Recording (Depends on: Block 1)
 
 ### PR-015: Screen Recording Implementation (Tauri Backend)
-**Status:** Planning
+**Status:** In Progress
 **Agent:** Pink
 **Dependencies:** PR-001 ✅, PR-003 ✅
 **Priority:** High
 
 **Description:**
-Implement screen recording using platform-specific APIs (AVFoundation on macOS, WGC on Windows). Provide Tauri commands to list screens/windows, start recording, stop recording, save file.
+Implement screen recording using getDisplayMedia() web API for cross-platform compatibility. Provide Tauri commands to save recordings and auto-import to media library.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src-tauri/src/recording/screen_capture.rs (create) - Screen recording logic
-- src-tauri/src/commands/recording.rs (create) - Recording commands
-- src-tauri/Cargo.toml (modify) - Add platform-specific dependencies
-- src-tauri/src/main.rs (modify) - Register recording commands
+**Implementation Approach (Pink):**
+- **Frontend**: Use `navigator.mediaDevices.getDisplayMedia()` + `MediaRecorder` API
+- **Reasoning**: Cross-platform, simpler than native WGC/AVFoundation, proven reliability, faster MVP delivery
+- **Backend**: Minimal Tauri commands for file operations and media library integration
+- **Recording Flow**: User triggers → getDisplayMedia prompt → Record to blob → Save to disk → Auto-import to media library
+
+**Files (PLANNED by Pink):**
+- src-tauri/src/commands/recording.rs (create) - save_recording() and import_recording() commands
+- src-tauri/src/commands/mod.rs (modify) - Add recording module export
+- src-tauri/src/main.rs (modify) - Register recording commands in invoke_handler
+- src/utils/screenRecorder.js (create) - ScreenRecorder class using getDisplayMedia + MediaRecorder
+- src/hooks/useScreenRecording.js (create) - Preact hook for recording state management
 
 **Acceptance Criteria:**
-- [ ] Tauri command lists available screens/windows
-- [ ] Start recording captures screen at selected resolution
-- [ ] Stop recording saves video file (MP4 or WebM)
-- [ ] Audio capture from microphone works
-- [ ] Recording file saved to temp directory or user-specified location
-- [ ] Works on at least one platform (macOS or Windows)
+- [ ] Screen recording works using getDisplayMedia (browser prompt for source selection)
+- [ ] MediaRecorder captures screen + microphone audio to WebM blob
+- [ ] save_recording() Tauri command saves blob to temp directory
+- [ ] Recording file saved with timestamp filename (recording_YYYYMMDD_HHMMSS.webm)
+- [ ] import_recording() auto-imports saved file to media library using existing import_video command
+- [ ] Works on both Windows and macOS (getDisplayMedia is cross-platform)
 
 **Notes:**
-Fallback to getDisplayMedia() if native APIs too complex. Focus on getting it working first.
+Using web API approach per PRD's "Fallback to getDisplayMedia() if native APIs too complex." This meets all acceptance criteria while being cross-platform and MVP-friendly. Can enhance with native APIs in future iterations.
 
 ---
 
