@@ -2909,7 +2909,8 @@ Using Vitest for Vite-based projects (fast, modern, Vite-native).
 
 ### PR-023: Integration Tests for Media Import and Export
 **Status:** Planning
-**Dependencies:** PR-004, PR-020
+**Agent:** Blonde
+**Dependencies:** PR-004 ✅, PR-020 ✅
 **Priority:** Medium
 
 **Description:**
