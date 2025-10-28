@@ -1,10 +1,9 @@
 // Export command for Tauri
-use std::sync::{Arc, Mutex};
 use tauri::State;
 
 use crate::export::{ExportPipeline, ExportSettings};
 use crate::export::pipeline::ClipData;
-use crate::ffmpeg::FFmpegWrapper;
+use crate::ffmpeg::commands::FFmpegState;
 
 /// Tauri command to export timeline to video file
 ///
@@ -14,10 +13,13 @@ use crate::ffmpeg::FFmpegWrapper;
 pub fn export_timeline(
     clips: Vec<ClipData>,
     settings: ExportSettings,
-    ffmpeg_state: State<'_, Arc<Mutex<FFmpegWrapper>>>,
+    ffmpeg_state: State<'_, FFmpegState>,
 ) -> Result<String, String> {
+    // Get FFmpeg wrapper from state
+    let ffmpeg_wrapper = ffmpeg_state.get_wrapper()?;
+
     // Create export pipeline
-    let pipeline = ExportPipeline::new(ffmpeg_state.inner().clone());
+    let pipeline = ExportPipeline::new(std::sync::Arc::new(std::sync::Mutex::new(ffmpeg_wrapper)));
 
     // Execute export (blocking operation)
     pipeline.export_timeline(clips, settings)

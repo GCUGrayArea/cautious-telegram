@@ -84,6 +84,22 @@ export default function ExportDialog({ isOpen, onClose }) {
       return;
     }
 
+    // Validate clip metadata before export
+    for (const clip of allClips) {
+      if (!clip.metadata) {
+        setError(`Clip ${clip.id} has missing metadata. Please re-import this media.`);
+        return;
+      }
+      if (!clip.metadata.path) {
+        setError(`Clip ${clip.id} has missing file path. Please re-import this media.`);
+        return;
+      }
+      if (!clip.metadata.duration || clip.metadata.duration <= 0) {
+        setError(`Clip ${clip.id} has invalid duration. Please re-import this media.`);
+        return;
+      }
+    }
+
     // Convert to backend format (include track field for multi-track support)
     const clipData = allClips.map(c => ({
       id: c.id,

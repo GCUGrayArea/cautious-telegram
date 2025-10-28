@@ -51,14 +51,22 @@ impl ExportPipeline {
             }
         }
 
-        // Check if multi-track export is needed
-        let has_overlay_tracks = clips.iter().any(|c| c.track > 0);
+        // Check if clips actually overlap in time (not just on different tracks)
+        // Overlapping = same time range, different tracks (Picture-in-Picture)
+        // Non-overlapping = sequential clips, even if on different tracks
+        let has_temporal_overlap = clips.iter().any(|clip1| {
+            clips.iter().any(|clip2| {
+                clip1.track != clip2.track && // Different tracks
+                !(clip1.start_time + (clip1.out_point - clip1.in_point) <= clip2.start_time || // clip1 ends before clip2 starts
+                  clip2.start_time + (clip2.out_point - clip2.in_point) <= clip1.start_time)   // clip2 ends before clip1 starts
+            })
+        });
 
-        if has_overlay_tracks {
-            // Multi-track export with overlays
+        if has_temporal_overlap {
+            // Multi-track export with overlays (Picture-in-Picture)
             self.export_multitrack(clips, settings)
         } else {
-            // Single-track export (existing logic)
+            // Single-track export - concatenate all clips sequentially
             self.export_singletrack(clips, settings)
         }
     }
@@ -71,7 +79,10 @@ impl ExportPipeline {
     ) -> Result<String, String> {
         // Sort clips by timeline position
         let mut sorted_clips = clips;
-        sorted_clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+        sorted_clips.sort_by(|a, b| {
+            a.start_time.partial_cmp(&b.start_time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Create temp directory for intermediate files
         let temp_dir = std::env::temp_dir().join("clipforge_export");
@@ -113,11 +124,13 @@ impl ExportPipeline {
 
             // Create intermediate file path
             let intermediate_path = temp_dir.join(format!("clip_{}_trimmed.mp4", index));
+            let path_str = intermediate_path.to_str()
+                .ok_or_else(|| "Failed to convert path to string (invalid UTF-8)".to_string())?;
 
             // Trim clip using FFmpeg
             ffmpeg.trim_video(
                 &clip.path,
-                intermediate_path.to_str().unwrap(),
+                path_str,
                 clip.in_point,
                 clip.out_point,
             )?;
@@ -141,10 +154,15 @@ impl ExportPipeline {
         let ffmpeg = self.ffmpeg.lock()
             .map_err(|e| format!("Failed to lock FFmpeg: {}", e))?;
 
-        // Create concat list file
+        // Create concat list file (escape single quotes in paths)
         let concat_list = intermediate_files
             .iter()
-            .map(|p| format!("file '{}'", p.display()))
+            .map(|p| {
+                let path = p.display().to_string();
+                // Escape single quotes: ' -> '\''
+                let escaped = path.replace("'", "'\\''");
+                format!("file '{}'", escaped)
+            })
             .collect::<Vec<_>>()
             .join("\n");
 
@@ -201,8 +219,14 @@ impl ExportPipeline {
         let mut overlay_clips: Vec<ClipData> = clips.iter().filter(|c| c.track > 0).cloned().collect();
 
         // Sort clips by timeline position
-        track0_clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
-        overlay_clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+        track0_clips.sort_by(|a, b| {
+            a.start_time.partial_cmp(&b.start_time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        overlay_clips.sort_by(|a, b| {
+            a.start_time.partial_cmp(&b.start_time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         if track0_clips.is_empty() {
             return Err("Multi-track export requires at least one clip on track 0 (base)".to_string());
@@ -259,10 +283,15 @@ impl ExportPipeline {
         let ffmpeg = self.ffmpeg.lock()
             .map_err(|e| format!("Failed to lock FFmpeg: {}", e))?;
 
-        // Create concat list
+        // Create concat list (escape single quotes in paths)
         let concat_list = intermediate_files
             .iter()
-            .map(|p| format!("file '{}'", p.display()))
+            .map(|p| {
+                let path = p.display().to_string();
+                // Escape single quotes: ' -> '\''
+                let escaped = path.replace("'", "'\\''");
+                format!("file '{}'", escaped)
+            })
             .collect::<Vec<_>>()
             .join("\n");
 
@@ -271,8 +300,10 @@ impl ExportPipeline {
             .map_err(|e| format!("Failed to write concat list: {}", e))?;
 
         // Concatenate with codec copy (fast)
-        let concat_list_str = concat_file_path.to_str().unwrap();
-        let output_str = output_path.to_str().unwrap();
+        let concat_list_str = concat_file_path.to_str()
+            .ok_or_else(|| "Failed to convert concat path to string (invalid UTF-8)".to_string())?;
+        let output_str = output_path.to_str()
+            .ok_or_else(|| "Failed to convert output path to string (invalid UTF-8)".to_string())?;
 
         let args = vec![
             "-f", "concat",
