@@ -49,14 +49,47 @@ A native desktop video editing application built with Tauri, Preact, Konva.js, F
 
 ## Build for Production
 
+### Building the Installer
+
 1. **Build the application:**
    ```bash
    npm run tauri:build
    ```
 
-2. **Find the installer:**
-   - Windows: `src-tauri/target/release/bundle/msi/ClipForge_0.1.0_x64_en-US.msi`
-   - macOS: `src-tauri/target/release/bundle/dmg/ClipForge_0.1.0_x64.dmg`
+   This will:
+   - Build the Vite frontend (optimized production bundle)
+   - Compile the Rust backend with release optimizations
+   - Bundle FFmpeg binaries (~197 MB)
+   - Generate platform-specific installer
+
+2. **Build Output Locations:**
+   - **Windows:**
+     - MSI Installer: `src-tauri/target/release/bundle/msi/ClipForge_0.1.0_x64_en-US.msi`
+     - NSIS Installer: `src-tauri/target/release/bundle/nsis/ClipForge_0.1.0_x64-setup.exe`
+   - **macOS:**
+     - DMG: `src-tauri/target/release/bundle/dmg/ClipForge_0.1.0_x64.dmg`
+     - App Bundle: `src-tauri/target/release/bundle/macos/ClipForge.app`
+
+3. **Bundle Size:**
+   - Total installer size: ~200 MB (includes FFmpeg binaries)
+   - Application executable: ~5-10 MB
+   - FFmpeg binaries: ~197 MB (ffmpeg + ffprobe)
+
+### FFmpeg Integration
+
+ClipForge bundles FFmpeg binaries for cross-platform video processing:
+- **Windows**: `src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe`
+- **macOS/Linux**: Platform-specific binaries in `src-tauri/binaries/`
+
+FFmpeg is automatically included in the production build via `tauri.conf.json` → `bundle.externalBin`.
+
+### Release Optimizations
+
+The Rust backend is built with aggressive optimizations:
+- `opt-level = "z"` - Optimize for size
+- `lto = true` - Link-time optimization
+- `strip = true` - Strip debug symbols
+- Produces smaller, faster executables
 
 ## Project Structure
 
