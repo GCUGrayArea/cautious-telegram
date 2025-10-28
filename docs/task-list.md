@@ -1850,8 +1850,9 @@ Consider saving as separate clips for more editing flexibility.
 ## Block 7: Video Export (Depends on: Block 4, Block 5)
 
 ### PR-019: FFmpeg Export Pipeline
-**Status:** New
-**Dependencies:** PR-003, PR-010, PR-013
+**Status:** Planning
+**Agent:** Orange
+**Dependencies:** PR-003 ✅, PR-010 ✅, PR-013 ✅
 **Priority:** High
 
 **Description:**
@@ -1873,6 +1874,32 @@ Implement video export using FFmpeg. Stitch clips in timeline order, apply trim 
 
 **Notes:**
 FFmpeg complex filters needed for overlays/PiP. Start with simple concatenation for MVP.
+
+**Planning Notes (Orange):**
+
+**Implementation Strategy:** For MVP, implement single-track export with concatenation. Multi-track overlay support deferred to PR-021.
+
+**Architecture:** Timeline → export_timeline command → ExportPipeline → (1) Trim clips (2) Concatenate (3) Re-encode → Output file
+
+**Key Design Decisions:**
+1. Two-phase: trim clips to intermediates, then concatenate+re-encode
+2. Temp files in system temp dir, cleaned up after export
+3. Progress tracking with Arc<Mutex<ExportProgress>> (UI in PR-020)
+4. Resolution scaling via FFmpeg -vf scale filter
+5. Quality: CRF 23 (H.264), AAC 192k hardcoded for MVP
+
+**Files:**
+- src-tauri/src/export/mod.rs, pipeline.rs, encoder.rs (new)
+- src-tauri/src/commands/export.rs (new)
+- src-tauri/src/main.rs (modify - register command)
+
+**FFmpeg Commands:**
+- Trim: `ffmpeg -ss {in} -i {input} -t {dur} -c copy {out}`
+- Concat+Encode: `ffmpeg -f concat -i list.txt -vf scale={w}:{h} -c:v libx264 -crf 23 -c:a aac -b:a 192k {out}`
+
+**Conflict Check:** Pink's PR-015 also modifies main.rs but only adds recording commands (additive, no conflict).
+
+**Estimated Time:** 90-120 minutes
 
 ---
 
