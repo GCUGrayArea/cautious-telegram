@@ -2638,3 +2638,42 @@ This is typically a 60-90 minute task. The agent should:
 
 **Status:** Ready for testing and commit
 
+
+#### Planning Notes (White - 2025-10-27):
+
+**Existing Architecture:**
+- RecordingPanel.jsx: Screen recording only (getDisplayMedia + MediaRecorder)
+- webcamRecorder.js: WebcamRecorder class for getUserMedia + MediaRecorder
+- useWebcamRecording.js: Hook for webcam recording (uses preact/hooks - needs React migration)
+
+**Implementation Plan:**
+
+1. **Fix useWebcamRecording.js** - Migrate from preact/hooks to react
+   - Change import from 'preact/hooks' to 'react'
+
+2. **Extend RecordingPanel.jsx** with recording mode selector:
+   - Add "Recording Mode" dropdown: Screen Only, Webcam Only, Screen + Webcam
+   - When Screen + Webcam selected:
+     - Start both getDisplayMedia() and getUserMedia() simultaneously
+     - Create two separate MediaRecorder instances
+     - Track same `startTime` for both (synchronization)
+     - Use same timer for both recordings
+
+3. **Implement simultaneous recording logic**:
+   - Store both screen and webcam streams in separate refs
+   - Store both MediaRecorder instances and chunks separately
+   - On stop: Save both recordings with synchronized timestamps
+   - Import both recordings to media library
+   - Add both to timeline on separate tracks (screen=track0, webcam=track1)
+
+4. **File naming convention**:
+   - Screen: `screen_YYYYMMDD_HHMMSS.webm`
+   - Webcam: `webcam_YYYYMMDD_HHMMSS.webm` (same timestamp)
+   - Ensures easy identification of paired recordings
+
+**Files to Modify:**
+- src/hooks/useWebcamRecording.js (FIX: preact → react)
+- src/components/RecordingPanel.jsx (ENHANCE: add mode selector + simultaneous logic)
+
+**Status:** Ready to implement
+
