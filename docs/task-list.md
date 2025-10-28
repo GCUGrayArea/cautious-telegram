@@ -1247,8 +1247,87 @@ Implement clip split at playhead position and clip deletion. Update timeline sta
 - [ ] Timeline state updated correctly
 - [ ] Split/delete actions undoable (future enhancement)
 
+**Planning Notes (Blonde):**
+
+**Implementation Approach:**
+
+**1. Split Functionality:**
+- Add SPLIT_CLIP action to timelineStore reducer
+- When splitting a clip at playhead position:
+  - Calculate the split point relative to clip start (splitOffset = playheadTime - clip.startTime)
+  - Create two new clips:
+    - **First clip**: Keep original startTime, adjust duration to splitOffset, adjust outPoint
+    - **Second clip**: New startTime = playheadTime, duration = original duration - splitOffset, adjust inPoint
+  - Both clips reference the same mediaId
+  - Remove original clip, add two new clips
+  - Select the second clip after split for intuitive workflow
+
+**2. Delete Functionality:**
+- Already have REMOVE_CLIP action in timelineStore
+- Add keyboard event handlers in Timeline.jsx for Delete/Backspace keys
+- Only delete if a clip is selected (selectedClipId !== null)
+- Decision: Do NOT shift clips left after delete (simpler for MVP, matches most video editors)
+
+**3. Keyboard Shortcuts:**
+- **S key** or **Ctrl+K**: Split clip at playhead position (if playhead intersects selected clip)
+- **Delete/Backspace keys**: Delete selected clip
+
+**4. Split Logic Details:**
+```javascript
+// Example: Original clip at startTime=5s, duration=10s, inPoint=2s, outPoint=12s
+// Playhead at 8s (3 seconds into the clip)
+// splitOffset = 8 - 5 = 3s
+
+// First clip:
+// - startTime: 5s (unchanged)
+// - duration: 3s (splitOffset)
+// - inPoint: 2s (unchanged)
+// - outPoint: 5s (inPoint + duration = 2 + 3)
+
+// Second clip:
+// - startTime: 8s (playheadTime)
+// - duration: 7s (original 10s - 3s)
+// - inPoint: 5s (original inPoint + splitOffset = 2 + 3)
+// - outPoint: 12s (original outPoint, unchanged)
+```
+
+**5. Utility Function (timeline.js):**
+```javascript
+export function splitClipAtTime(clip, splitTime) {
+  // Calculate split offset relative to clip start
+  const splitOffset = splitTime - clip.startTime;
+
+  // Validate: split must be within clip bounds
+  if (splitOffset <= 0 || splitOffset >= clip.duration) {
+    return null; // Cannot split at edges or outside clip
+  }
+
+  const firstClip = {
+    ...clip,
+    duration: splitOffset,
+    outPoint: clip.inPoint + splitOffset,
+  };
+
+  const secondClip = {
+    ...clip,
+    startTime: splitTime,
+    duration: clip.duration - splitOffset,
+    inPoint: clip.inPoint + splitOffset,
+    // outPoint stays the same
+  };
+
+  return { firstClip, secondClip };
+}
+```
+
+**6. File Lock Conflicts:**
+Checking current In Progress and Suspended PRs:
+- White: PR-010 (In Progress) - modifies TimelineClip.jsx only (no conflict)
+- Orange: PR-013 (In Progress) - will modify PreviewPlayer.jsx, PlaybackControls.jsx, playback.js (no conflict)
+- **No conflicts detected** - PR-011 can proceed to In Progress
+
 **Notes:**
-Split should maintain continuity—second clip starts where first ends.
+Split should maintain continuity—second clip starts where first ends. No shift-left behavior on delete (clips stay in place).
 
 ---
 
