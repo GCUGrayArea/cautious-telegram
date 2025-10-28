@@ -2,7 +2,7 @@
 
 This file tracks which agent identities are currently in use. Agents must claim an identity before starting work and release it when done.
 
-**Last Updated:** 2025-10-28 (Blonde completed PR-POST-MVP-004 and releasing identity)
+**Last Updated:** 2025-10-28 (Pink completed PR-POST-MVP-006 and releasing identity)
 
 ## Available Identities
 
@@ -11,7 +11,7 @@ This file tracks which agent identities are currently in use. Agents must claim 
 | White    | In Use | 2025-10-28 | PR-POST-MVP-002 |
 | Orange   | In Use | 2025-10-28 | PR-POST-MVP-001 |
 | Blonde   | Available | - | - |
-| Pink     | In Use | 2025-10-28 | PR-POST-MVP-006 |
+| Pink     | Available | - | - |
 | Blue     | In Use | 2025-10-28 | PR-POST-MVP-005 |
 | Brown    | Available | - | - |
 
