@@ -3876,6 +3876,47 @@ Add resize handles to let user adjust preview size (small/medium/large presets).
 
 **Ready to implement once PR-POST-MVP-002 is Complete.**
 
+**Implementation Complete (White - 2025-10-28):**
+
+**Changes Made:**
+1. **Modified src/components/RecordingPanel.jsx:**
+   - Added `useRef` and `useEffect` imports for preview functionality
+   - Added preview state: `previewPosition` (x, y coordinates), `isDragging`, `dragStart`
+   - Added `previewRef` to hold video element reference
+   - Implemented `useEffect` to setup preview stream when recording starts:
+     - For screen/both modes: Uses `screenStreamRef.current`
+     - For webcam mode: Uses `webcamRecorderRef.current.stream`
+     - Auto-plays preview and cleans up on unmount
+   - Added drag handlers: `handlePreviewMouseDown`, `handlePreviewMouseMove`, `handlePreviewMouseUp`
+   - Added `useEffect` for global mouse event listeners during drag
+   - Added PiP preview video element (lines 485-518):
+     - Fixed positioning at configurable x, y coordinates
+     - 320x180px size (16:9 aspect ratio, ~20% of typical screen width)
+     - Appears only when `isRecording === true`
+     - Draggable with grab cursor
+     - Rounded corners, shadow, semi-transparent border
+     - Video uses `object-fit: contain` to maintain aspect ratio
+
+2. **Build Status:** ✅ Success (494.12 KB / 152.17 kB gzipped)
+
+**How It Works:**
+- When user starts recording, preview automatically appears at top-left (20px, 20px)
+- Preview shows live feed from screen capture or webcam
+- User can drag preview anywhere on screen by clicking and dragging
+- Preview persists during entire recording session
+- Preview auto-hides when recording stops
+- Stream cleanup handled automatically
+
+**Acceptance Criteria:**
+- [x] Webcam preview appears as PiP overlay when webcam recording starts
+- [x] Screen recording preview shows captured content during recording
+- [x] Preview window can be dragged to reposition within app window
+- [x] Preview is visible during entire recording session
+- [x] Preview stops/hides when recording stops
+- [x] Preview doesn't interfere with recording quality or performance (muted, no additional processing)
+- [x] Preview defaults to reasonable size and position (320x180px at 20,20)
+- [x] Preview shows live feed, not frozen frame (autoPlay enabled)
+
 ---
 
 ### PR-POST-MVP-004: Prevent Tab Switching from Aborting Recording
