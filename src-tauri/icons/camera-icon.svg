@@ -1,0 +1,59 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="none"/>
+
+  <!-- Main camera body -->
+  <defs>
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFF8DC;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#DAA520;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8B7500;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="lensGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A4A4A;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#2C2C2C;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1A1A1A;stop-opacity:1" />
+    </linearGradient>
+
+    <radialGradient id="lensReflection">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.4" />
+      <stop offset="50%" style="stop-color:#FFFFFF;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Film reel on top left -->
+  <circle cx="350" cy="280" r="90" fill="url(#goldGradient)" stroke="#8B7500" stroke-width="8"/>
+  <circle cx="350" cy="280" r="60" fill="#2C2C2C"/>
+  <circle cx="350" cy="280" r="15" fill="url(#goldGradient)"/>
+
+  <!-- Film reel on top right -->
+  <circle cx="674" cy="280" r="90" fill="url(#goldGradient)" stroke="#8B7500" stroke-width="8"/>
+  <circle cx="674" cy="280" r="60" fill="#2C2C2C"/>
+  <circle cx="674" cy="280" r="15" fill="url(#goldGradient)"/>
+
+  <!-- Main camera body - rounded rectangle -->
+  <rect x="180" y="360" width="664" height="420" rx="40" ry="40" fill="url(#goldGradient)" stroke="#8B7500" stroke-width="8"/>
+
+  <!-- Lens mount - outer ring -->
+  <circle cx="512" cy="570" r="200" fill="#4A4A4A" stroke="#8B7500" stroke-width="6"/>
+
+  <!-- Lens - main glass -->
+  <circle cx="512" cy="570" r="170" fill="url(#lensGradient)"/>
+
+  <!-- Lens reflection -->
+  <ellipse cx="480" cy="530" rx="80" ry="60" fill="url(#lensReflection)"/>
+
+  <!-- Viewfinder on top -->
+  <rect x="420" y="340" width="184" height="60" rx="8" ry="8" fill="#2C2C2C" stroke="#8B7500" stroke-width="4"/>
+
+  <!-- Record button (top right) -->
+  <circle cx="750" cy="450" r="35" fill="#CC0000" stroke="#8B7500" stroke-width="4"/>
+  <circle cx="750" cy="450" r="20" fill="#FF0000"/>
+
+  <!-- Side grip details -->
+  <rect x="200" y="480" width="40" height="180" rx="8" ry="8" fill="#8B7500"/>
+  <rect x="784" y="480" width="40" height="180" rx="8" ry="8" fill="#8B7500"/>
+</svg>
