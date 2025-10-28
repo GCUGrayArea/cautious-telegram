@@ -1637,8 +1637,9 @@ Frame-by-frame navigation: calculate frame duration (1/fps), move playhead by th
 ## Block 6: Screen and Webcam Recording (Depends on: Block 1)
 
 ### PR-015: Screen Recording Implementation (Tauri Backend)
-**Status:** New
-**Dependencies:** PR-001, PR-003
+**Status:** Planning
+**Agent:** Pink
+**Dependencies:** PR-001 ✅, PR-003 ✅
 **Priority:** High
 
 **Description:**
