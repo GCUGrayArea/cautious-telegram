@@ -429,6 +429,7 @@ function Timeline() {
           width={dimensions.width}
           scrollX={scrollX}
           pixelsPerSecond={pixelsPerSecond}
+          onTimeClick={handlePlayheadTimeChange}
         />
 
         {/* Playhead layer (rendered on top) */}

@@ -7,8 +7,17 @@ import { calculateRulerTicks, TIMELINE_CONFIG } from '../../utils/timeline';
  * Renders the time ruler at the top of the timeline, showing time markers
  * and labels (00:00, 00:05, etc.) based on the current zoom level.
  */
-function TimeRuler({ width, scrollX, pixelsPerSecond }) {
+function TimeRuler({ width, scrollX, pixelsPerSecond, onTimeClick }) {
   const ticks = calculateRulerTicks(width, scrollX, pixelsPerSecond);
+
+  // Handle click on ruler to jump playhead
+  const handleClick = (e) => {
+    if (onTimeClick) {
+      const clickX = e.evt.layerX + scrollX;
+      const newTime = clickX / pixelsPerSecond;
+      onTimeClick(Math.max(0, newTime));
+    }
+  };
 
   return (
     <Layer>
@@ -19,6 +28,8 @@ function TimeRuler({ width, scrollX, pixelsPerSecond }) {
         width={width}
         height={TIMELINE_CONFIG.RULER_HEIGHT}
         fill="#1f2937"
+        onClick={handleClick}
+        style={{ cursor: 'pointer' }}
       />
 
       {/* Ruler bottom border */}
