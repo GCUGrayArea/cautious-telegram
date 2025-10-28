@@ -14,6 +14,7 @@ const initialState = {
   selectedClipId: null, // ID of currently selected clip
   nextClipId: 1, // Counter for generating unique clip IDs
   playheadTime: 0, // Current playhead position in seconds
+  isPlaying: false, // Playback state
 };
 
 // Action types
@@ -23,6 +24,9 @@ const UPDATE_CLIP = 'UPDATE_CLIP';
 const SELECT_CLIP = 'SELECT_CLIP';
 const CLEAR_SELECTION = 'CLEAR_SELECTION';
 const SET_PLAYHEAD_TIME = 'SET_PLAYHEAD_TIME';
+const TOGGLE_PLAYBACK = 'TOGGLE_PLAYBACK';
+const SET_PLAYBACK_STATE = 'SET_PLAYBACK_STATE';
+const SPLIT_CLIP = 'SPLIT_CLIP';
 
 // Reducer
 function timelineReducer(state, action) {
@@ -87,6 +91,38 @@ function timelineReducer(state, action) {
       };
     }
 
+    case TOGGLE_PLAYBACK: {
+      return {
+        ...state,
+        isPlaying: !state.isPlaying,
+      };
+    }
+
+    case SET_PLAYBACK_STATE: {
+      return {
+        ...state,
+        isPlaying: action.payload,
+      };
+    }
+
+    case SPLIT_CLIP: {
+      const { clipId, firstClip, secondClip } = action.payload;
+
+      // Remove original clip and add both new clips
+      const clipsWithoutOriginal = state.clips.filter(clip => clip.id !== clipId);
+
+      // Assign new IDs to both clips
+      const firstClipWithId = { ...firstClip, id: state.nextClipId };
+      const secondClipWithId = { ...secondClip, id: state.nextClipId + 1 };
+
+      return {
+        ...state,
+        clips: [...clipsWithoutOriginal, firstClipWithId, secondClipWithId],
+        nextClipId: state.nextClipId + 2,
+        selectedClipId: secondClipWithId.id, // Select second clip after split
+      };
+    }
+
     default:
       return state;
   }
@@ -127,16 +163,32 @@ export function TimelineProvider({ children }) {
     dispatch({ type: SET_PLAYHEAD_TIME, payload: time });
   }, []);
 
+  const togglePlayback = useCallback(() => {
+    dispatch({ type: TOGGLE_PLAYBACK });
+  }, []);
+
+  const setPlaybackState = useCallback((playing) => {
+    dispatch({ type: SET_PLAYBACK_STATE, payload: playing });
+  }, []);
+
+  const splitClip = useCallback((clipId, firstClip, secondClip) => {
+    dispatch({ type: SPLIT_CLIP, payload: { clipId, firstClip, secondClip } });
+  }, []);
+
   const value = {
     clips: state.clips,
     selectedClipId: state.selectedClipId,
     playheadTime: state.playheadTime,
+    isPlaying: state.isPlaying,
     addClip,
     removeClip,
     updateClip,
     selectClip,
     clearSelection,
     setPlayheadTime,
+    togglePlayback,
+    setPlaybackState,
+    splitClip,
   };
 
   return (

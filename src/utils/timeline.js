@@ -212,3 +212,38 @@ export function constrainClipPosition(clip, existingClips) {
   // TODO: Implement collision detection and automatic adjustment
   return clip.startTime;
 }
+
+/**
+ * Split a clip at a specific time position
+ * @param {Object} clip - Clip object to split (with startTime, duration, inPoint, outPoint, mediaId, track, metadata)
+ * @param {number} splitTime - Time in seconds where split should occur (absolute timeline time)
+ * @returns {Object|null} Object with firstClip and secondClip properties, or null if split is invalid
+ */
+export function splitClipAtTime(clip, splitTime) {
+  // Calculate split offset relative to clip start
+  const splitOffset = splitTime - clip.startTime;
+
+  // Validate: split must be within clip bounds (not at edges or outside)
+  if (splitOffset <= 0 || splitOffset >= clip.duration) {
+    return null; // Cannot split at edges or outside clip
+  }
+
+  // First clip: from original start to split point
+  const firstClip = {
+    ...clip,
+    duration: splitOffset,
+    outPoint: clip.inPoint + splitOffset,
+    // startTime, inPoint, track, mediaId, metadata stay the same
+  };
+
+  // Second clip: from split point to original end
+  const secondClip = {
+    ...clip,
+    startTime: splitTime,
+    duration: clip.duration - splitOffset,
+    inPoint: clip.inPoint + splitOffset,
+    // outPoint stays the same (original end point)
+  };
+
+  return { firstClip, secondClip };
+}
