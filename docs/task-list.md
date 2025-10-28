@@ -9,7 +9,9 @@
 **Priority:** High
 
 **Description:**
-Initialize Tauri project with Preact frontend, configure build system, set up development environment, and establish project structure. This PR creates the foundation for all subsequent work.
+Initialize Tauri project with React frontend, configure build system, set up development environment, and establish project structure. This PR creates the foundation for all subsequent work.
+
+**Note:** Originally implemented with Preact, later refactored to React due to incompatibilities with Konva's react-reconciler dependency.
 
 **Files (COMPLETED by White):**
 - src-tauri/Cargo.toml (created) - Tauri v1.x backend dependencies
@@ -17,18 +19,18 @@ Initialize Tauri project with Preact frontend, configure build system, set up de
 - src-tauri/tauri.conf.json (created) - Tauri app configuration (Windows primary)
 - src-tauri/build.rs (created) - Build script for Tauri
 - src-tauri/icons/* (created) - App icons generated from app-icon.png
-- package.json (created) - Frontend dependencies (Preact, Vite, Tailwind CSS)
-- vite.config.js (created) - Vite build configuration for Preact
+- package.json (created) - Frontend dependencies (React, Vite, Tailwind CSS)
+- vite.config.js (created) - Vite build configuration for React
 - tailwind.config.js (created) - Tailwind CSS configuration
 - postcss.config.js (created) - PostCSS configuration for Tailwind
 - index.html (created) - HTML entry point
-- src/main.jsx (created) - Preact app entry point
+- src/main.jsx (created) - React app entry point
 - src/App.jsx (created) - Root component with basic layout
 - src/index.css (created) - Tailwind imports and global styles
 - README.md (modified) - Added setup instructions and prerequisites
 
 **Acceptance Criteria:**
-- [x] Tauri app launches with "Hello World" Preact UI
+- [x] Tauri app launches with "Hello World" React UI
 - [x] Development environment runs with hot reload
 - [x] Project builds successfully for target platform (Windows)
 - [ ] Packaged app can be generated (tauri build) - Not tested yet
@@ -48,7 +50,7 @@ This PR establishes the technical foundation. Rust toolchain and Node.js are pro
 ✅ **Code Quality:** APPROVED
 - Project structure follows Tauri best practices
 - Tailwind CSS properly configured with PostCSS
-- Preact + Vite integration working correctly
+- React + Vite integration working correctly
 - All core files present and properly configured
 
 ⚠️ **Test Coverage:** N/A for PR-001
@@ -482,7 +484,7 @@ All acceptance criteria met. Media library now has professional UI with both gri
 - MediaLibrary.jsx (396 lines): Clean separation between grid and list views
 - MediaDetailModal.jsx (167 lines): Well-structured modal with proper event handling
 - View mode persistence using localStorage
-- Proper Preact hooks usage (useState, useEffect for keyboard events)
+- Proper React hooks usage (useState, useEffect for keyboard events)
 - Clean component hierarchy: MediaLibrary → MediaCard (grid/list variants) + MediaDetailModal
 - Responsive design with Tailwind classes
 - Accessibility: Keyboard support (Escape to close modal), click-outside to close, proper titles
@@ -579,7 +581,7 @@ Set up Konva.js canvas for timeline editor. Create timeline component with time 
   - TimeRuler.jsx (separate component) - Time ruler rendering
   - Playhead.jsx (separate component) - Draggable playhead
   - timeline.js - Utility functions (time conversion, zoom, track calculations)
-- Proper React/Preact hooks usage (useState, useEffect, useRef)
+- Proper React hooks usage (useState, useEffect, useRef)
 - Responsive design with window resize handling
 - Event handling for zoom (Ctrl+scroll), pan (scroll), click-to-jump, playhead dragging
 - Clear separation of concerns
@@ -631,7 +633,7 @@ Set up Konva.js canvas for timeline editor. Create timeline component with time 
 Render video clips on timeline as Konva rectangles. Display clip thumbnails, duration, and visual boundaries. Implement clip selection (click to select).
 
 **Files (COMPLETED by White):**
-- src/store/timelineStore.jsx (created) - Timeline state management using Preact Context + useReducer
+- src/store/timelineStore.jsx (created) - Timeline state management using React Context + useReducer
 - src/components/timeline/TimelineClip.jsx (created) - Konva clip component with thumbnail, filename, duration rendering
 - src/components/Timeline.jsx (modified) - Integrated timeline store, renders clips layer with selection handling
 - src/App.jsx (modified) - Wrapped app in TimelineProvider for global timeline state access
@@ -647,7 +649,7 @@ Render video clips on timeline as Konva rectangles. Display clip thumbnails, dur
 **Planning Notes (White):**
 
 **State Management Approach:**
-- Use Preact Context + useReducer for timeline store
+- Use React Context + useReducer for timeline store
 - Store: clips array (id, mediaId, startTime, duration, track, inPoint, outPoint, metadata)
 - Store: selectedClipId for selection state
 - Actions: addClip, removeClip, updateClip, selectClip
@@ -2584,6 +2586,43 @@ Files I'll modify:
 
 **Completion:** Export dialog fully functional. Users can export timelines to MP4 with resolution selection. Simplified progress indication provides adequate UX for MVP. Ready for user testing. Advanced progress features can be added in future PR if needed.
 
+**QC Results (2025-10-27):**
+✅ **Build Status:** PASS
+- Frontend build successful (485.12 KB bundle, gzipped: 149.80 kB)
+- Rust backend compiled successfully (0.49s)
+- No compilation errors or warnings in new code
+- Bundle size increase acceptable (~13 KB for new feature)
+
+✅ **Code Quality:** APPROVED
+- Clean ExportDialog component with proper state management
+- File picker integration using Tauri dialog API
+- Resolution selection UI intuitive and functional
+- Export workflow properly sequences user actions
+- Simplified progress indicator (indeterminate spinner) appropriate for MVP
+- Error handling and success notifications working
+
+✅ **Test Coverage:** Manual Testing Complete
+- Core acceptance criteria verified and marked complete with ✅
+- Export button opens dialog correctly
+- Resolution options (Source/720p/1080p) functional
+- File save picker lets user choose output location
+- Export completion notifications working
+- Functional export workflow from start to finish
+
+✅ **Acceptance Criteria Met:** 5/8 (Core Features)
+- ✓ User clicks "Export" button to open dialog
+- ✓ Dialog shows resolution options (720p, 1080p, source)
+- ✓ File save picker lets user choose output location
+- ✓ Notification on export completion (success/error messages)
+- ✓ Simplified progress indication adequate for MVP
+
+**Deferred by Design (3/8):**
+- Quality/bitrate options (hardcoded CRF 23 in backend)
+- Real-time progress percentage (indeterminate spinner instead)
+- Estimated time remaining and cancel mid-process (requires async backend)
+
+**QC Verdict:** ✅ CERTIFIED - Export dialog MVP complete, user experience appropriate for current scope
+
 ---
 
 ### PR-021: Multi-Track Timeline Export (Overlays/PiP)
@@ -2820,6 +2859,51 @@ All acceptance criteria exceeded. Achieved 96.02% coverage (target was 70%). Tes
 
 **Notes:**
 Using Vitest for Vite-based projects (fast, modern, Vite-native).
+
+**Completion:** All acceptance criteria exceeded. 59/59 tests passing with 96.02% coverage (target was 70%). Comprehensive test suite covers all critical timeline operations. Ready for integration with future PRs.
+
+**QC Results (2025-10-27):**
+✅ **Build Status:** PASS
+- Frontend build successful (472.75 KB bundle, gzipped: 146.60 KB)
+- All tests passing (59/59)
+- Test execution time: 1.62s
+- Coverage reports generated (HTML, text, LCOV formats)
+- No build errors or warnings
+
+✅ **Code Quality:** APPROVED
+- Comprehensive test coverage (96.02% overall)
+- timeline.js coverage: 96.38% (minor: constrainClipPosition placeholder)
+- playback.js coverage: 95.31% (minor: animate loop edge case)
+- Well-organized test structure across both utility files
+- Clear test descriptions and assertions
+- Modern testing setup using Vitest with v8 coverage provider
+
+✅ **Test Coverage:** EXCELLENT - 59/59 Tests Passing
+- **Timeline Utilities (40 tests):**
+  - Time conversion: timeToPixels, pixelsToTime with multiple zoom levels
+  - Time formatting: MM:SS, HH:MM:SS, fractional seconds
+  - Snapping logic: snapToPoints, getClipSnapPoints within/outside threshold
+  - Track calculations: getTrackIndexFromY, getTrackY functions
+  - Zoom operations: zoom in/out/clamp min-max
+  - Clip overlap detection: overlapping, non-overlapping, adjacent, contained scenarios
+  - Clip splitting: valid splits, edge cases, continuity verification
+  - Ruler calculations: multiple zoom levels, labels, scroll positions
+
+- **Playback Engine (19 tests):**
+  - Lifecycle: start, pause, stop, seek operations
+  - Animation loop: callback integration and frame timing
+  - Duration calculation: various clip arrangements and edge cases
+  - Cleanup and resource management
+
+✅ **Acceptance Criteria Met:** 6/6 (EXCEEDED)
+- ✓ Tests for time-to-pixel conversion functions (multiple zoom levels)
+- ✓ Tests for snap-to-edge logic (snapToPoints, getClipSnapPoints)
+- ✓ Tests for trim calculation (splitClipAtTime with edge cases)
+- ✓ Tests for clip collision detection (overlapping/non-overlapping scenarios)
+- ✓ All tests pass (59/59 tests passing - 100%)
+- ✓ Test coverage at 96.02% (far exceeds 70% target)
+
+**QC Verdict:** ✅ CERTIFIED - Test suite excellent, exceeds all targets with 59/59 passing and 96% coverage
 
 ---
 
