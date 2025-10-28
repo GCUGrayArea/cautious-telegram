@@ -1323,12 +1323,12 @@ Create video preview player using HTML5 video element. Display frame at playhead
 **Description:**
 Implement play/pause controls, real-time playback, playhead animation during playback, synchronized audio.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src/components/PreviewPlayer.jsx (modify) - Play/pause functionality
-- src/components/Timeline.jsx (modify) - Animate playhead during playback
-- src/components/PlaybackControls.jsx (create) - Play/pause/stop buttons
-- src/utils/playback.js (create) - Playback timing and synchronization
-- src/store/timelineStore.js (modify) - Playback state (playing, paused)
+**Files (PLANNED by Orange):**
+- src/components/PreviewPlayer.jsx (modify) - Add video.play()/pause() calls, handle playback state
+- src/components/PlaybackControls.jsx (create) - Play/pause/stop buttons with spacebar shortcut
+- src/utils/playback.js (create) - Playback engine using requestAnimationFrame
+- src/store/timelineStore.jsx (modify) - Add isPlaying state and togglePlayback action
+- src/App.jsx (modify) - Integrate PlaybackControls component into layout
 
 **Acceptance Criteria:**
 - [ ] Play button starts playback, pause button pauses
@@ -1339,8 +1339,191 @@ Implement play/pause controls, real-time playback, playhead animation during pla
 - [ ] Spacebar toggles play/pause
 - [ ] Frame rate at 30+ fps
 
+**Planning Notes (Orange):**
+
+**Implementation Approach:**
+
+**1. Timeline Store Changes (timelineStore.jsx):**
+- Add `isPlaying: false` to initialState
+- Add `TOGGLE_PLAYBACK` and `SET_PLAYBACK_STATE` action types
+- Add reducer cases for playback state changes
+- Add action creators: `togglePlayback()`, `setPlaybackState(playing)`
+- Export in context value
+
+**2. Playback Engine (src/utils/playback.js):**
+Create a playback controller using requestAnimationFrame:
+```javascript
+export class PlaybackEngine {
+  constructor({ onTimeUpdate, onPlaybackEnd }) {
+    this.isPlaying = false;
+    this.startTime = null;
+    this.lastFrameTime = null;
+    this.playheadTime = 0;
+    this.onTimeUpdate = onTimeUpdate; // Callback to update playhead
+    this.onPlaybackEnd = onPlaybackEnd; // Callback when reaching end
+    this.animationFrameId = null;
+    this.totalDuration = 0; // End of timeline
+  }
+
+  start(currentTime, totalDuration) {
+    if (this.isPlaying) return;
+    this.isPlaying = true;
+    this.playheadTime = currentTime;
+    this.totalDuration = totalDuration;
+    this.startTime = performance.now();
+    this.lastFrameTime = this.startTime;
+    this.animate();
+  }
+
+  pause() {
+    this.isPlaying = false;
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+  }
+
+  stop() {
+    this.pause();
+    this.playheadTime = 0;
+    this.onTimeUpdate(0);
+  }
+
+  animate() {
+    if (!this.isPlaying) return;
+
+    const now = performance.now();
+    const deltaTime = (now - this.lastFrameTime) / 1000; // Convert to seconds
+    this.lastFrameTime = now;
+
+    // Update playhead position
+    this.playheadTime += deltaTime;
+
+    // Check if reached end of timeline
+    if (this.playheadTime >= this.totalDuration) {
+      this.playheadTime = this.totalDuration;
+      this.onTimeUpdate(this.playheadTime);
+      this.onPlaybackEnd();
+      this.pause();
+      return;
+    }
+
+    // Update playhead in timeline
+    this.onTimeUpdate(this.playheadTime);
+
+    // Schedule next frame
+    this.animationFrameId = requestAnimationFrame(() => this.animate());
+  }
+
+  seek(time) {
+    this.playheadTime = time;
+    this.lastFrameTime = performance.now();
+  }
+}
+```
+
+**3. PreviewPlayer.jsx Changes:**
+- Add `isPlaying` prop from timeline store
+- Use effect to call `video.play()` when isPlaying changes to true
+- Use effect to call `video.pause()` when isPlaying changes to false
+- Handle video 'ended' event to stop playback
+- Sync video.currentTime with playhead during playback (already implemented)
+
+**4. PlaybackControls Component (new file):**
+```jsx
+import { useTimeline } from '../store/timelineStore';
+import { useEffect } from 'react';
+
+function PlaybackControls() {
+  const { isPlaying, togglePlayback, setPlaybackState } = useTimeline();
+
+  // Spacebar shortcut
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+        e.preventDefault();
+        togglePlayback();
+      }
+    };
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [togglePlayback]);
+
+  return (
+    <div className="playback-controls flex items-center gap-3 px-4 py-2 bg-gray-800 border-t border-gray-700">
+      <button
+        onClick={togglePlayback}
+        className="p-2 rounded hover:bg-gray-700 transition"
+        title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+      >
+        {isPlaying ? <PauseIcon /> : <PlayIcon />}
+      </button>
+      <button
+        onClick={() => setPlaybackState(false)}
+        className="p-2 rounded hover:bg-gray-700 transition"
+        title="Stop"
+      >
+        <StopIcon />
+      </button>
+    </div>
+  );
+}
+```
+
+**5. Integration in App.jsx:**
+- Add PlaybackEngine instance in AppContent component
+- Pass playback engine to PreviewPlayer
+- Add PlaybackControls component below timeline
+- Wire up playback engine callbacks:
+  - onTimeUpdate → setPlayheadTime
+  - onPlaybackEnd → setPlaybackState(false)
+- Start/pause playback engine based on isPlaying state
+
+**6. Synchronization Strategy:**
+- Playback engine updates playheadTime via setPlayheadTime (60fps via RAF)
+- PreviewPlayer receives playheadTime prop from timeline store
+- PreviewPlayer updates video.currentTime when playheadTime changes
+- PreviewPlayer calls video.play() when isPlaying becomes true
+- Video element plays with audio, synced to playhead
+- If video buffering/lag occurs, playhead continues (no stuttering UI)
+
+**7. Timeline Duration Calculation:**
+- Calculate total timeline duration as: max(clip.startTime + clip.duration) across all clips
+- If no clips, duration = 0 (playback disabled)
+- Pass duration to playback engine start()
+
+**8. File Lock Conflict Check:**
+Checked all In Progress and Suspended PRs:
+- White is working on PR-010 (TimelineClip.jsx for trimming)
+- No conflicts with PR-013 files:
+  - PreviewPlayer.jsx ✓ (different area than PR-010)
+  - PlaybackControls.jsx ✓ (new file)
+  - playback.js ✓ (new file)
+  - timelineStore.jsx ✓ (only adding playback state, not modifying clip logic)
+  - App.jsx ✓ (only adding PlaybackControls, not modifying PR-010 areas)
+
+**No file lock conflicts detected.**
+
+**9. Edge Cases to Handle:**
+- No clips on timeline: Disable play button or show message
+- Playhead at end of timeline: Play button should reset to start and play
+- Clips with gaps: Playback continues through gaps (preview shows empty/black)
+- Video load errors: Playback continues, preview shows error message
+- Rapid play/pause: Debounce or ensure state consistency
+
+**10. Performance Optimization:**
+- Use requestAnimationFrame for 60fps playhead animation (smooth)
+- Only update video.currentTime if delta > 0.1s (avoid excessive seeks)
+- Cancel animation frame on pause/unmount (prevent memory leaks)
+- Use useCallback for playback callbacks (avoid re-renders)
+
+**Estimated Implementation Time:** 60-75 minutes
+
 **Notes:**
-Use requestAnimationFrame for smooth playhead animation. Synchronize video.currentTime with playhead.
+- Playback should feel smooth and responsive (60fps playhead animation)
+- Audio/video sync is handled by HTML5 video element natively
+- If video lags, playhead continues (better UX than stuttering timeline)
+- Spacebar shortcut improves workflow efficiency
 
 ---
 
