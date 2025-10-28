@@ -1225,8 +1225,9 @@ Trim should not affect source file—only in/out points for export.
 ---
 
 ### PR-011: Timeline Clip Split and Delete
-**Status:** New
-**Dependencies:** PR-009
+**Status:** Planning
+**Agent:** Blonde
+**Dependencies:** PR-009 ✅
 **Priority:** High
 
 **Description:**
