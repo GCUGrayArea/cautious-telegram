@@ -2395,10 +2395,8 @@ Files I'll modify:
 **Description:**
 Extend export to handle multiple timeline tracks. Render overlays (PiP) on top of main video track using FFmpeg overlay filter.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src-tauri/src/export/encoder.rs (modify) - Multi-track FFmpeg filter
-- src-tauri/src/commands/export.rs (modify) - Handle multi-track timelines
-- src-tauri/src/ffmpeg.rs (modify) - Overlay filter generation
+**Files (PLANNED by White):**
+- src-tauri/src/export/pipeline.rs (modify) - Add `track` field to ClipData, implement export_multitrack() and build_overlay_filter()
 
 **Acceptance Criteria:**
 - [ ] Export timelines with 2+ tracks
@@ -2409,6 +2407,87 @@ Extend export to handle multiple timeline tracks. Render overlays (PiP) on top o
 
 **Notes:**
 FFmpeg overlay filter syntax: `[0:v][1:v]overlay=x:y[out]`. Calculate positions for corner placement.
+
+**Planning Notes (White):**
+
+**Implementation Strategy:**
+
+PR-019 implemented single-track export (track 0 only) via concatenation. This PR extends it to handle multiple tracks with overlay composition.
+
+**Multi-Track Export Approach:**
+
+1. **Group clips by track**: Separate clips into track 0 (base) and track 1+ (overlays)
+2. **Process base track**: Concatenate track 0 clips as before (trim → concat → encode)
+3. **Process overlay tracks**: For each overlay clip, use FFmpeg overlay filter to composite on top of base
+4. **Handle temporal alignment**: Overlay clips start at their `start_time` on timeline
+5. **Positioning**: Support PiP corner placement (top-left, top-right, bottom-left, bottom-right, center)
+
+**FFmpeg Overlay Filter Strategy:**
+
+For simple case (1 base track + 1 overlay track with 1 overlay clip):
+```bash
+ffmpeg -i base.mp4 -i overlay.mp4 \
+  -filter_complex "[0:v][1:v]overlay=W-w-10:H-h-10:enable='between(t,START,END)'[out]" \
+  -map "[out]" -map 0:a output.mp4
+```
+
+For complex case (multiple overlay clips on track 1):
+- Must chain overlay filters
+- Each overlay has temporal enable condition based on timeline start_time
+- Example: `[base][overlay1]overlay=...:enable='between(t,5,10)'[temp];[temp][overlay2]overlay=...:enable='between(t,15,20)'[out]`
+
+**Simplified MVP Approach:**
+- Support 2 tracks only (track 0 + track 1)
+- Track 1 clips positioned in bottom-right corner by default (PiP style)
+- Position calculation: `overlay=W-w-20:H-h-20` (20px padding from edges)
+- Each overlay clip gets enable filter for its timeline duration
+- Audio from track 0 only (overlay audio ignored for MVP)
+
+**Data Structure Changes:**
+
+ClipData already has `start_time` field. Need to add `track` field:
+```rust
+pub struct ClipData {
+    pub id: u32,
+    pub path: String,
+    pub in_point: f64,
+    pub out_point: f64,
+    pub start_time: f64,
+    pub track: u32,  // NEW: Track index (0, 1, 2...)
+}
+```
+
+**Algorithm:**
+
+1. Group clips by track
+2. If only track 0 clips → use existing concat pipeline (no changes)
+3. If track 1+ clips exist:
+   a. Process track 0: trim+concat → base_video.mp4
+   b. Trim each overlay clip → overlay_N.mp4
+   c. Build complex filter:
+      - For first overlay: `[0:v][1:v]overlay=W-w-20:H-h-20:enable='between(t,START,END)'[temp1]`
+      - For second overlay: `[temp1][2:v]overlay=W-w-20:H-h-20:enable='between(t,START,END)'[temp2]`
+      - Continue chaining...
+   d. Execute FFmpeg with `-filter_complex`
+   e. Output with track 0 audio only
+
+**File Modifications:**
+
+- `src-tauri/src/export/pipeline.rs`:
+  - Modify `ClipData` struct to add `track: u32` field
+  - Add `export_multitrack()` method
+  - Add `build_overlay_filter()` helper to generate FFmpeg filter_complex string
+  - Update `export_timeline()` to detect multi-track and route to correct method
+
+- `src-tauri/src/commands/export.rs`:
+  - No changes needed (ClipData deserialization will include track field automatically)
+
+**File Lock Conflict Check:**
+- Orange: PR-020 (ExportDialog.jsx, api.js, App.jsx, Timeline.jsx) - ✅ No conflict (frontend only)
+- All other agents: Available
+- Files I'll modify: src-tauri/src/export/pipeline.rs - ✅ No conflicts
+
+**Estimated Implementation Time:** 90-120 minutes
 
 ---
 
