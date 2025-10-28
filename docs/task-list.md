@@ -3864,8 +3864,8 @@ Add resize handles to let user adjust preview size (small/medium/large presets).
 ---
 
 ### PR-POST-MVP-004: Prevent Tab Switching from Aborting Recording
-**Status:** New
-**Agent:** (unassigned)
+**Status:** In Progress
+**Agent:** Blonde
 **Dependencies:** None
 **Priority:** High (blocks recording workflow)
 
@@ -3893,8 +3893,34 @@ useEffect(() => {
 6. Recording stops and tries to save prematurely
 
 **Files:**
-- src/App.jsx (modify) - Lift recording state to App component level
-- src/components/RecordingPanel.jsx (modify) - Accept recording state as props, become presentational component
+- src/App.jsx (modified) - Lifted recording state to App component level
+- src/components/RecordingPanel.jsx (modified) - Accepts recording state as props, now presentational component
+
+**Implementation Notes (Blonde):**
+
+Used Option 1 (State Lifting) as recommended:
+
+1. **Moved recording state from RecordingPanel to AppContent (src/App.jsx):**
+   - Added state: `isRecording`, `recordingTime`, `recordingMode`
+   - Added refs: `screenMediaRecorderRef`, `screenChunksRef`, `screenStreamRef`, `webcamRecorderRef`, `webcamChunksRef`, `timerIntervalRef`, `startTimeRef`
+   - Recording cleanup moved to App's playback engine useEffect (only runs on app close, not tab switch)
+
+2. **Converted RecordingPanel to presentational component:**
+   - Now receives all recording state/refs as props from parent
+   - Removed local useState/useRef declarations for recording
+   - Removed cleanup useEffect that was stopping recording on unmount
+   - Removed unused imports (useRef, useEffect)
+   - Recording logic unchanged - still handles start/stop/save
+
+3. **Result:**
+   - Tab switches no longer unmount/remount RecordingPanel with fresh state
+   - Recording state persists in parent AppContent component
+   - Users can freely switch between Record and Media Library tabs during recording
+   - Recording only stops when user explicitly clicks "Stop Recording"
+
+4. **Build Status:**
+   - Frontend builds successfully (492.57 KB, gzipped: 151.64 kB)
+   - No compilation errors or warnings
 
 **Acceptance Criteria:**
 - [ ] Switching tabs does NOT stop active recording
@@ -3975,7 +4001,7 @@ Located in `src-tauri/src/export/pipeline.rs` lines 54-72. The export pipeline h
 ---
 
 ### PR-POST-MVP-006: Fix Playhead Not Moving During Preview Playback
-**Status:** Planning
+**Status:** In Progress
 **Agent:** Pink
 **Dependencies:** None
 **Priority:** High (blocks timeline navigation)
@@ -3991,10 +4017,16 @@ PreviewPlayer.jsx plays video but doesn't sync playhead position back to timelin
 2. Update store playheadTime during playback
 3. Sync timeline playhead visual position with video currentTime
 
-**Files:**
-- src/components/PreviewPlayer.jsx (modify) - Add timeupdate event listener, update playheadTime in store
-- src/components/Timeline.jsx (reference) - Playhead already reads from store, no changes needed
-- src/store/timelineStore.js (reference) - setPlayheadTime action already exists
+**Files (LOCKED by Pink):**
+- src/components/PreviewPlayer.jsx (modified) - Added timeupdate event listener, syncs video playback to timeline playhead
+
+**Implementation Details:**
+- Imported `setPlayheadTime` from `useTimeline()` hook (PreviewPlayer.jsx:14)
+- Added new useEffect for timeupdate event listener (PreviewPlayer.jsx:86-102)
+- Calculates timeline position from video currentTime and clip metadata (startTime + clipSourceTime - inPoint)
+- Updates playheadTime in store during video playback
+- Two-way sync: scrubbing timeline updates video, video playback updates timeline
+- Clean event listener cleanup on unmount
 
 **Acceptance Criteria:**
 - [ ] Playhead moves smoothly during video playback
