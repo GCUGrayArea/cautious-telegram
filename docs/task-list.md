@@ -3066,14 +3066,15 @@ The architecture document should include:
 
 1. **System Architecture**
    - High-level architecture overview
-   - Technology stack (Tauri, Preact, Konva, FFmpeg, SQLite) and rationale
+   - Technology stack (Tauri, React, Konva, FFmpeg, SQLite) and rationale
+   - Note: Originally Preact, refactored to React for Konva compatibility
    - Integration points between frontend and Rust backend
    - Data flow patterns (import, edit, export, recording)
 
 2. **Component Architecture**
    - Frontend component hierarchy (App → MediaLibrary/Timeline/PreviewPlayer/RecordingPanel)
    - Rust module organization (commands, database, ffmpeg, recording, export)
-   - State management approach (Preact hooks/stores)
+   - State management approach (React hooks/stores)
    - Konva timeline rendering architecture
 
 3. **Data Models**
