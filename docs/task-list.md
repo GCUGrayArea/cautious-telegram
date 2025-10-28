@@ -4069,6 +4069,43 @@ The `export_timeline()` method (lines 37-72) detects temporal overlaps between c
 - [x] Export ignores track numbers, uses only temporal order on timeline (start_time sort in export_singletrack)
 - [x] Multi-clip exports produce single sequential video file (concat demuxer)
 
+**ISSUE FOUND AND FIXED (Blue - 2025-10-28):**
+
+**User Report:** Export only shows Track 1 clip (7s) when Track 2 clip (5s starting at 6s) should override from 6-11s.
+
+**Root Cause:** Initial implementation simply concatenated clips by start_time, but didn't handle overlaps. When clips overlap, preview shows **topmost clip (highest track number)** at each point in time (see preview.js:26). Export was ignoring this and just playing clips sequentially.
+
+**Fix Applied:**
+1. **Added `build_visible_segments()` method (lines 95-158):**
+   - Uses event-sweep algorithm to track which clips are active at each point in time
+   - Collects clip start/end events, sorts chronologically
+   - At each time interval, finds topmost (highest track) active clip
+   - Builds segments representing what preview actually shows
+   - Each segment has correct source time range from the visible clip
+
+2. **Modified `export_singletrack()` to use segments instead of raw clips**
+   - Calls `build_visible_segments()` to get timeline segments matching preview
+   - Each segment is trimmed and concatenated in order
+   - Result matches preview frame-by-frame
+
+3. **Added `trim_segments()` method (lines 160-195):**
+   - Replaces trim_clips for segment-based export
+   - Same trimming logic but operates on computed segments
+
+**Example with User's Case:**
+- Track 1: 0-7s
+- Track 2: 6-11s (5s clip starting at 6s)
+
+**Segments generated:**
+1. Segment 0-6s: Track 1 clip (source 0-6s)
+2. Segment 6-11s: Track 2 clip (source 0-5s) ← **highest track wins**
+
+**Export result:** Track 1 plays 0-6s, then Track 2 plays 6-11s (total 11s) ✓
+
+**Build Status:**
+- ✅ Rust backend builds (7.83s, warnings only)
+- ✅ Frontend builds (2.70s, 492.73 KB bundle)
+
 ---
 
 ### PR-POST-MVP-006: Fix Playhead Not Moving During Preview Playback
