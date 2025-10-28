@@ -4,6 +4,7 @@ import RecordingPanel from './components/RecordingPanel';
 import Timeline from './components/Timeline';
 import PreviewPlayer from './components/PreviewPlayer';
 import PlaybackControls from './components/PlaybackControls';
+import ExportDialog from './components/ExportDialog';
 import { TimelineProvider, useTimeline } from './store/timelineStore.jsx';
 import { DragProvider } from './store/dragStore.jsx';
 import { PlaybackEngine, calculateTimelineDuration } from './utils/playback';
@@ -14,6 +15,7 @@ import { PlaybackEngine, calculateTimelineDuration } from './utils/playback';
 function AppContent() {
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [activeTab, setActiveTab] = useState('library'); // 'library' or 'record'
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const { playheadTime, clips, isPlaying, setPlayheadTime, setPlaybackState } = useTimeline();
   const playbackEngineRef = useRef(null);
 
@@ -27,6 +29,14 @@ function AppContent() {
     // Switch to library tab to show the imported recording
     setActiveTab('library');
     // The MediaLibrary component will auto-refresh via its useEffect
+  };
+
+  const handleExportClick = () => {
+    setExportDialogOpen(true);
+  };
+
+  const handleExportDialogClose = () => {
+    setExportDialogOpen(false);
   };
 
   // Initialize playback engine
@@ -123,11 +133,17 @@ function AppContent() {
 
           {/* Timeline Area */}
           <div className="flex flex-col">
-            <Timeline />
+            <Timeline onExportClick={handleExportClick} />
             <PlaybackControls />
           </div>
         </div>
       </div>
+
+      {/* Export Dialog */}
+      <ExportDialog
+        isOpen={exportDialogOpen}
+        onClose={handleExportDialogClose}
+      />
     </div>
   );
 }

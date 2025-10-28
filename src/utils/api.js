@@ -114,3 +114,13 @@ export async function saveRecording(blob, filename) {
 export async function importRecording(filePath) {
   return await invoke('import_recording', { filePath });
 }
+
+/**
+ * Export timeline to video file
+ * @param {Array} clips - Array of clip data objects
+ * @param {Object} settings - Export settings (resolution, output_path)
+ * @returns {Promise<string>} - Path to exported file
+ */
+export async function exportTimeline(clips, settings) {
+  return await invoke('export_timeline', { clips, settings });
+}
