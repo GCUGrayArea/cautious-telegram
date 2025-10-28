@@ -4106,6 +4106,12 @@ The `export_timeline()` method (lines 37-72) detects temporal overlaps between c
 - ✅ Rust backend builds (7.83s, warnings only)
 - ✅ Frontend builds (2.70s, 492.73 KB bundle)
 
+**VERIFICATION (Blue - 2025-10-28):**
+User confirmed fix works correctly with overlapping clips. Export now properly handles:
+- Track 1 (0-7s) overlapped by Track 2 (6-11s)
+- Result: 11s total duration (Track 1 plays 0-6s, Track 2 overrides 6-11s)
+- Export matches preview exactly ✓
+
 ---
 
 ### PR-POST-MVP-006: Fix Playhead Not Moving During Preview Playback
