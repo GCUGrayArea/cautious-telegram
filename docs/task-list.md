@@ -1984,7 +1984,7 @@ ffmpeg -f concat -safe 0 -i concat_list.txt \
 ---
 
 ### PR-020: Export Dialog and Progress Indicator
-**Status:** Planning
+**Status:** In Progress
 **Agent:** Orange
 **Dependencies:** PR-019 ✅
 **Priority:** High
