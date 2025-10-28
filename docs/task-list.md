@@ -3675,8 +3675,8 @@ Change Timeline.jsx line 465 from `height: '250px'` to either:
 ---
 
 ### PR-POST-MVP-002: Fix Zero-Length Recorded Clips
-**Status:** New
-**Agent:** (unassigned)
+**Status:** Planning
+**Agent:** White
 **Dependencies:** None
 **Priority:** High (blocks recording workflow)
 
