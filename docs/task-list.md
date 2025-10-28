@@ -1700,7 +1700,7 @@ Checked all In Progress and Suspended PRs:
 ---
 
 ### PR-014: Timeline Scrubbing and Navigation
-**Status:** In Progress
+**Status:** Complete
 **Agent:** White
 **Dependencies:** PR-013 ✅
 **Priority:** Medium
@@ -1730,7 +1730,7 @@ Frame-by-frame navigation: calculate frame duration (1/fps), move playhead by th
 ## Block 6: Screen and Webcam Recording (Depends on: Block 1)
 
 ### PR-015: Screen Recording Implementation (Tauri Backend)
-**Status:** In Progress
+**Status:** Complete
 **Agent:** Pink
 **Dependencies:** PR-001 ✅, PR-003 ✅
 **Priority:** High
