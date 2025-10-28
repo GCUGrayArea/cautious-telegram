@@ -3817,8 +3817,8 @@ Use FFmpeg to remux WebM files before import: `ffmpeg -i input.webm -c copy outp
 ---
 
 ### PR-POST-MVP-003: Add Recording Preview (Picture-in-Picture)
-**Status:** Blocked-Ready
-**Agent:** Blue
+**Status:** In Progress
+**Agent:** White
 **Dependencies:** None (recommended after PR-POST-MVP-002 and PR-POST-MVP-004)
 **Priority:** Medium (UX enhancement)
 
