@@ -1700,7 +1700,7 @@ Checked all In Progress and Suspended PRs:
 ---
 
 ### PR-014: Timeline Scrubbing and Navigation
-**Status:** Planning
+**Status:** In Progress
 **Agent:** White
 **Dependencies:** PR-013 ✅
 **Priority:** Medium
@@ -2196,3 +2196,28 @@ This is typically a 60-90 minute task. The agent should:
 - Frontend build: ✅ Successful (466.78 KB, gzipped: 144.94 kB)
 
 **Completion:** All acceptance criteria met (6/6). Ready for user testing and commit approval.
+
+**Planning Notes (White):**
+
+**Current State Analysis:**
+- ✅ Playhead dragging already implemented in Playhead.jsx (lines 24-39)
+- ✅ Click-to-jump already implemented in TimeRuler.jsx (lines 14-20)
+- ❌ Keyboard navigation missing (arrow keys, Home, End)
+- Preview updates via playheadTime in store (already working)
+
+**Implementation Approach:**
+- Only need to add keyboard navigation to Timeline.jsx keyboard handler
+- Arrow keys: Calculate frame duration (1/30fps = ~0.033s as default)
+- Home/End: Jump to 0 or max timeline duration
+
+**Files to Modify:**
+- src/components/Timeline.jsx - Add ArrowLeft, ArrowRight, Home, End handlers to existing handleKeyDown
+
+**Acceptance Criteria Mapping:**
+- ✅ Drag playhead (already works via Playhead.jsx draggable)
+- ✅ Click ruler to jump (already works via TimeRuler onTimeClick)
+- ❌ Arrow keys frame-by-frame (needs implementation)
+- ❌ Home/End navigation (needs implementation)  
+- ✅ Preview updates (already works via playheadTime store sync)
+- ✅ Smooth and responsive (Konva provides 60fps rendering)
+
