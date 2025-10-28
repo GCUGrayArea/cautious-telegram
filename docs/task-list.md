@@ -1315,8 +1315,9 @@ Create video preview player using HTML5 video element. Display frame at playhead
 ---
 
 ### PR-013: Timeline Playback Controls
-**Status:** New
-**Dependencies:** PR-012
+**Status:** Planning
+**Agent:** Orange
+**Dependencies:** PR-012 ✅
 **Priority:** High
 
 **Description:**
