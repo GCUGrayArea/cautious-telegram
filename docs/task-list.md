@@ -2221,3 +2221,30 @@ This is typically a 60-90 minute task. The agent should:
 - ✅ Preview updates (already works via playheadTime store sync)
 - ✅ Smooth and responsive (Konva provides 60fps rendering)
 
+
+**Implementation Summary (White):**
+
+**Files Modified:**
+- src/components/Timeline.jsx (lines 158-207) - Added keyboard navigation handlers
+
+**Changes Made:**
+1. Added ArrowLeft/ArrowRight handlers for frame-by-frame navigation (1/30s increments)
+2. Added Home key handler to jump playhead to timeline start (time 0)
+3. Added End key handler to jump playhead to end of timeline (max clip end time)
+4. Improved input field detection to prevent keyboard shortcuts while typing
+5. Added currentTime to useEffect dependencies for proper state updates
+
+**Acceptance Criteria:**
+- ✅ User can drag playhead to any position (already implemented in Playhead.jsx)
+- ✅ Click timeline ruler to jump playhead (already implemented in TimeRuler.jsx)
+- ✅ Arrow keys move playhead frame-by-frame (NEW: ~0.033s per frame at 30fps)
+- ✅ Home key jumps to timeline start (NEW: sets time to 0)
+- ✅ End key jumps to timeline end (NEW: calculates max clip end time)
+- ✅ Preview updates immediately (works via playheadTime store sync)
+- ✅ Scrubbing is smooth and responsive (Konva 60fps + React state)
+
+**Testing:**
+- Build successful: 472.75 KB bundle (gzipped: 146.60 kB)
+- No compilation errors
+- All keyboard shortcuts properly guard against input field typing
+
