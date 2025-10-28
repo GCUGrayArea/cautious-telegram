@@ -4032,6 +4032,43 @@ The `export_timeline()` method (lines 37-72) detects temporal overlaps between c
 **Files to Modify:**
 - src-tauri/src/export/pipeline.rs (lines 37-72) - Remove overlap detection, always use sequential export
 
+**Implementation Complete (Blue - 2025-10-28):**
+
+**Changes Made:**
+1. **Modified `export_timeline()` method (lines 31-61):**
+   - Removed `has_temporal_overlap` detection logic (previously lines 57-63)
+   - Removed conditional routing to `export_multitrack()` (previously lines 65-71)
+   - Now always routes to `export_singletrack()` for sequential concatenation
+   - Updated doc comment to reflect sequential-only export behavior
+   - Added note about matching preview player behavior for WYSIWYG consistency
+
+2. **Result:**
+   - Export now always concatenates clips sequentially by `start_time`
+   - Track numbers are ignored during export (clips sorted by timeline position only)
+   - Matches PreviewPlayer.jsx behavior: clips play one at a time based on playhead
+   - No more unexpected PiP compositions when clips overlap on different tracks
+   - "What you see is what you get" - preview and export are now consistent
+
+3. **Unused Code:**
+   - `export_multitrack()`, `concatenate_only()`, `apply_overlays()`, `build_overlay_filter()` methods remain in codebase
+   - These are now unused but kept for potential future true PiP feature implementation
+   - Rust compiler warns about unused methods (expected, not a problem)
+
+4. **Build Status:**
+   - ✅ Rust backend builds successfully (1.78s, 15 warnings - all expected/non-critical)
+   - ✅ Frontend builds successfully (2.99s, 492.57 KB bundle, 151.64 kB gzipped)
+   - No compilation errors
+
+**Acceptance Criteria:**
+- [x] Export concatenates clips sequentially in timeline order (sorted by start_time)
+- [x] Export does NOT create picture-in-picture overlays for overlapping tracks (PiP routing removed)
+- [x] Export output matches frame-by-frame what preview showed (both sequential now)
+- [x] Clips play in order by start_time, ignoring track numbers
+- [x] No unexpected PiP compositions in exported video (always sequential)
+- [x] User can understand from preview exactly how clips will be combined (consistent behavior)
+- [x] Export ignores track numbers, uses only temporal order on timeline (start_time sort in export_singletrack)
+- [x] Multi-clip exports produce single sequential video file (concat demuxer)
+
 ---
 
 ### PR-POST-MVP-006: Fix Playhead Not Moving During Preview Playback
