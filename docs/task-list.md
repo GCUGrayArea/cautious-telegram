@@ -4006,8 +4006,8 @@ Prevent tab switching during recording:
 ---
 
 ### PR-POST-MVP-005: Fix Export to Match Preview (Sequential Playback)
-**Status:** Complete
-**Agent:** Blue
+**Status:** Reverted
+**Agent:** Blue (original implementation), White (reversion)
 **Dependencies:** None
 **Priority:** Medium (functional correctness)
 
@@ -4152,6 +4152,22 @@ User confirmed fix works correctly with overlapping clips. Export now properly h
 - Track 1 (0-7s) overlapped by Track 2 (6-11s)
 - Result: 11s total duration (Track 1 plays 0-6s, Track 2 overrides 6-11s)
 - Export matches preview exactly ✓
+
+**REVERSION (White - 2025-10-28):**
+User requested reversion to restore original PiP (picture-in-picture) behavior needed for screen + webcam recordings. The sequential/topmost-clip export logic was removed in favor of the original multi-track overlay approach.
+
+**Reason for Reversion:**
+The simultaneous screen + webcam recording feature (from earlier PRs) creates clips on separate tracks that overlap in time. The original export behavior (PR-023) properly handles this by compositing them as PiP overlays. PR-POST-MVP-005's changes broke this by forcing sequential playback instead.
+
+**Restored Behavior:**
+- `has_temporal_overlap` detection restored
+- Routing to `export_multitrack()` for overlapping clips restored
+- PiP composition via FFmpeg overlay filter restored
+- Screen + webcam recordings will now export correctly as overlays
+
+**Build Status:** ✅ Rust builds successfully (0.50s, warnings only)
+
+**Note:** Export now differs from preview again (preview shows one clip at a time, export shows PiP for overlapping tracks). This is intentional to support the screen + webcam use case.
 
 ---
 

@@ -32,12 +32,8 @@ impl ExportPipeline {
     ///
     /// Process:
     /// 1. Validate clips and sort by timeline position
-    /// 2. Concatenate all clips sequentially (matches preview behavior)
-    ///
-    /// Note: This always exports clips sequentially, ignoring track numbers.
-    /// This matches the preview player behavior where clips play one at a time
-    /// based on playhead position. Multi-track PiP export is disabled to achieve
-    /// "what you see is what you get" consistency.
+    /// 2. Detect if multi-track (any clips on track 1+)
+    /// 3. Route to single-track or multi-track export
     pub fn export_timeline(
         &self,
         clips: Vec<ClipData>,
@@ -55,30 +51,46 @@ impl ExportPipeline {
             }
         }
 
-        // Always use sequential export to match preview behavior
-        // Clips are sorted by start_time, ignoring track numbers
-        self.export_singletrack(clips, settings)
+        // Check if clips actually overlap in time (not just on different tracks)
+        // Overlapping = same time range, different tracks (Picture-in-Picture)
+        // Non-overlapping = sequential clips, even if on different tracks
+        let has_temporal_overlap = clips.iter().any(|clip1| {
+            clips.iter().any(|clip2| {
+                clip1.track != clip2.track && // Different tracks
+                !(clip1.start_time + (clip1.out_point - clip1.in_point) <= clip2.start_time || // clip1 ends before clip2 starts
+                  clip2.start_time + (clip2.out_point - clip2.in_point) <= clip1.start_time)   // clip2 ends before clip1 starts
+            })
+        });
+
+        if has_temporal_overlap {
+            // Multi-track export with overlays (Picture-in-Picture)
+            self.export_multitrack(clips, settings)
+        } else {
+            // Single-track export - concatenate all clips sequentially
+            self.export_singletrack(clips, settings)
+        }
     }
 
-    /// Export single track - builds timeline segments matching preview behavior
-    ///
-    /// The preview shows the topmost (highest track number) clip at each point in time.
-    /// This function builds a list of visible segments that matches that behavior.
+    /// Export single track (track 0 only) - original implementation
     fn export_singletrack(
         &self,
         clips: Vec<ClipData>,
         settings: ExportSettings,
     ) -> Result<String, String> {
-        // Build visible segments (matching preview logic)
-        let segments = self.build_visible_segments(&clips)?;
+        // Sort clips by timeline position
+        let mut sorted_clips = clips;
+        sorted_clips.sort_by(|a, b| {
+            a.start_time.partial_cmp(&b.start_time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Create temp directory for intermediate files
         let temp_dir = std::env::temp_dir().join("clipforge_export");
         std::fs::create_dir_all(&temp_dir)
             .map_err(|e| format!("Failed to create temp directory: {}", e))?;
 
-        // Phase 1: Trim segments to intermediate files
-        let intermediate_files = self.trim_segments(&segments, &temp_dir)?;
+        // Phase 1: Trim clips to intermediate files
+        let intermediate_files = self.trim_clips(&sorted_clips, &temp_dir)?;
 
         // Phase 2: Concatenate and re-encode
         let result = self.concatenate_and_encode(&intermediate_files, &settings);
@@ -90,108 +102,6 @@ impl ExportPipeline {
         let _ = std::fs::remove_dir(&temp_dir);
 
         result
-    }
-
-    /// Build visible segments matching preview behavior
-    /// Returns segments in chronological order, where each segment represents
-    /// a contiguous time range showing a single clip (the topmost/highest track)
-    fn build_visible_segments(&self, clips: &[ClipData]) -> Result<Vec<ClipData>, String> {
-        if clips.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        // Collect all timeline events (clip start/end times)
-        let mut events = Vec::new();
-        for clip in clips {
-            let clip_end = clip.start_time + (clip.out_point - clip.in_point);
-            events.push((clip.start_time, true, clip)); // Start event
-            events.push((clip_end, false, clip));        // End event
-        }
-
-        // Sort events by time
-        events.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-
-        let mut segments = Vec::new();
-        let mut active_clips: Vec<&ClipData> = Vec::new();
-        let mut current_time = 0.0;
-
-        for (event_time, is_start, clip) in events {
-            // If time advanced and we have active clips, create segment for previous interval
-            if event_time > current_time && !active_clips.is_empty() {
-                // Find topmost clip (highest track number)
-                let topmost = active_clips.iter()
-                    .max_by_key(|c| c.track)
-                    .unwrap();
-
-                // Calculate source time range for this segment
-                let segment_start = current_time;
-                let segment_end = event_time;
-                let segment_duration = segment_end - segment_start;
-
-                // How far into the clip's timeline position are we?
-                let offset_in_clip = segment_start - topmost.start_time;
-                let source_start = topmost.in_point + offset_in_clip;
-                let source_end = source_start + segment_duration;
-
-                // Create segment
-                segments.push(ClipData {
-                    id: topmost.id,
-                    path: topmost.path.clone(),
-                    in_point: source_start,
-                    out_point: source_end,
-                    start_time: segment_start, // Timeline position
-                    track: topmost.track,
-                });
-            }
-
-            // Update active clips
-            if is_start {
-                active_clips.push(clip);
-            } else {
-                active_clips.retain(|c| c.id != clip.id);
-            }
-
-            current_time = event_time;
-        }
-
-        Ok(segments)
-    }
-
-    /// Trim segments to create intermediate files
-    fn trim_segments(
-        &self,
-        segments: &[ClipData],
-        temp_dir: &Path,
-    ) -> Result<Vec<PathBuf>, String> {
-        let ffmpeg = self.ffmpeg.lock()
-            .map_err(|e| format!("Failed to lock FFmpeg: {}", e))?;
-
-        let mut intermediate_files = Vec::new();
-
-        for (index, segment) in segments.iter().enumerate() {
-            let duration = segment.out_point - segment.in_point;
-
-            if duration <= 0.0 {
-                return Err(format!("Segment {} has invalid duration", index));
-            }
-
-            // Create intermediate file path
-            let intermediate_path = temp_dir.join(format!("segment_{}_trimmed.mp4", index));
-            let path_str = intermediate_path.to_str()
-                .ok_or_else(|| "Failed to convert path to string (invalid UTF-8)".to_string())?;
-
-            // Trim segment using FFmpeg
-            ffmpeg.trim_video(
-                &segment.path,
-                path_str,
-                segment.in_point,
-                segment.out_point,
-            )?;
-
-            intermediate_files.push(intermediate_path);
-        }
-
-        Ok(intermediate_files)
     }
 
     /// Trim each clip to create intermediate files
