@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Group, Rect, Text, Image } from 'react-konva';
-import { timeToPixels, getTrackY, TIMELINE_CONFIG } from '../../utils/timeline';
+import {
+  timeToPixels,
+  getTrackY,
+  TIMELINE_CONFIG,
+  pixelsToTime,
+  getClipSnapPoints,
+  snapToPoints,
+  getTrackIndexFromY
+} from '../../utils/timeline';
 import { getAssetUrl } from '../../utils/api';
 
 /**
@@ -77,10 +85,6 @@ function TimelineClip({ clip, selected, onClick, onDragEnd, pixelsPerSecond, scr
 
   // Drag bound function - constrains and snaps drag position
   const handleDragBound = (pos) => {
-    // Import snap utilities
-    const { pixelsToTime, getClipSnapPoints, snapToPoints, getTrackIndexFromY } =
-      require('../../utils/timeline');
-
     // Constrain horizontal: Don't allow dragging before timeline start
     const minX = -scrollX;
     const constrainedX = Math.max(minX, pos.x);
@@ -102,15 +106,35 @@ function TimelineClip({ clip, selected, onClick, onDragEnd, pixelsPerSecond, scr
     };
   };
 
+  // Handle drag start
+  const handleDragStart = (e) => {
+    console.log('🎬 [TimelineClip] Drag started for clip:', clip.id);
+  };
+
+  // Handle drag move
+  const handleDragMove = (e) => {
+    console.log('🎬 [TimelineClip] Dragging clip:', clip.id, 'to', e.target.x(), e.target.y());
+  };
+
   return (
     <Group
       x={clipX}
       y={clipY + 2} // 2px top padding
       draggable={true}
       dragBoundFunc={handleDragBound}
+      onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
       onClick={handleClick}
       onTap={handleClick}
+      onMouseEnter={(e) => {
+        const container = e.target.getStage().container();
+        container.style.cursor = 'grab';
+      }}
+      onMouseLeave={(e) => {
+        const container = e.target.getStage().container();
+        container.style.cursor = 'default';
+      }}
     >
       {/* Clip background */}
       <Rect

@@ -141,6 +141,7 @@ function Timeline() {
 
   // Handle custom drop
   const handleMouseUp = (e) => {
+    console.log('⏱️ [Timeline] MouseUp - isDragging:', isExternalDragActive, 'draggedItem:', draggedItem);
     if (!isExternalDragActive || !draggedItem) return;
 
     const rect = containerRef.current.getBoundingClientRect();
@@ -155,6 +156,8 @@ function Timeline() {
     const snappedTime = pixelsToTime(snappedX, pixelsPerSecond);
 
     const validTrackIndex = Math.max(0, Math.min(trackIndex === -1 ? 0 : trackIndex, numTracks - 1));
+
+    console.log('⏱️ [Timeline] MouseUp - Adding clip at time:', snappedTime, 'track:', validTrackIndex);
 
     // Add clip to timeline
     addClip({
