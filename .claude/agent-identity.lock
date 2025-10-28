@@ -12,7 +12,7 @@ This file tracks which agent identities are currently in use. Agents must claim 
 | Orange   | In Use | 2025-10-27 | PR-020 |
 | Blonde   | Available | - | - |
 | Pink     | Available | - | - |
-| Blue     | In Use | 2025-10-27 | Claiming for new session |
+| Blue     | Available | - | - |
 | Brown    | Available | - | - |
 
 ## Special Identities
