@@ -1962,18 +1962,20 @@ FFmpeg overlay filter syntax: `[0:v][1:v]overlay=x:y[out]`. Calculate positions 
 ## Block 8: Testing and Quality Assurance (Depends on: Block 7)
 
 ### PR-022: Unit Tests for Core Utilities
-**Status:** New
-**Dependencies:** PR-006, PR-010
+**Status:** In Progress
+**Agent:** Blonde
+**Dependencies:** PR-006 ✅, PR-010 ✅
 **Priority:** Medium
 
 **Description:**
 Write unit tests for timeline utilities, time conversion functions, snap logic, trim calculations, and playback logic.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src/utils/timeline.test.js (create) - Timeline utility tests
-- src/utils/playback.test.js (create) - Playback utility tests
-- package.json (modify) - Add Vitest or Jest test framework
-- vitest.config.js (create) - Test configuration
+**Files (IN PROGRESS by Blonde):**
+- src/utils/timeline.test.js (create) - Timeline utility tests (21 test cases)
+- src/utils/playback.test.js (create) - Playback utility tests (8 test cases)
+- package.json (modify) - Add vitest, @vitest/ui, and jsdom
+- vitest.config.js (create) - Vitest configuration with coverage
+- .gitignore (modify) - Add coverage/ directory
 
 **Acceptance Criteria:**
 - [ ] Tests for time-to-pixel conversion functions
@@ -1983,8 +1985,31 @@ Write unit tests for timeline utilities, time conversion functions, snap logic, 
 - [ ] All tests pass
 - [ ] Test coverage at least 70% for utility files
 
+**Implementation Notes (Blonde):**
+
+**Test Framework:** Vitest (fast, modern, Vite-native)
+- Dependencies: vitest, @vitest/ui, jsdom for DOM environment
+- NPM scripts: test, test:ui, test:coverage
+- Coverage: c8 built-in coverage reporting
+
+**Timeline.js Tests (21 cases):**
+- Time conversion: timeToPixels, pixelsToTime (with default and custom zoom)
+- Time formatting: formatTime (MM:SS and HH:MM:SS)
+- Snapping: snapToPoints (within/outside threshold), getClipSnapPoints
+- Track calculations: getTrackIndexFromY, getTrackY
+- Zoom: applyZoom (in/out/clamp to min/max)
+- Clip operations: clipsOverlap, splitClipAtTime (valid/invalid splits)
+- Ruler: calculateRulerTicks (not implemented yet - optional)
+
+**Playback.js Tests (8 cases):**
+- PlaybackEngine: start, pause, stop, seek
+- Animation: animate loop with mocked requestAnimationFrame
+- Duration: calculateTimelineDuration
+
+**No File Conflicts:** Creating new test files only, modifying package.json (low risk)
+
 **Notes:**
-Use Vitest for Vite-based projects (fast, modern).
+Using Vitest for Vite-based projects (fast, modern).
 
 ---
 
