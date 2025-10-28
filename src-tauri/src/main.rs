@@ -6,6 +6,9 @@ mod database;
 mod ffmpeg;
 mod export;
 
+#[cfg(test)]
+mod tests;
+
 use database::Database;
 use ffmpeg::commands::FFmpegState;
 use std::sync::Arc;

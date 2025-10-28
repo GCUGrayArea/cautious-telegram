@@ -41,4 +41,25 @@ impl Database {
         let clipforge_dir = app_data_dir.join("ClipForge");
         Ok(clipforge_dir.join("clipforge.db"))
     }
+
+    /// Create an in-memory database for testing
+    #[cfg(test)]
+    pub fn new_in_memory() -> Result<Self> {
+        let conn = Connection::open_in_memory()?;
+
+        // Enable foreign keys
+        conn.execute("PRAGMA foreign_keys = ON", [])?;
+
+        // Initialize schema
+        schema::initialize_schema(&conn)?;
+
+        Ok(Database {
+            conn: Mutex::new(conn),
+        })
+    }
+
+    /// Get the connection (for testing and operations)
+    pub fn get_connection(&self) -> std::sync::MutexGuard<Connection> {
+        self.conn.lock().unwrap()
+    }
 }
