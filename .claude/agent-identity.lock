@@ -12,7 +12,7 @@ This file tracks which agent identities are currently in use. Agents must claim 
 | Orange   | In Use | 2025-10-28 | PR-POST-MVP-001 |
 | Blonde   | In Use | 2025-10-28 | PR-POST-MVP-004 |
 | Pink     | In Use | 2025-10-28 | PR-POST-MVP-006 |
-| Blue     | In Use | 2025-10-28 | (selecting PR) |
+| Blue     | In Use | 2025-10-28 | PR-POST-MVP-003 |
 | Brown    | Available | - | - |
 
 ## Special Identities
