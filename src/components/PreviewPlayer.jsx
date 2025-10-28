@@ -117,7 +117,6 @@ function PreviewPlayer({ currentTime }) {
                 ref={(el) => {
                   if (el) videoRefsRef.current[clip.id] = el;
                 }}
-                className={isBaseLayer ? 'max-w-full max-h-full' : ''}
                 onError={handleVideoError}
                 onLoadedData={handleVideoLoad}
                 preload="metadata"

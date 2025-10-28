@@ -1,12 +1,23 @@
 // FFmpeg wrapper for executing FFmpeg and FFprobe commands
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::{Arc, Mutex};
+use serde::{Deserialize, Serialize};
 
 use super::metadata::VideoMetadata;
+
+/// Progress tracking for export operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportProgress {
+    pub percentage: f64,          // 0.0 to 100.0
+    pub current_operation: String, // "Trimming clips", "Encoding video", etc.
+    pub eta_seconds: Option<u64>,  // Estimated time remaining
+}
 
 pub struct FFmpegWrapper {
     ffmpeg_path: PathBuf,
     ffprobe_path: PathBuf,
+    progress: Arc<Mutex<ExportProgress>>,
 }
 
 impl FFmpegWrapper {
@@ -21,7 +32,37 @@ impl FFmpegWrapper {
         Ok(Self {
             ffmpeg_path,
             ffprobe_path,
+            progress: Arc::new(Mutex::new(ExportProgress {
+                percentage: 0.0,
+                current_operation: "Ready".to_string(),
+                eta_seconds: None,
+            })),
         })
+    }
+
+    /// Get current export progress
+    pub fn get_progress(&self) -> ExportProgress {
+        self.progress.lock()
+            .map(|p| p.clone())
+            .unwrap_or(ExportProgress {
+                percentage: 0.0,
+                current_operation: "Unknown".to_string(),
+                eta_seconds: None,
+            })
+    }
+
+    /// Update export progress (internal use)
+    pub fn set_progress(&self, percentage: f64, operation: String, eta: Option<u64>) {
+        if let Ok(mut progress) = self.progress.lock() {
+            progress.percentage = percentage;
+            progress.current_operation = operation;
+            progress.eta_seconds = eta;
+        }
+    }
+
+    /// Reset progress to initial state
+    pub fn reset_progress(&self) {
+        self.set_progress(0.0, "Ready".to_string(), None);
     }
 
     /// Resolve binary path for FFmpeg or FFprobe

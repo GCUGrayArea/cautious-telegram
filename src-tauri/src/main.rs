@@ -45,6 +45,7 @@ fn main() {
             commands::recording::save_recording,
             commands::recording::import_recording,
             commands::export::export_timeline,
+            commands::export::get_export_progress,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

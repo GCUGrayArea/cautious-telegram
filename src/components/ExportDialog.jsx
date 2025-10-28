@@ -8,10 +8,10 @@
  * - Export progress indication
  * - Success/error messaging
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { save } from '@tauri-apps/api/dialog';
 import { useTimeline } from '../store/timelineStore';
-import { exportTimeline } from '../utils/api';
+import { exportTimeline, getExportProgress } from '../utils/api';
 
 export default function ExportDialog({ isOpen, onClose }) {
   const { clips } = useTimeline();
@@ -22,6 +22,10 @@ export default function ExportDialog({ isOpen, onClose }) {
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [progress, setProgress] = useState({ percentage: 0, current_operation: 'Ready', eta_seconds: null });
+
+  // Ref for progress polling interval
+  const progressIntervalRef = useRef(null);
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -31,8 +35,37 @@ export default function ExportDialog({ isOpen, onClose }) {
       setError(null);
       setSuccess(false);
       setIsExporting(false);
+      setProgress({ percentage: 0, current_operation: 'Ready', eta_seconds: null });
     }
   }, [isOpen]);
+
+  // Poll for export progress when exporting
+  useEffect(() => {
+    if (isExporting) {
+      // Poll progress every 500ms
+      progressIntervalRef.current = setInterval(async () => {
+        try {
+          const currentProgress = await getExportProgress();
+          setProgress(currentProgress);
+        } catch (err) {
+          console.error('Failed to get export progress:', err);
+        }
+      }, 500);
+    } else {
+      // Clear interval when not exporting
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+    };
+  }, [isExporting]);
 
   // Auto-close dialog after successful export
   useEffect(() => {
@@ -223,12 +256,31 @@ export default function ExportDialog({ isOpen, onClose }) {
           {/* Progress Indicator */}
           {isExporting && (
             <div className="bg-blue-900 bg-opacity-30 border border-blue-700 rounded px-4 py-3">
-              <div className="flex items-center gap-3">
-                <div className="spinner-border animate-spin inline-block w-5 h-5 border-3 border-blue-500 border-t-transparent rounded-full"></div>
+              <div className="space-y-3">
+                {/* Progress bar */}
                 <div>
-                  <p className="text-blue-200 font-medium">Exporting video...</p>
-                  <p className="text-blue-300 text-sm">This may take a few minutes depending on timeline length</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-blue-200 font-medium">{progress.current_operation}</p>
+                    <p className="text-blue-300 text-sm font-mono">{Math.round(progress.percentage)}%</p>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-2.5">
+                    <div
+                      className="bg-blue-500 h-2.5 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${Math.min(progress.percentage, 100)}%` }}
+                    ></div>
+                  </div>
                 </div>
+                {/* ETA if available */}
+                {progress.eta_seconds && progress.eta_seconds > 0 && (
+                  <p className="text-blue-300 text-sm">
+                    Estimated time remaining: {Math.ceil(progress.eta_seconds)}s
+                  </p>
+                )}
+                {!progress.eta_seconds && (
+                  <p className="text-blue-300 text-sm">
+                    This may take a few minutes depending on timeline length
+                  </p>
+                )}
               </div>
             </div>
           )}

@@ -4,6 +4,7 @@ use tauri::State;
 use crate::export::{ExportPipeline, ExportSettings};
 use crate::export::pipeline::ClipData;
 use crate::ffmpeg::commands::FFmpegState;
+use crate::ffmpeg::wrapper::ExportProgress;
 
 /// Tauri command to export timeline to video file
 ///
@@ -23,4 +24,16 @@ pub fn export_timeline(
 
     // Execute export (blocking operation)
     pipeline.export_timeline(clips, settings)
+}
+
+/// Tauri command to get current export progress
+///
+/// Frontend can poll this command to get real-time progress updates
+#[tauri::command]
+pub fn get_export_progress(ffmpeg_state: State<'_, FFmpegState>) -> Result<ExportProgress, String> {
+    // Get FFmpeg wrapper from state
+    let ffmpeg_wrapper = ffmpeg_state.get_wrapper()?;
+
+    // Get current progress
+    Ok(ffmpeg_wrapper.get_progress())
 }

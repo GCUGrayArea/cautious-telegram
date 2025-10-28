@@ -126,3 +126,11 @@ export async function importRecording(filePath, durationOverride = null) {
 export async function exportTimeline(clips, settings) {
   return await invoke('export_timeline', { clips, settings });
 }
+
+/**
+ * Get export progress
+ * @returns {Promise<{percentage: number, current_operation: string, eta_seconds: number|null}>}
+ */
+export async function getExportProgress() {
+  return await invoke('get_export_progress');
+}

@@ -39,6 +39,12 @@ impl ExportPipeline {
         clips: Vec<ClipData>,
         settings: ExportSettings,
     ) -> Result<String, String> {
+        // Reset progress at start
+        if let Ok(ffmpeg) = self.ffmpeg.lock() {
+            ffmpeg.reset_progress();
+            ffmpeg.set_progress(0.0, "Starting export...".to_string(), None);
+        }
+
         // Validate input
         if clips.is_empty() {
             return Err("No clips to export".to_string());
@@ -114,8 +120,17 @@ impl ExportPipeline {
             .map_err(|e| format!("Failed to lock FFmpeg: {}", e))?;
 
         let mut intermediate_files = Vec::new();
+        let total_clips = clips.len();
 
         for (index, clip) in clips.iter().enumerate() {
+            // Update progress: trimming phase is 0-40% of total export
+            let trim_progress = (index as f64 / total_clips as f64) * 40.0;
+            ffmpeg.set_progress(
+                trim_progress,
+                format!("Trimming clip {} of {}...", index + 1, total_clips),
+                None
+            );
+
             let duration = clip.out_point - clip.in_point;
 
             if duration <= 0.0 {
@@ -153,6 +168,9 @@ impl ExportPipeline {
 
         let ffmpeg = self.ffmpeg.lock()
             .map_err(|e| format!("Failed to lock FFmpeg: {}", e))?;
+
+        // Update progress: concatenation starts at 40%
+        ffmpeg.set_progress(40.0, "Concatenating clips...".to_string(), None);
 
         // Create concat list file (escape single quotes in paths)
         let concat_list = intermediate_files
@@ -198,13 +216,22 @@ impl ExportPipeline {
             output_str,
         ]);
 
+        // Update progress: encoding starts at 50%
+        ffmpeg.set_progress(50.0, "Encoding video...".to_string(), None);
+
         // Execute FFmpeg
         let result = ffmpeg.execute_command(&args);
+
+        // Update progress: finalizing
+        ffmpeg.set_progress(95.0, "Finalizing...".to_string(), None);
 
         // Clean up concat list file
         let _ = std::fs::remove_file(&concat_file_path);
 
         result?;
+
+        // Complete!
+        ffmpeg.set_progress(100.0, "Complete!".to_string(), None);
         Ok(settings.output_path.clone())
     }
 
@@ -238,8 +265,14 @@ impl ExportPipeline {
             .map_err(|e| format!("Failed to create temp directory: {}", e))?;
 
         // Phase 1: Process track 0 (base) - trim and concatenate to single base video
+        // Progress: 0-30% for trimming base clips
         let track0_intermediates = self.trim_clips(&track0_clips, &temp_dir)?;
         let base_video_path = temp_dir.join("base_video.mp4");
+
+        // Update progress: concatenating base video
+        if let Ok(ffmpeg) = self.ffmpeg.lock() {
+            ffmpeg.set_progress(30.0, "Concatenating base track...".to_string(), None);
+        }
 
         // Concatenate track 0 clips into base video
         self.concatenate_only(&track0_intermediates, &base_video_path)?;
@@ -250,9 +283,17 @@ impl ExportPipeline {
         }
 
         // Phase 2: Trim overlay clips
+        // Progress: 40-60% for trimming overlay clips
+        if let Ok(ffmpeg) = self.ffmpeg.lock() {
+            ffmpeg.set_progress(40.0, "Processing overlay clips...".to_string(), None);
+        }
         let overlay_intermediates = self.trim_clips(&overlay_clips, &temp_dir)?;
 
         // Phase 3: Build overlay filter and execute FFmpeg
+        // Progress: 60-100% for applying overlays
+        if let Ok(ffmpeg) = self.ffmpeg.lock() {
+            ffmpeg.set_progress(60.0, "Applying overlays...".to_string(), None);
+        }
         let result = self.apply_overlays(
             &base_video_path,
             &overlay_intermediates,
@@ -377,7 +418,13 @@ impl ExportPipeline {
         // Convert Vec<String> to Vec<&str> for execute_command
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
+        // Update progress: encoding with overlays
+        ffmpeg.set_progress(80.0, "Encoding with overlays...".to_string(), None);
+
         ffmpeg.execute_command(&args_refs)?;
+
+        // Complete!
+        ffmpeg.set_progress(100.0, "Complete!".to_string(), None);
         Ok(settings.output_path.clone())
     }
 
