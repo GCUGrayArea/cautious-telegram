@@ -4277,7 +4277,95 @@ The fix applies to all clip positions and video resolutions, not just the 0:00 e
 
 ---
 
-### PR-POST-MVP-008: Add Gold Film Camera Icon for App
+### PR-POST-MVP-008: Implement PiP Preview for Overlapping Clips (WYSIWYG)
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** None
+**Priority:** High (WYSIWYG consistency)
+
+**Description:**
+The timeline editor preview (PreviewPlayer) and recording preview currently show only one clip at a time. However, when clips overlap on different tracks (e.g., screen + webcam recordings), the export creates picture-in-picture compositions. This creates a "what you see is NOT what you get" problem - the preview doesn't match the export.
+
+After reverting PR-POST-MVP-005, export now correctly creates PiP overlays for overlapping clips (needed for screen + webcam recordings). The preview components need to be updated to match this behavior.
+
+**Root Cause:**
+1. **PreviewPlayer.jsx** (timeline editor preview): Uses `getClipAtTime()` which returns only the topmost clip at playhead position
+2. **RecordingPanel.jsx** (recording preview): No preview exists during recording (PR-POST-MVP-003 was for this but is incomplete)
+
+**Files:**
+- src/components/PreviewPlayer.jsx (modify) - Render multiple overlapping clips as PiP
+- src/utils/preview.js (modify) - Add function to get all active clips at time (not just topmost)
+- src/components/RecordingPanel.jsx (modify) - Add PiP preview during screen + webcam recording
+- src/index.css (modify) - Add PiP styling if needed
+
+**Acceptance Criteria:**
+- [ ] PreviewPlayer shows PiP overlay when clips overlap on different tracks
+- [ ] Lower track clips appear as base layer
+- [ ] Higher track clips appear as overlays on top
+- [ ] Overlay position and size configurable (default: bottom-right corner, 25% width)
+- [ ] Preview matches export output frame-by-frame for overlapping clips
+- [ ] RecordingPanel shows live PiP preview during screen + webcam recording
+- [ ] Preview updates in real-time as playhead moves through overlapping regions
+- [ ] No preview when clips don't overlap (single clip shown as before)
+- [ ] Performance: smooth playback with multiple video elements
+
+**Implementation Approach:**
+
+**Part 1: Timeline Editor Preview (PreviewPlayer.jsx)**
+1. Modify `src/utils/preview.js`:
+   - Add `getAllClipsAtTime(clips, time)` function
+   - Returns array of all clips active at given time, sorted by track (lowest first)
+
+2. Modify `PreviewPlayer.jsx`:
+   - Use `getAllClipsAtTime()` instead of `getClipAtTime()`
+   - Render multiple `<video>` elements when clips overlap
+   - Position lower track videos as base layer (full size)
+   - Position higher track videos as overlays (25% width, bottom-right by default)
+   - Use z-index to layer videos by track number
+   - Each video element needs separate ref and playback control
+
+3. CSS styling:
+   - Base layer: full width/height container
+   - Overlay: absolute positioning, configurable size/position
+   - Use similar styling to export overlay positioning
+
+**Part 2: Recording Preview (RecordingPanel.jsx)**
+1. During screen + webcam recording:
+   - Display webcam stream in PiP overlay
+   - Position in corner (configurable via state)
+   - Allow dragging to reposition (optional enhancement)
+
+2. Implementation:
+   - Add `<video>` elements for both streams during recording
+   - Attach `screenStreamRef.current` to base video
+   - Attach webcam stream to overlay video
+   - Show/hide based on recording mode
+
+**Technical Considerations:**
+- Multiple video elements: Each needs separate playback control and seeking
+- Synchronization: All videos must seek to same timeline position
+- Performance: Hardware acceleration should handle 2-3 video elements
+- Memory: Multiple video decoders active simultaneously
+- Z-index layering: Match track order (track 0 = bottom, track 1+ = overlays)
+
+**Testing:**
+1. Import screen + webcam recording to timeline
+2. Verify preview shows webcam overlay on screen base
+3. Scrub playhead through overlap region
+4. Verify both videos update correctly
+5. Export and compare to preview (should match frame-by-frame)
+6. Test with non-overlapping clips (should show single clip as before)
+
+**Future Enhancements:**
+- Configurable overlay position (corners: TL, TR, BL, BR)
+- Configurable overlay size (10%, 25%, 50%)
+- Overlay resize handles
+- Drag-to-reposition overlays
+- Save overlay preferences per recording
+
+---
+
+### PR-POST-MVP-009: Add Gold Film Camera Icon for App
 **Status:** New
 **Agent:** (unassigned)
 **Dependencies:** None
@@ -4347,22 +4435,25 @@ ClipForge currently uses default Tauri placeholder icons. Add a custom app icon 
 
 ## Summary
 
-**Total PRs:** 35 (27 original + 8 post-MVP bugfixes/enhancements)
-**Post-MVP Block:** 8 PRs (most independent, can run in parallel)
+**Total PRs:** 36 (27 original + 9 post-MVP bugfixes/enhancements)
+**Post-MVP Block:** 9 PRs (most independent, can run in parallel)
 
 **Post-MVP Status:**
 - **Complete:**
   - PR-POST-MVP-001: Track 3 Height Issue ✓
   - PR-POST-MVP-002: Zero-Length Recorded Clips ✓
   - PR-POST-MVP-004: Tab Switching Aborts Recording ✓
-  - PR-POST-MVP-005: Export vs Preview Mismatch ✓
   - PR-POST-MVP-006: Playhead Not Moving During Playback ✓
   - PR-POST-MVP-007: Video Preview Massive Growth at 0:00 ✓
 
-- **Remaining:**
+- **Reverted:**
+  - PR-POST-MVP-005: Export vs Preview Mismatch (reverted to restore PiP for screen+webcam)
+
+- **New:**
   - PR-POST-MVP-003: Recording Preview (PiP) - Blocked-Ready (waiting for White)
-  - PR-POST-MVP-008: Add Gold Film Camera Icon - New (low priority polish)
+  - PR-POST-MVP-008: Implement PiP Preview for Overlapping Clips - New (High priority, WYSIWYG)
+  - PR-POST-MVP-009: Add Gold Film Camera Icon - New (Low priority polish)
 
 **Parallel Opportunities:**
-All 7 post-MVP bugfix PRs are independent and can be worked on simultaneously by different agents. No file lock conflicts exist between these PRs.
+Most post-MVP PRs are independent. PR-POST-MVP-008 may have minor overlap with PR-POST-MVP-003 (both touch RecordingPanel.jsx) but can coordinate.
 
