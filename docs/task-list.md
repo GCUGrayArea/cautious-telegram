@@ -4363,6 +4363,28 @@ After reverting PR-POST-MVP-005, export now correctly creates PiP overlays for o
 - Drag-to-reposition overlays
 - Save overlay preferences per recording
 
+**Planning Notes (White - 2025-10-28):**
+**No File Conflicts:** PreviewPlayer.jsx is not locked by any other agent.
+
+**Implementation Plan:**
+1. **Modify PreviewPlayer.jsx** to handle multiple overlapping clips:
+   - Replace `getClipAtTime()` with `getAllClipsAtTime()`
+   - Render array of video elements instead of single video
+   - Base layer (track 0): full-size video in center
+   - Overlay layers (track 1+): smaller videos positioned in bottom-right corner
+   - Each video needs separate ref, source, and time synchronization
+   - Use z-index to stack videos by track number
+
+2. **Implementation details:**
+   - Use `getAllClipsAtTime()` which already exists in preview.js (lines 58-66)
+   - Create video elements for each active clip
+   - Position overlays at bottom-right with 25% width (matches export overlay positioning)
+   - All videos seek to correct source time based on playhead position
+   - Handle playback state for all videos simultaneously
+
+**Files to Modify:**
+- src/components/PreviewPlayer.jsx - Multi-video rendering with PiP overlay positioning
+
 ---
 
 ### PR-POST-MVP-009: Add Gold Film Camera Icon for App
