@@ -1700,7 +1700,8 @@ Checked all In Progress and Suspended PRs:
 ---
 
 ### PR-014: Timeline Scrubbing and Navigation
-**Status:** New
+**Status:** Planning
+**Agent:** White
 **Dependencies:** PR-013 ✅
 **Priority:** Medium
 
