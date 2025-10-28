@@ -108,7 +108,10 @@ function PreviewPlayer({ currentTime }) {
             onError={handleVideoError}
             onLoadedData={handleVideoLoad}
             preload="metadata"
-            style={{ display: videoError ? 'none' : 'block' }}
+            style={{
+              display: videoError ? 'none' : 'block',
+              objectFit: 'contain'
+            }}
           />
 
           {/* Error message */}
