@@ -32,8 +32,12 @@ impl ExportPipeline {
     ///
     /// Process:
     /// 1. Validate clips and sort by timeline position
-    /// 2. Detect if multi-track (any clips on track 1+)
-    /// 3. Route to single-track or multi-track export
+    /// 2. Concatenate all clips sequentially (matches preview behavior)
+    ///
+    /// Note: This always exports clips sequentially, ignoring track numbers.
+    /// This matches the preview player behavior where clips play one at a time
+    /// based on playhead position. Multi-track PiP export is disabled to achieve
+    /// "what you see is what you get" consistency.
     pub fn export_timeline(
         &self,
         clips: Vec<ClipData>,
@@ -51,24 +55,9 @@ impl ExportPipeline {
             }
         }
 
-        // Check if clips actually overlap in time (not just on different tracks)
-        // Overlapping = same time range, different tracks (Picture-in-Picture)
-        // Non-overlapping = sequential clips, even if on different tracks
-        let has_temporal_overlap = clips.iter().any(|clip1| {
-            clips.iter().any(|clip2| {
-                clip1.track != clip2.track && // Different tracks
-                !(clip1.start_time + (clip1.out_point - clip1.in_point) <= clip2.start_time || // clip1 ends before clip2 starts
-                  clip2.start_time + (clip2.out_point - clip2.in_point) <= clip1.start_time)   // clip2 ends before clip1 starts
-            })
-        });
-
-        if has_temporal_overlap {
-            // Multi-track export with overlays (Picture-in-Picture)
-            self.export_multitrack(clips, settings)
-        } else {
-            // Single-track export - concatenate all clips sequentially
-            self.export_singletrack(clips, settings)
-        }
+        // Always use sequential export to match preview behavior
+        // Clips are sorted by start_time, ignoring track numbers
+        self.export_singletrack(clips, settings)
     }
 
     /// Export single track (track 0 only) - original implementation
