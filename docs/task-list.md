@@ -4184,8 +4184,8 @@ All acceptance criteria met. The playhead now syncs bidirectionally with video p
 ---
 
 ### PR-POST-MVP-007: Fix Video Preview Massive Growth When Clip Starts at 0:00
-**Status:** New
-**Agent:** (unassigned)
+**Status:** Planning
+**Agent:** White
 **Dependencies:** None
 **Priority:** High (blocks timeline workflow)
 
