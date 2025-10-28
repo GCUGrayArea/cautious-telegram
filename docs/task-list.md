@@ -4140,16 +4140,67 @@ All acceptance criteria met. The playhead now syncs bidirectionally with video p
 
 ---
 
+### PR-POST-MVP-007: Fix Video Preview Massive Growth When Clip Starts at 0:00
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** None
+**Priority:** High (blocks timeline workflow)
+
+**Description:**
+When a clip is dragged on the timeline so that it starts at 0:00, the video preview immediately grows dramatically in size, making the timeline unusable. The preview expands to the point that even full screen on a 4K TV isn't big enough to see more than the top of the timeline.
+
+**Root Cause:**
+Unknown - needs investigation. Likely related to:
+- Video element sizing in PreviewPlayer.jsx (line 114: `className="max-w-full max-h-full"`)
+- Timeline canvas dimensions calculation when clip starts at 0:00
+- Possible CSS or layout issue triggered by specific clip positioning
+
+**Suspected Issues:**
+1. Video element may be ignoring max-width/max-height constraints when clip.startTime === 0
+2. Preview container may be calculating dimensions incorrectly
+3. Possible conflict between Tailwind CSS constraints and inline video dimensions
+4. Timeline Stage height calculation may be affected by clip position
+
+**Files:**
+- src/components/PreviewPlayer.jsx (investigate) - Video element sizing and container
+- src/components/Timeline.jsx (investigate) - Dimensions calculation
+- src/utils/preview.js (investigate) - Preview utility functions
+- src/index.css (investigate) - Global styles that may affect sizing
+
+**Acceptance Criteria:**
+- [ ] Clip starting at 0:00 does not cause preview to grow excessively
+- [ ] Video preview remains constrained within its container at all clip positions
+- [ ] Timeline remains fully visible regardless of clip position
+- [ ] Preview maintains aspect ratio without overflow
+- [ ] Fix works on various screen sizes (tested on 4K display)
+
+**Implementation Approach:**
+1. Reproduce the bug by dragging a clip to start at 0:00
+2. Inspect video element dimensions and CSS when bug occurs
+3. Check if video.videoWidth/videoHeight are being applied incorrectly
+4. Verify max-w-full and max-h-full are being respected
+5. Add explicit width/height constraints if Tailwind classes insufficient
+6. Test with clips of various resolutions
+
+**Debugging Steps:**
+1. Add console.log to track video dimensions when clip.startTime changes
+2. Check if PreviewPlayer re-renders differently when currentTime === 0
+3. Verify getClipAtTime returns correct clip at time 0:00
+4. Inspect computed CSS when bug occurs vs normal state
+
+---
+
 ## Summary
 
-**Total PRs:** 33 (27 original + 6 post-MVP bugfixes)
-**Post-MVP Bugfix Block:** 6 PRs (all independent, can run in parallel)
+**Total PRs:** 34 (27 original + 7 post-MVP bugfixes)
+**Post-MVP Bugfix Block:** 7 PRs (all independent, can run in parallel)
 
 **Post-MVP Priority:**
 - **High Priority (must fix):**
   - PR-POST-MVP-002: Zero-Length Recorded Clips
   - PR-POST-MVP-004: Tab Switching Aborts Recording
   - PR-POST-MVP-006: Playhead Not Moving During Playback
+  - PR-POST-MVP-007: Video Preview Massive Growth at 0:00
 
 - **Medium Priority (should fix):**
   - PR-POST-MVP-003: Recording Preview (PiP)
@@ -4159,5 +4210,5 @@ All acceptance criteria met. The playhead now syncs bidirectionally with video p
   - PR-POST-MVP-001: Track 3 Height Issue
 
 **Parallel Opportunities:**
-All 6 post-MVP bugfix PRs are independent and can be worked on simultaneously by different agents. No file lock conflicts exist between these PRs.
+All 7 post-MVP bugfix PRs are independent and can be worked on simultaneously by different agents. No file lock conflicts exist between these PRs.
 
