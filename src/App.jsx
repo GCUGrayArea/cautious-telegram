@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import MediaLibrary from './components/MediaLibrary';
+import RecordingPanel from './components/RecordingPanel';
 import Timeline from './components/Timeline';
 import PreviewPlayer from './components/PreviewPlayer';
 import PlaybackControls from './components/PlaybackControls';
@@ -12,12 +13,20 @@ import { PlaybackEngine, calculateTimelineDuration } from './utils/playback';
  */
 function AppContent() {
   const [selectedMedia, setSelectedMedia] = useState(null);
+  const [activeTab, setActiveTab] = useState('library'); // 'library' or 'record'
   const { playheadTime, clips, isPlaying, setPlayheadTime, setPlaybackState } = useTimeline();
   const playbackEngineRef = useRef(null);
 
   const handleMediaSelect = (media) => {
     console.log('Selected media:', media);
     setSelectedMedia(media);
+  };
+
+  const handleRecordingImported = (media) => {
+    console.log('Recording imported:', media);
+    // Switch to library tab to show the imported recording
+    setActiveTab('library');
+    // The MediaLibrary component will auto-refresh via its useEffect
   };
 
   // Initialize playback engine
@@ -69,9 +78,40 @@ function AppContent() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Media Library Sidebar */}
-        <div className="w-96 border-r border-gray-700">
-          <MediaLibrary onMediaSelect={handleMediaSelect} />
+        {/* Left Sidebar - Media Library / Recording */}
+        <div className="w-96 border-r border-gray-700 flex flex-col">
+          {/* Tab Navigation */}
+          <div className="flex border-b border-gray-700">
+            <button
+              onClick={() => setActiveTab('library')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'library'
+                  ? 'bg-gray-700 text-white border-b-2 border-blue-500'
+                  : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-750'
+              }`}
+            >
+              Media Library
+            </button>
+            <button
+              onClick={() => setActiveTab('record')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'record'
+                  ? 'bg-gray-700 text-white border-b-2 border-red-500'
+                  : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-750'
+              }`}
+            >
+              Record
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          <div className="flex-1 overflow-hidden">
+            {activeTab === 'library' ? (
+              <MediaLibrary onMediaSelect={handleMediaSelect} />
+            ) : (
+              <RecordingPanel onRecordingImported={handleRecordingImported} />
+            )}
+          </div>
         </div>
 
         {/* Main Editor Area (Timeline + Preview) */}

@@ -91,3 +91,26 @@ export function formatDuration(seconds) {
 
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
+
+/**
+ * Save a recording blob to disk
+ * @param {Blob} blob - The recording blob
+ * @param {string} filename - The filename for the recording
+ * @returns {Promise<string>} - Path to the saved file
+ */
+export async function saveRecording(blob, filename) {
+  // Convert blob to array buffer
+  const arrayBuffer = await blob.arrayBuffer();
+  const blobData = Array.from(new Uint8Array(arrayBuffer));
+
+  return await invoke('save_recording', { blobData, filename });
+}
+
+/**
+ * Import a recording into the media library
+ * @param {string} filePath - Path to the recording file
+ * @returns {Promise<{success: boolean, media: object|null, error: string|null}>}
+ */
+export async function importRecording(filePath) {
+  return await invoke('import_recording', { filePath });
+}

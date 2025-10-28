@@ -1984,14 +1984,15 @@ ffmpeg -f concat -safe 0 -i concat_list.txt \
 ---
 
 ### PR-020: Export Dialog and Progress Indicator
-**Status:** New
+**Status:** Planning
+**Agent:** Orange
 **Dependencies:** PR-019 ✅
 **Priority:** High
 
 **Description:**
 Create export dialog UI with resolution/quality settings, file save picker, progress bar, cancel option. Poll export progress from backend.
 
-**Files (ESTIMATED - will be refined during Planning):**
+**Files (PLANNED by Orange):**
 - src/components/ExportDialog.jsx (create) - Export dialog component
 - src/components/ExportProgress.jsx (create) - Progress bar component
 - src/utils/api.js (modify) - Export command wrappers
