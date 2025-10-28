@@ -38,6 +38,8 @@ fn main() {
             commands::import::import_video,
             commands::import::get_media_library,
             commands::import::delete_media_item,
+            commands::recording::save_recording,
+            commands::recording::import_recording,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
