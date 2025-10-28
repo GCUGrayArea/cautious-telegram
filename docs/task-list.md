@@ -3638,7 +3638,7 @@ Used Explore agent to conduct comprehensive codebase analysis, then documented t
 ## Block 11: Post-MVP Bugfixes (No dependencies - all can run in parallel)
 
 ### PR-POST-MVP-001: Fix Track 3 Height Issue
-**Status:** Planning
+**Status:** In Progress
 **Agent:** Orange
 **Dependencies:** None
 **Priority:** Low (visual polish)
@@ -3655,8 +3655,11 @@ Timeline.jsx:465 sets `style={{ height: '250px' }}` but actual requirement is:
 - **Deficit:** 30px (exactly cuts off bottom of Track 3)
 
 **Files:**
-- src/components/Timeline.jsx (modify) - Change fixed height from 250px to 280px minimum or make dynamic
+- src/components/Timeline.jsx (modify) - Change fixed height from 250px to dynamic calculation
 - src/utils/timeline.js (reference) - TIMELINE_CONFIG constants
+
+**Planning Notes (Orange):**
+No file conflicts detected. White is working on RecordingPanel.jsx for PR-POST-MVP-002. This PR only touches Timeline.jsx. Implementation approach: Use dynamic calculation based on TIMELINE_CONFIG constants for maintainability.
 
 **Acceptance Criteria:**
 - [ ] Track 3 is fully visible at all window heights
