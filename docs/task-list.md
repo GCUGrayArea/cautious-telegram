@@ -4621,10 +4621,322 @@ Complete! 100%
 
 ---
 
+### PR-STRETCH-001: Auto-Save Project State
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** PR-002 (SQLite Database) ✅
+**Priority:** High (prevents data loss)
+
+**Description:**
+Automatically save timeline state to SQLite projects table at regular intervals to prevent data loss from crashes or accidental closures. Database infrastructure already exists from PR-002.
+
+**Current State:**
+- Projects table exists with `timeline_json` field
+- Backend has `update_project()` function
+- No auto-save integration in frontend
+
+**Files:**
+- src/store/timelineStore.jsx (modify) - Add auto-save timer with setInterval, serialize clips to JSON
+- src/utils/api.js (modify) - Add saveProject(projectId, timelineJson) function
+- src-tauri/src/commands/project.rs (create) - Tauri commands: save_project, load_project
+- src-tauri/src/main.rs (modify) - Register project commands
+- src/components/App.jsx (modify) - Load project on startup, show save status indicator
+
+**Acceptance Criteria:**
+- [ ] Timeline state auto-saves every 30 seconds
+- [ ] Saves include: clips array, playhead position, zoom level
+- [ ] Load saved project on app restart
+- [ ] UI shows "Saving..." / "Saved" status indicator
+- [ ] No performance impact from auto-save
+- [ ] Handle multiple projects (default project ID for now)
+- [ ] Graceful error handling if save fails
+
+**Implementation Approach:**
+1. Add `useEffect` in timelineStore with `setInterval(() => autoSave(), 30000)`
+2. Serialize state: `JSON.stringify({ clips, playheadTime, pixelsPerSecond })`
+3. Call backend: `saveProject(1, timelineJson)` - use project ID = 1 for default project
+4. Backend command updates database: `UPDATE projects SET timeline_json = ?, updated_at = ? WHERE id = 1`
+5. On app start, call `loadProject(1)` and restore state from JSON
+6. UI: Show small "Saved" checkmark in header with timestamp
+
+---
+
+### PR-STRETCH-002: Undo/Redo Functionality
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** All timeline editing PRs ✅
+**Priority:** High (essential for professional editing)
+
+**Description:**
+Add undo/redo support for timeline operations using Ctrl-Z and Ctrl-Y keyboard shortcuts. Essential for professional editing workflow to recover from mistakes.
+
+**Current State:**
+- Timeline supports edit operations (add, delete, move, trim, split)
+- No history tracking or undo/redo
+- Mistakes are permanent
+
+**Files:**
+- src/store/timelineStore.jsx (modify) - Add undoStack, redoStack, UNDO, REDO actions
+- src/components/Timeline.jsx (modify) - Add Ctrl-Z/Ctrl-Y keyboard shortcuts
+- src/store/historyMiddleware.js (create) - Middleware to capture state snapshots
+
+**Acceptance Criteria:**
+- [ ] Ctrl-Z undoes last action (max 50 operations)
+- [ ] Ctrl-Y or Ctrl-Shift-Z redoes undone action
+- [ ] Works for: add clip, delete clip, move clip, trim clip, split clip
+- [ ] Redo stack clears when new action performed after undo
+- [ ] No memory leaks from history stack (limit to 50 entries)
+- [ ] Undo/redo buttons in UI (optional visual feedback)
+
+**Implementation Approach:**
+1. State: `{ undoStack: [], redoStack: [], currentState: {...} }`
+2. Before mutations (ADD_CLIP, REMOVE_CLIP, etc.), push current state to undoStack
+3. Undo: Pop from undoStack, push current to redoStack, restore popped state
+4. Redo: Pop from redoStack, push current to undoStack, restore popped state
+5. Limit stack size: `undoStack.slice(-50)` to prevent memory bloat
+6. Deep clone clips array: `structuredClone(state.clips)` or `JSON.parse(JSON.stringify(...))`
+
+---
+
+### PR-STRETCH-003: Audio Controls (Volume, Fade In/Out)
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** PR-012 (Preview Player) ✅, PR-019 (Export Pipeline) ✅
+**Priority:** High (essential for professional video)
+
+**Description:**
+Add per-clip audio controls: volume slider (0-200%), fade in/out effects, mute toggle. Critical for professional video editing where audio levels need adjustment.
+
+**Current State:**
+- Audio plays at source volume (no control)
+- No volume adjustment in preview or export
+- No fade effects
+
+**Files:**
+- src/components/ClipPropertiesPanel.jsx (create) - Panel for editing selected clip properties
+- src/store/timelineStore.jsx (modify) - Add audio properties to clip: volume, fadeInDuration, fadeOutDuration, isMuted
+- src/components/PreviewPlayer.jsx (modify) - Apply volume to HTML5 video.volume property
+- src-tauri/src/export/pipeline.rs (modify) - Add FFmpeg audio filters
+- src/components/Timeline.jsx (modify) - Show properties panel when clip selected
+
+**Acceptance Criteria:**
+- [ ] Volume slider adjusts clip audio (0-200%, default 100%)
+- [ ] Preview player reflects volume changes in real-time
+- [ ] Fade in duration slider (0-5s)
+- [ ] Fade out duration slider (0-5s)
+- [ ] Mute toggle silences clip audio
+- [ ] Export applies volume and fade filters via FFmpeg
+- [ ] Visual indicator on timeline clip showing audio properties
+- [ ] Audio changes persist when project saved
+
+**Implementation Approach:**
+1. **Clip State:** Add `{ volume: 100, fadeInDuration: 0, fadeOutDuration: 0, isMuted: false }` to clip object
+2. **Preview:** Set `video.volume = (clip.isMuted ? 0 : clip.volume / 100)` in PreviewPlayer
+3. **Export:** FFmpeg audio filter: `-af "volume=${volume/100},afade=t=in:d=${fadeIn},afade=t=out:st=${clipDuration-fadeOut}:d=${fadeOut}"`
+4. **UI:** Properties panel appears on right side when clip selected, contains sliders and checkbox
+
+---
+
+### PR-STRETCH-004: Copy/Cut/Paste Keyboard Shortcuts
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** PR-007 (Timeline Clip Rendering) ✅, PR-011 (Split and Delete) ✅
+**Priority:** Medium (completes keyboard shortcuts)
+
+**Description:**
+Implement clipboard operations for timeline clips: Ctrl-C (copy), Ctrl-X (cut), Ctrl-V (paste at playhead). This completes the keyboard shortcuts stretch goal.
+
+**Current State:**
+- Keyboard shortcuts exist: S (split), Delete (remove), arrows (navigate)
+- No clipboard operations
+- Can't duplicate clips easily
+
+**Files:**
+- src/components/Timeline.jsx (modify) - Add Ctrl-C/X/V keyboard handlers
+- src/store/timelineStore.jsx (modify) - Add clipboardClip state, COPY_CLIP, CUT_CLIP, PASTE_CLIP actions
+- src/utils/timeline.js (modify) - Add duplicateClip() utility
+
+**Acceptance Criteria:**
+- [ ] Ctrl-C copies selected clip to clipboard
+- [ ] Ctrl-X cuts selected clip (copy + delete)
+- [ ] Ctrl-V pastes clipboard clip at playhead position
+- [ ] Pasted clip gets new unique ID
+- [ ] Pasted clip preserves all properties (duration, in/out points, track)
+- [ ] Cut operation marks clip for deletion after paste
+- [ ] Visual feedback shows clipboard has content
+
+**Implementation Approach:**
+1. State: `{ clipboardClip: null, clipboardOperation: 'copy' | 'cut' | null }`
+2. Ctrl-C: `clipboardClip = structuredClone(selectedClip)`, `clipboardOperation = 'copy'`
+3. Ctrl-X: Same as Ctrl-C but set `clipboardOperation = 'cut'`, mark original clip for deletion
+4. Ctrl-V: Generate new ID, set `startTime = playheadTime`, add to timeline
+5. If operation was 'cut', remove original clip after paste
+
+---
+
+### PR-STRETCH-005: Export Presets for Different Platforms
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** PR-020 (Export Dialog) ✅
+**Priority:** Medium (useful for content creators)
+
+**Description:**
+Add export presets for common platforms: YouTube (1080p, 4K), Instagram (Stories 9:16, Posts 1:1, Reels 9:16), TikTok (9:16 vertical). Simplifies export for content creators targeting specific platforms.
+
+**Current State:**
+- Export dialog has resolution dropdown (Source, 720p, 1080p)
+- No presets for aspect ratios or platforms
+- Users must manually configure settings
+
+**Files:**
+- src/components/ExportDialog.jsx (modify) - Add preset dropdown above resolution
+- src/utils/exportPresets.js (create) - Define platform presets with resolution, aspect ratio, bitrate
+- src-tauri/src/export/encoder.rs (modify) - Support aspect ratio cropping/padding
+- src-tauri/src/commands/export.rs (modify) - Apply preset settings
+
+**Acceptance Criteria:**
+- [ ] Preset dropdown with options: YouTube 1080p, YouTube 4K, Instagram Story, Instagram Post, Instagram Reel, TikTok, Custom
+- [ ] Selecting preset auto-fills resolution, aspect ratio, bitrate
+- [ ] YouTube presets: 16:9 aspect ratio, 1080p or 4K
+- [ ] Instagram Story/TikTok: 9:16 vertical, 1080x1920
+- [ ] Instagram Post: 1:1 square, 1080x1080
+- [ ] Instagram Reel: 9:16 vertical, 1080x1920
+- [ ] Export applies padding or cropping to match preset aspect ratio
+- [ ] Custom option allows manual override
+
+**Preset Definitions:**
+- YouTube 1080p: 1920x1080, 16:9, 8Mbps, 30fps
+- YouTube 4K: 3840x2160, 16:9, 16Mbps, 60fps
+- Instagram Story: 1080x1920, 9:16, 5Mbps, 30fps
+- Instagram Post: 1080x1080, 1:1, 4Mbps, 30fps
+- Instagram Reel: 1080x1920, 9:16, 5Mbps, 30fps
+- TikTok: 1080x1920, 9:16, 4Mbps, 30fps
+
+---
+
+### PR-STRETCH-006: Text Overlays with Custom Fonts and Animations
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** PR-007 (Timeline Clip Rendering) ✅, PR-019 (Export Pipeline) ✅
+**Priority:** Medium (common feature request)
+
+**Description:**
+Add ability to place text overlays on timeline with customizable fonts, sizes, colors, positions, and animations (fade in/out, slide in/out).
+
+**Current State:**
+- No text overlay functionality
+- Can't add titles or captions
+
+**Files:**
+- src/components/timeline/TextOverlayClip.jsx (create) - Konva Text component for text on timeline
+- src/components/TextOverlayEditor.jsx (create) - UI panel for editing text properties
+- src/store/timelineStore.jsx (modify) - Add textOverlays array, ADD_TEXT_OVERLAY action
+- src/components/Timeline.jsx (modify) - Render text overlays on Konva layer above clips
+- src-tauri/src/export/pipeline.rs (modify) - FFmpeg drawtext filter for export
+
+**Acceptance Criteria:**
+- [ ] Add text overlay button creates new text on timeline
+- [ ] Text editor panel for: content, font, size, color, position
+- [ ] Text visible on timeline as overlay above clips
+- [ ] Drag text to reposition on timeline (time and spatial position)
+- [ ] Animation options: None, Fade In, Fade Out, Slide In (Left/Right/Top/Bottom)
+- [ ] Preview shows text overlay during playback
+- [ ] Export burns text into video using FFmpeg drawtext
+- [ ] Text overlay duration adjustable (drag edges like clips)
+
+**Implementation Approach:**
+1. State: `textOverlays: [{ id, text, startTime, duration, x, y, fontSize, fontFamily, color, animation }]`
+2. Konva: Render Text nodes on separate layer above video clips
+3. Export: FFmpeg `-vf "drawtext=text='Hello':x=100:y=50:fontsize=48:fontcolor=white:enable='between(t,5,10)'"`
+4. Animations: Use FFmpeg expression syntax for fade/slide effects
+
+---
+
+### PR-STRETCH-007: Transitions Between Clips (Fade, Slide, etc.)
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** PR-009 (Timeline Clip Dragging) ✅, PR-019 (Export Pipeline) ✅
+**Priority:** Medium (professional polish)
+
+**Description:**
+Add transition effects between adjacent clips on same track: crossfade, fade to black, slide left/right, dissolve.
+
+**Current State:**
+- Clips play back-to-back with hard cuts
+- No transition effects
+
+**Files:**
+- src/components/timeline/TransitionIndicator.jsx (create) - Visual diamond/arrow between clips
+- src/components/TransitionEditor.jsx (create) - UI for selecting transition type and duration
+- src/store/timelineStore.jsx (modify) - Add transitions array
+- src/components/Timeline.jsx (modify) - Render transition indicators
+- src-tauri/src/export/pipeline.rs (modify) - FFmpeg xfade filter
+
+**Acceptance Criteria:**
+- [ ] Click between adjacent clips to add transition
+- [ ] Transition types: Fade, Crossfade, Fade to Black, Wipe Left, Wipe Right, Dissolve
+- [ ] Duration slider (0.5s - 3s)
+- [ ] Visual indicator on timeline (diamond or icon between clips)
+- [ ] Preview shows transition during playback
+- [ ] Export applies transition using FFmpeg xfade filter
+- [ ] Transitions only between adjacent clips on same track
+- [ ] Delete transition removes effect (back to hard cut)
+
+**Implementation Approach:**
+1. State: `transitions: [{ id, clipIdBefore, clipIdAfter, type, duration }]`
+2. Render: Small diamond icon positioned between clip boundaries
+3. Export: FFmpeg xfade filter: `-filter_complex "[0:v][1:v]xfade=transition=fade:duration=1:offset=5[out]"`
+4. Constraint: Only allow if clips are adjacent (clip1.endTime === clip2.startTime)
+
+---
+
+### PR-STRETCH-008: Filters and Effects (Brightness, Contrast, Saturation)
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** PR-012 (Preview Player) ✅, PR-019 (Export Pipeline) ✅
+**Priority:** Low (nice-to-have polish)
+
+**Description:**
+Add video filters for color correction and effects: brightness, contrast, saturation, hue adjustment, grayscale filter.
+
+**Current State:**
+- No color correction or filter effects
+- Videos play at source quality
+
+**Files:**
+- src/components/ClipPropertiesPanel.jsx (modify) - Add filter sliders
+- src/store/timelineStore.jsx (modify) - Add filter properties to clip
+- src/components/PreviewPlayer.jsx (modify) - Apply CSS filters for live preview
+- src-tauri/src/export/pipeline.rs (modify) - FFmpeg eq and hue filters
+
+**Acceptance Criteria:**
+- [ ] Brightness slider (-100 to +100, default 0)
+- [ ] Contrast slider (-100 to +100, default 0)
+- [ ] Saturation slider (-100 to +100, default 0)
+- [ ] Hue slider (0-360 degrees, default 0)
+- [ ] Grayscale toggle
+- [ ] Preview shows filter effects in real-time
+- [ ] Export applies filters via FFmpeg
+- [ ] Filter values persist with project save
+
+**Implementation Approach:**
+1. Clip state: `{ brightness: 0, contrast: 0, saturation: 0, hue: 0, grayscale: false }`
+2. Preview: CSS filter on video element: `filter: brightness(${1 + brightness/100}) contrast(${1 + contrast/100}) saturate(${1 + saturation/100}) hue-rotate(${hue}deg) ${grayscale ? 'grayscale(100%)' : ''}`
+3. Export: FFmpeg eq filter: `-vf "eq=brightness=${brightness/100}:contrast=${1 + contrast/100}:saturation=${1 + saturation/100},hue=h=${hue}${grayscale ? ',hue=s=0' : ''}"`
+4. UI: Sliders in ClipPropertiesPanel with live preview
+
+---
+
 ## Summary
 
-**Total PRs:** 37 (27 original + 10 post-MVP bugfixes/enhancements)
-**Post-MVP Block:** 10 PRs (most independent, can run in parallel)
+**Total PRs:** 45 (27 original MVP + 11 post-MVP bugfixes + 7 stretch goals)
+
+**Breakdown by Category:**
+- **MVP Features (PR-001 to PR-027):** 27 PRs - All Complete ✓
+- **Post-MVP Bugfixes (PR-POST-MVP-001 to PR-POST-MVP-011):** 11 PRs
+  - Complete: 8 PRs ✓
+  - New: 3 PRs (009, 010, 011)
+- **Stretch Goals (PR-STRETCH-001 to PR-STRETCH-008):** 7 PRs - All New
 
 **Post-MVP Status:**
 - **Complete:**
@@ -4644,4 +4956,35 @@ Complete! 100%
 
 **Parallel Opportunities:**
 Most post-MVP PRs are independent. PR-POST-MVP-008 may have minor overlap with PR-POST-MVP-003 (both touch RecordingPanel.jsx) but can coordinate.
+
+---
+
+## Stretch Goals
+
+**Stretch Goals from ClipForge.md Specification:**
+
+These features extend beyond the MVP and post-MVP bugfixes, adding professional-grade editing capabilities mentioned in the original specification as optional enhancements.
+
+**Priority Breakdown:**
+- **High Priority (Critical for Professional Use):** 3 PRs
+  - PR-STRETCH-001: Auto-Save Project State
+  - PR-STRETCH-002: Undo/Redo Functionality
+  - PR-STRETCH-003: Audio Controls
+
+- **Medium Priority (Valuable Features):** 4 PRs
+  - PR-STRETCH-004: Copy/Cut/Paste Shortcuts
+  - PR-STRETCH-005: Export Presets for Platforms
+  - PR-STRETCH-006: Text Overlays
+  - PR-STRETCH-007: Transitions Between Clips
+
+- **Low Priority (Polish):** 1 PR
+  - PR-STRETCH-008: Filters and Effects
+
+**Recommended Implementation Order:**
+1. Auto-Save (prevents data loss, database already exists)
+2. Undo/Redo (critical for editing workflow)
+3. Audio Controls (essential for professional video)
+4. Copy/Cut/Paste (quick win, completes keyboard shortcuts)
+5. Export Presets (extends existing export dialog)
+6. Text Overlays, Transitions, Filters (polish features)
 
