@@ -4,6 +4,7 @@
 mod commands;
 mod database;
 mod ffmpeg;
+mod export;
 
 use database::Database;
 use ffmpeg::commands::FFmpegState;
@@ -40,6 +41,7 @@ fn main() {
             commands::import::delete_media_item,
             commands::recording::save_recording,
             commands::recording::import_recording,
+            commands::export::export_timeline,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
