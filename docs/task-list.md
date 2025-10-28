@@ -4551,14 +4551,14 @@ ClipForge currently uses default Tauri placeholder icons. Add a custom app icon 
 
 ---
 
-### PR-POST-MVP-010: Set Timeline Area Minimum Height (15% of Window)
+### PR-POST-MVP-010: Set Timeline Area Minimum Height (10% of Window)
 **Status:** Complete
 **Agent:** White
 **Dependencies:** None
 **Priority:** Medium (prevents UI issues)
 
 **Description:**
-When the preview player canvas expands (especially with certain video aspect ratios or window sizes), it can push the timeline area off-screen or make it unreachable. Set a minimum height constraint on the timeline area to ensure it's always accessible regardless of preview canvas size.
+When the preview player canvas expands (especially with certain video aspect ratios or window sizes), it can push the timeline area off-screen or make it unreachable. Set a minimum height constraint on the timeline area to ensure it's always accessible regardless of preview canvas size. Updated to 10% minimum height for better balance on lower-resolution displays.
 
 **Problem:**
 - Preview canvas can grow dynamically based on video content
@@ -4636,21 +4636,24 @@ This ensures:
 
 **Implementation Completed:**
 - Modified src/App.jsx line 171
-- Added `min-h-[15vh] flex-shrink-0` to timeline container
-- Timeline now maintains minimum 15% viewport height
+- Added `min-h-[10vh] flex-shrink-0` to timeline container
+- Timeline now maintains minimum 10% viewport height
 - Timeline cannot shrink below minimum height
 - Preview area will shrink if necessary to accommodate timeline
+- Adjusted from 15vh to 10vh for better balance on lower-resolution displays
 
 **Testing:**
 - App builds successfully with no errors
 - Database initializes correctly
 - Dev server runs without issues
 - Layout constraint verified in code
+- Better balance on lower-resolution displays
 
 **Result:**
-✅ Timeline area now has minimum height of 15vh
+✅ Timeline area now has minimum height of 10vh
 ✅ Timeline cannot be pushed off-screen by expanding preview
 ✅ Layout remains balanced and accessible
+✅ Works well on both high and low-resolution displays
 ✅ All acceptance criteria met
 
 ---
