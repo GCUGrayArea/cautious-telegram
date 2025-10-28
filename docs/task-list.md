@@ -1225,7 +1225,7 @@ Trim should not affect source file—only in/out points for export.
 ---
 
 ### PR-011: Timeline Clip Split and Delete
-**Status:** In Progress
+**Status:** Complete
 **Agent:** Blonde
 **Dependencies:** PR-009 ✅
 **Priority:** High
@@ -1233,19 +1233,18 @@ Trim should not affect source file—only in/out points for export.
 **Description:**
 Implement clip split at playhead position and clip deletion. Update timeline state, re-render affected clips.
 
-**Files (PLANNED by Blonde):**
-- src/store/timelineStore.jsx (modify) - Add SPLIT_CLIP action to reducer
-- src/components/Timeline.jsx (modify) - Add keyboard handlers (Delete, Backspace, S key) and split logic
-- src/utils/timeline.js (modify) - Add splitClipAtTime utility function
-- (No TimelineControls.jsx needed - keyboard shortcuts will be sufficient for MVP)
+**Files (COMPLETED by Blonde):**
+- src/store/timelineStore.jsx (modified) - Added SPLIT_CLIP action to reducer
+- src/components/Timeline.jsx (modified) - Added keyboard handlers (Delete, Backspace, S key) and split logic
+- src/utils/timeline.js (modified) - Added splitClipAtTime utility function
 
 **Acceptance Criteria:**
-- [ ] User can split clip at playhead position (button or keyboard shortcut)
-- [ ] Split creates two clips with correct in/out points
-- [ ] User can delete selected clip (Del/Backspace key or button)
-- [ ] Subsequent clips shift left after delete (or remain in place)
-- [ ] Timeline state updated correctly
-- [ ] Split/delete actions undoable (future enhancement)
+- [x] User can split clip at playhead position (S key or Ctrl+K keyboard shortcut)
+- [x] Split creates two clips with correct in/out points
+- [x] User can delete selected clip (Del/Backspace key)
+- [x] Clips remain in place after delete (no shift-left)
+- [x] Timeline state updated correctly
+- [ ] Split/delete actions undoable (future enhancement - out of scope for MVP)
 
 **Planning Notes (Blonde):**
 
@@ -1326,8 +1325,48 @@ Checking current In Progress and Suspended PRs:
 - Orange: PR-013 (In Progress) - will modify PreviewPlayer.jsx, PlaybackControls.jsx, playback.js (no conflict)
 - **No conflicts detected** - PR-011 can proceed to In Progress
 
+**Implementation Summary (Blonde):**
+
+**timeline.js Changes:**
+- Added `splitClipAtTime(clip, splitTime)` utility function (lines 216-249)
+- Validates split is within clip bounds (not at edges)
+- Returns `{ firstClip, secondClip }` with correct in/out points
+- First clip: keeps original startTime, adjusts duration and outPoint
+- Second clip: new startTime at split point, adjusts inPoint and duration
+
+**timelineStore.jsx Changes:**
+- Added SPLIT_CLIP action type (line 29)
+- Added SPLIT_CLIP reducer case (lines 108-124)
+  - Removes original clip from array
+  - Assigns new IDs to both clips (nextClipId and nextClipId + 1)
+  - Increments nextClipId by 2
+  - Auto-selects second clip for intuitive workflow
+- Added `splitClip` action creator (lines 174-176)
+
+**Timeline.jsx Changes:**
+- Imported `splitClipAtTime` utility (line 14)
+- Added `removeClip` and `splitClip` to timeline store destructuring (line 30)
+- Added `handleSplitClip()` function (lines 108-144)
+  - Validates selected clip exists
+  - Checks playhead is within clip bounds
+  - Calls splitClipAtTime utility
+  - Dispatches splitClip action
+- Added `handleDeleteClip()` function (lines 146-156)
+  - Validates selected clip exists
+  - Dispatches removeClip action
+- Added keyboard event listener (lines 158-181)
+  - S key or Ctrl+K: Split clip at playhead
+  - Delete/Backspace: Delete selected clip
+  - Prevents handling when typing in input fields
+
+**Build Status:**
+- Frontend build: ✅ Successful (472.38 KB, gzipped: 146.50 kB)
+- Rust backend: ✅ Successful (0.39s, expected warnings only)
+
+**Completion:** All acceptance criteria met (5/6, with 1 marked as future enhancement). Split and delete functionality fully implemented with keyboard shortcuts. Ready for PR-012 or other parallel work.
+
 **Notes:**
-Split should maintain continuity—second clip starts where first ends. No shift-left behavior on delete (clips stay in place).
+Split maintains continuity—second clip starts where first ends. No shift-left behavior on delete (clips stay in place).
 
 ---
 
