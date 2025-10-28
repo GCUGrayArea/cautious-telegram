@@ -4544,10 +4544,87 @@ Constrain the timeline area to a minimum of 15% of the window height. This ensur
 
 ---
 
+### PR-POST-MVP-011: Replace Export Spinner with Progress Bar
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** None
+**Priority:** Medium (UX improvement)
+
+**Description:**
+The export dialog currently shows an indeterminate spinner with generic "Exporting video..." text (ExportDialog.jsx:224-233). Replace this with a real progress bar that shows percentage completion and estimated time remaining to give users better feedback during potentially long exports.
+
+**Current Implementation:**
+- ExportDialog.jsx shows spinner during export
+- No real-time progress tracking
+- No percentage or time estimate
+- User has no idea how long export will take or if it's progressing
+
+**What's Needed:**
+1. Backend progress tracking for FFmpeg export
+2. Frontend polling of progress status
+3. Progress bar UI component with percentage
+4. Estimated time remaining calculation
+5. Current operation status (trimming, concatenating, encoding)
+
+**Files:**
+- src-tauri/src/export/pipeline.rs (modify) - Add progress tracking, emit progress events or allow polling
+- src-tauri/src/commands/export.rs (modify) - Expose progress query endpoint or use Tauri events
+- src/components/ExportDialog.jsx (modify) - Replace spinner with progress bar, poll progress, show percentage/ETA
+- src/utils/api.js (modify) - Add progress polling function if needed
+
+**Acceptance Criteria:**
+- [ ] Progress bar shows percentage completion (0-100%)
+- [ ] Percentage updates in real-time during export
+- [ ] Estimated time remaining displayed (e.g., "2m 30s remaining")
+- [ ] Current operation shown (e.g., "Trimming clips...", "Encoding video...", "Finalizing...")
+- [ ] Progress bar visually fills from left to right
+- [ ] Export completion shows 100% briefly before success message
+- [ ] Works for single-clip and multi-clip exports
+- [ ] No performance impact from progress polling
+
+**Implementation Approach:**
+
+**Option 1: FFmpeg Progress Parsing (Recommended)**
+1. **Backend (Rust):**
+   - Modify FFmpeg execution to capture stderr output
+   - Parse FFmpeg progress lines: `time=00:01:23.45` or `frame=1234`
+   - Calculate percentage based on known total duration
+   - Store progress in shared state (Arc<Mutex<f64>>)
+   - Add Tauri command `get_export_progress()` to query current progress
+
+2. **Frontend (JavaScript):**
+   - Start export with `exportTimeline()`
+   - Poll `getExportProgress()` every 500ms while exporting
+   - Update progress bar with percentage
+   - Calculate ETA from rate of progress
+   - Show current frame/time being processed
+
+**Option 2: Tauri Events (Cleaner)**
+1. Backend emits events during export: `export-progress` with percentage
+2. Frontend listens to events and updates UI
+3. No polling needed, event-driven
+
+**Technical Details:**
+- Parse FFmpeg stderr for: `time=HH:MM:SS.mmm` or `frame=N`
+- Calculate percentage: `(current_time / total_duration) * 100`
+- ETA calculation: `remaining_time = (total - current) / rate`
+- Show current operation based on FFmpeg args (trim phase vs encode phase)
+
+**Example Progress Output:**
+```
+Trimming clips... 15%
+Concatenating... 45%
+Encoding video... 78%
+Finalizing... 95%
+Complete! 100%
+```
+
+---
+
 ## Summary
 
-**Total PRs:** 36 (27 original + 9 post-MVP bugfixes/enhancements)
-**Post-MVP Block:** 9 PRs (most independent, can run in parallel)
+**Total PRs:** 37 (27 original + 10 post-MVP bugfixes/enhancements)
+**Post-MVP Block:** 10 PRs (most independent, can run in parallel)
 
 **Post-MVP Status:**
 - **Complete:**
