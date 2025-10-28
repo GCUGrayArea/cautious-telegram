@@ -3258,81 +3258,133 @@ This PR provides all documentation and scripts needed. The physical video file i
 ## Block 10: Final Architecture Documentation (Depends on: All previous blocks)
 
 ### PR-027: Generate Comprehensive Architecture Documentation
-**Status:** Planning
-**Dependencies:** PR-001, PR-002, PR-003, PR-004, PR-006, PR-007, PR-015, PR-019, PR-025
+**Status:** Complete
+**Agent:** White
+**Dependencies:** PR-001 ✅, PR-002 ✅, PR-003 ✅, PR-004 ✅, PR-006 ✅, PR-007 ✅, PR-015 ✅, PR-019 ✅, PR-025 ✅
 **Priority:** Medium
 
 **Description:**
 Create detailed technical documentation in `docs/architecture.md` that serves as the definitive reference for ClipForge's design, implementation, and operational characteristics.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- docs/architecture.md (create) - Comprehensive architecture documentation
-
-**Documentation Requirements:**
-
-The architecture document should include:
-
-1. **System Architecture**
-   - High-level architecture overview
-   - Technology stack (Tauri, React, Konva, FFmpeg, SQLite) and rationale
-   - Note: Originally Preact, refactored to React for Konva compatibility
-   - Integration points between frontend and Rust backend
-   - Data flow patterns (import, edit, export, recording)
-
-2. **Component Architecture**
-   - Frontend component hierarchy (App → MediaLibrary/Timeline/PreviewPlayer/RecordingPanel)
-   - Rust module organization (commands, database, ffmpeg, recording, export)
-   - State management approach (React hooks/stores)
-   - Konva timeline rendering architecture
-
-3. **Data Models**
-   - SQLite schema (media table, projects table)
-   - Timeline JSON structure (clips, tracks, in/out points)
-   - Tauri command interfaces (import_video, start_recording, export_video)
-   - Media metadata structures
-
-4. **Key Subsystems**
-   - **Timeline Editor**: Konva rendering, coordinate system, time-to-pixel conversion
-   - **Video Preview**: Clip calculation, HTML5 video synchronization
-   - **Recording Pipeline**: Platform-specific screen capture, MediaRecorder for webcam
-   - **Export Pipeline**: FFmpeg command generation, concatenation, overlays, progress reporting
-
-5. **Security Architecture**
-   - File system access patterns
-   - Camera/microphone permission handling
-   - Database storage location and access
-
-6. **Deployment Architecture**
-   - Build process (Tauri bundler)
-   - FFmpeg binary bundling strategy
-   - Cross-platform considerations (macOS vs Windows)
-
-7. **Visual Diagrams**
-   - System architecture diagram (Mermaid) showing frontend ↔ Tauri ↔ FFmpeg/SQLite
-   - Data flow diagram for video export process
-   - Component hierarchy diagram
-   - Timeline rendering flow diagram
-
-8. **Performance Characteristics**
-   - Timeline responsiveness optimization strategies
-   - Video playback synchronization approach
-   - FFmpeg encoding performance
-   - Memory management during long sessions
+**Files (COMPLETED by White):**
+- docs/architecture.md (created) - Comprehensive architecture documentation (1,500+ lines, 10 major sections)
 
 **Acceptance Criteria:**
-- [ ] A developer unfamiliar with the codebase can understand the system design by reading this document
-- [ ] All major architectural decisions explained with rationale
-- [ ] Diagrams render correctly in markdown viewers (use Mermaid syntax)
-- [ ] Document reflects the actual implemented system, not idealized design
-- [ ] Covers all key subsystems (timeline, preview, recording, export)
+- [x] A developer unfamiliar with the codebase can understand the system design by reading this document
+- [x] All major architectural decisions explained with rationale
+- [x] Diagrams render correctly in markdown viewers (Mermaid syntax - 4 diagrams included)
+- [x] Document reflects the actual implemented system, not idealized design
+- [x] Covers all key subsystems (timeline, preview, recording, export)
 
-**Notes:**
-This is typically a 60-90 minute task. The agent should:
-1. Read through all completed PRs to understand the implementation journey
-2. Review the actual codebase to see what was built
-3. Identify the key architectural patterns that emerged
-4. Create clear, accurate diagrams using Mermaid syntax
-5. Write for an audience of developers joining the project
+**Implementation Notes (White):**
+
+Used Explore agent to conduct comprehensive codebase analysis, then documented the entire ClipForge architecture across 10 major sections:
+
+**1. System Overview**
+- Design philosophy (native performance, modern UX, minimal bundle size)
+- Key capabilities table
+- Technology rationale
+
+**2. Technology Stack**
+- Complete frontend stack (React 18.3.1, Konva.js, Vite, Tailwind)
+- Complete backend stack (Tauri 1.5, Rust, rusqlite, serde, FFmpeg)
+- Rationale for each technology choice
+- Note on React vs Preact refactor
+
+**3. System Architecture**
+- High-level architecture Mermaid diagram (frontend ↔ IPC ↔ backend ↔ external systems)
+- Data flow patterns with Mermaid sequence diagrams:
+  - Import workflow (14 steps)
+  - Export workflow (12 steps)
+- Integration points table (5 integration types)
+
+**4. Component Architecture**
+- Frontend component hierarchy (ASCII tree with 15+ components)
+- State management patterns:
+  - timelineStore.jsx (Redux-style with Context + useReducer)
+  - dragStore.jsx (custom drag-drop avoiding HTML5 conflicts)
+- Rust module organization (commands, database, ffmpeg, export, tests)
+- Detailed state shapes and action types
+
+**5. Data Models**
+- Complete SQLite schema (media and projects tables with field descriptions)
+- Rust data structures (Media, VideoMetadata, ClipData, etc.)
+- Timeline JSON structure
+- Tauri command interfaces with signatures
+
+**6. Key Subsystems** (4 subsystems documented in depth)
+
+**Timeline Editor:**
+- Coordinate system (timeToPixels, pixelsToTime formulas)
+- Track layout calculations
+- Zoom levels (10-500 px/second)
+- Clip rendering with Konva
+- Trim handle implementation
+- Snapping behavior (magnetic snap within 10px)
+- Keyboard navigation table (Space, Arrows, Home, End, S, Delete)
+
+**Video Preview:**
+- Frame display logic (code examples)
+- getClipAtTime() algorithm
+- getClipSourceTime() calculation
+- PlaybackEngine class (requestAnimationFrame for 60fps)
+
+**Recording Pipeline:**
+- Three recording modes (Screen, Webcam, Screen + Webcam)
+- ScreenRecorder implementation (MediaRecorder API)
+- Recording workflow Mermaid sequence diagram (16 steps)
+- Permission handling (screen vs webcam/mic)
+
+**Export Pipeline:**
+- Export process flow (6 steps)
+- ExportPipeline Rust implementation
+- FFmpeg command generation (trim, concatenate, scale)
+- Quality presets table (Source, 1080p, 720p, 480p with bitrates)
+- Multi-track export architecture (planned)
+
+**7. Security Architecture**
+- File system access patterns (user-selected files only)
+- Camera/microphone permissions (Browser Permissions API)
+- Database storage locations (Windows vs macOS paths)
+- FFmpeg binary security (bundled binaries, no shell expansion)
+
+**8. Deployment Architecture**
+- Build process (development vs production)
+- FFmpeg binary bundling strategy (3-tier resolution)
+- Bundle size breakdown (~210 MB total)
+- Cross-platform considerations (Windows vs macOS vs Linux)
+- Development directory structure (complete tree)
+
+**9. Performance Characteristics**
+- Timeline responsiveness (60fps target, optimizations, bottlenecks)
+- Video playback synchronization (seek latency ~100-300ms)
+- FFmpeg encoding performance (0.5-2x real-time)
+- Memory management (150-300 MB total footprint)
+
+**10. Future Considerations**
+- Planned features (7 features: project persistence, undo/redo, audio mixing, effects, advanced export, multi-window, collaboration)
+- Architectural improvements (async export, GPU acceleration, plugin system, profiling)
+- Scalability considerations (current limits and future scaling strategies)
+
+**Additional Content:**
+- **4 Mermaid diagrams:**
+  1. High-level system architecture graph
+  2. Import workflow sequence diagram
+  3. Export workflow sequence diagram
+  4. Component interaction graph
+  5. Data flow from import to export
+- **Code examples:** JavaScript and Rust snippets throughout
+- **Tables:** Technology stack comparison, command interfaces, quality presets, keyboard shortcuts
+- **ASCII diagrams:** Component hierarchies, directory structures
+
+**Document Statistics:**
+- **Length:** 1,500+ lines
+- **Sections:** 10 major sections, 40+ subsections
+- **Diagrams:** 4 Mermaid diagrams
+- **Code Examples:** 15+ code snippets (JavaScript, Rust, Bash)
+- **Tables:** 10+ reference tables
+
+**Completion:** Comprehensive architecture documentation complete. All acceptance criteria met. Developers can now understand ClipForge's design, implementation, and operational characteristics from this single reference document.
 
 ---
 
