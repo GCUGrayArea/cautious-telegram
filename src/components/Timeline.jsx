@@ -101,8 +101,28 @@ function Timeline({ onExportClick }) {
 
   // Handle clip trim end - update clip in/out points and duration in store
   const handleClipTrimEnd = (clipId, updates) => {
+    const clipBefore = clips.find(c => c.id === clipId);
+    console.log('✂️ [Timeline] BEFORE trim - Clip state:', {
+      id: clipBefore?.id,
+      startTime: clipBefore?.startTime,
+      duration: clipBefore?.duration,
+      inPoint: clipBefore?.inPoint,
+      outPoint: clipBefore?.outPoint,
+    });
     console.log('✂️ [Timeline] Trim end for clip:', clipId, 'Updates:', updates);
     updateClip(clipId, updates);
+
+    // Log after update (will show in next render, but useful for debugging)
+    setTimeout(() => {
+      const clipAfter = clips.find(c => c.id === clipId);
+      console.log('✂️ [Timeline] AFTER trim - Clip state:', {
+        id: clipAfter?.id,
+        startTime: clipAfter?.startTime,
+        duration: clipAfter?.duration,
+        inPoint: clipAfter?.inPoint,
+        outPoint: clipAfter?.outPoint,
+      });
+    }, 0);
   };
 
   // Handle clip split at playhead position

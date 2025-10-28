@@ -128,6 +128,7 @@ function TimelineClip({ clip, selected, onClick, onDragEnd, onTrimEnd, pixelsPer
 
   // Left trim handle drag end
   const handleLeftTrimEnd = (e) => {
+    e.cancelBubble = true; // Prevent event from reaching parent Group
     if (!onTrimEnd) return;
     setIsTrimming(false);
 
@@ -136,7 +137,6 @@ function TimelineClip({ clip, selected, onClick, onDragEnd, onTrimEnd, pixelsPer
 
     // Calculate new values
     let newInPoint = clip.inPoint + deltaTime;
-    let newStartTime = clip.startTime + deltaTime;
     let newDuration = clip.duration - deltaTime;
 
     // Constrain inPoint to valid range [0, outPoint - MIN_DURATION]
@@ -144,8 +144,11 @@ function TimelineClip({ clip, selected, onClick, onDragEnd, onTrimEnd, pixelsPer
 
     // Recalculate based on constrained inPoint
     const actualDelta = newInPoint - clip.inPoint;
-    newStartTime = clip.startTime + actualDelta;
     newDuration = clip.outPoint - newInPoint;
+
+    // Calculate new start time to preserve END position on timeline
+    // When trimming from left, clip moves right by the trim amount
+    const newStartTime = clip.startTime + actualDelta;
 
     // Ensure duration is valid
     if (newDuration < MIN_CLIP_DURATION) {
@@ -162,19 +165,17 @@ function TimelineClip({ clip, selected, onClick, onDragEnd, onTrimEnd, pixelsPer
       newDuration,
     });
 
-    // Reset handle position (parent Group will re-render with new clip data)
-    e.target.x(0);
-
-    // Call trim handler
+    // Call trim handler - move clip right to preserve end position
     onTrimEnd(clip.id, {
       inPoint: newInPoint,
-      startTime: newStartTime,
       duration: newDuration,
+      startTime: newStartTime,
     });
   };
 
   // Right trim handle drag end
   const handleRightTrimEnd = (e) => {
+    e.cancelBubble = true; // Prevent event from reaching parent Group
     if (!onTrimEnd) return;
     setIsTrimming(false);
 
@@ -204,24 +205,23 @@ function TimelineClip({ clip, selected, onClick, onDragEnd, onTrimEnd, pixelsPer
       newDuration,
     });
 
-    // Reset handle position (parent Group will re-render with new clip data)
-    e.target.x(clipWidth - trimHandleWidth);
-
     // Call trim handler
     onTrimEnd(clip.id, {
       outPoint: newOutPoint,
       duration: newDuration,
+      startTime: clip.startTime, // Preserve timeline position
     });
   };
 
   // Drag bound for left trim handle - only allow horizontal movement
   const handleLeftTrimBound = (pos) => {
-    // Calculate max drag distance (can't trim beyond clip duration or source start)
-    const maxTrimTime = Math.min(clip.duration - MIN_CLIP_DURATION, clip.inPoint);
+    // Calculate max drag distance right (can't trim beyond MIN_CLIP_DURATION)
+    const maxTrimTime = clip.duration - MIN_CLIP_DURATION;
     const maxDragX = timeToPixels(maxTrimTime, pixelsPerSecond);
 
+    // Allow dragging right to trim, but not past the clip's remaining duration
     return {
-      x: Math.max(-timeToPixels(clip.inPoint, pixelsPerSecond), Math.min(pos.x, maxDragX)),
+      x: Math.max(0, Math.min(pos.x, maxDragX)),
       y: 0,
     };
   };
@@ -333,7 +333,13 @@ function TimelineClip({ clip, selected, onClick, onDragEnd, onTrimEnd, pixelsPer
             fill={trimHandleColor}
             draggable={true}
             dragBoundFunc={handleLeftTrimBound}
-            onDragStart={() => setIsTrimming(true)}
+            onDragStart={(e) => {
+              e.cancelBubble = true; // Prevent parent Group from dragging
+              setIsTrimming(true);
+            }}
+            onDragMove={(e) => {
+              e.cancelBubble = true; // Prevent parent Group drag events
+            }}
             onDragEnd={handleLeftTrimEnd}
             onMouseEnter={(e) => {
               const container = e.target.getStage().container();
@@ -371,7 +377,13 @@ function TimelineClip({ clip, selected, onClick, onDragEnd, onTrimEnd, pixelsPer
             fill={trimHandleColor}
             draggable={true}
             dragBoundFunc={handleRightTrimBound}
-            onDragStart={() => setIsTrimming(true)}
+            onDragStart={(e) => {
+              e.cancelBubble = true; // Prevent parent Group from dragging
+              setIsTrimming(true);
+            }}
+            onDragMove={(e) => {
+              e.cancelBubble = true; // Prevent parent Group drag events
+            }}
             onDragEnd={handleRightTrimEnd}
             onMouseEnter={(e) => {
               const container = e.target.getStage().container();
