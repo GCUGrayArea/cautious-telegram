@@ -3861,10 +3861,25 @@ RecordingPanel.jsx has no preview implementation. The webcamRecorder utility (`s
 **Optional Enhancement:**
 Add resize handles to let user adjust preview size (small/medium/large presets).
 
+**Planning Notes (Blue - 2025-10-28):**
+**File Lock Conflict Detected:** RecordingPanel.jsx is locked by White (PR-POST-MVP-002).
+
+**Implementation Plan:**
+1. Add `<video>` element with ref for preview display in RecordingPanel.jsx
+2. Position as PiP overlay (absolute positioning, bottom-right corner by default)
+3. For webcam mode: Attach stream from `webcamRecorderRef.current` to video.srcObject
+4. For screen mode: Attach `screenStreamRef.current` to video.srcObject
+5. Add drag handlers: onMouseDown, onMouseMove, onMouseUp with state tracking for position
+6. Add CSS to src/index.css for preview styling (rounded corners, shadow, z-index: 1000)
+7. Show/hide preview based on `isRecording` state
+8. Cleanup preview streams when recording stops
+
+**Ready to implement once PR-POST-MVP-002 is Complete.**
+
 ---
 
 ### PR-POST-MVP-004: Prevent Tab Switching from Aborting Recording
-**Status:** In Progress
+**Status:** Complete
 **Agent:** Blonde
 **Dependencies:** None
 **Priority:** High (blocks recording workflow)
