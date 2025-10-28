@@ -1765,7 +1765,7 @@ Using web API approach per PRD's "Fallback to getDisplayMedia() if native APIs t
 ---
 
 ### PR-016: Screen Recording UI and Controls
-**Status:** New
+**Status:** Planning
 **Dependencies:** PR-015, PR-004
 **Priority:** High
 
@@ -1794,7 +1794,7 @@ Auto-import makes workflow seamless—user records and immediately edits.
 ---
 
 ### PR-017: Webcam Recording Implementation
-**Status:** New
+**Status:** Planning
 **Dependencies:** PR-015
 **Priority:** Medium
 
@@ -1822,7 +1822,7 @@ getUserMedia() is cross-platform and simpler than native APIs for webcam.
 ---
 
 ### PR-018: Simultaneous Screen + Webcam Recording
-**Status:** New
+**Status:** Planning
 **Dependencies:** PR-016, PR-017
 **Priority:** Medium
 
@@ -1904,7 +1904,7 @@ FFmpeg complex filters needed for overlays/PiP. Start with simple concatenation 
 ---
 
 ### PR-020: Export Dialog and Progress Indicator
-**Status:** New
+**Status:** Planning
 **Dependencies:** PR-019
 **Priority:** High
 
@@ -1935,7 +1935,7 @@ Poll export progress every 100-500ms for smooth progress bar updates.
 ---
 
 ### PR-021: Multi-Track Timeline Export (Overlays/PiP)
-**Status:** New
+**Status:** Planning
 **Dependencies:** PR-019, PR-018
 **Priority:** Medium
 
@@ -2014,7 +2014,7 @@ Using Vitest for Vite-based projects (fast, modern).
 ---
 
 ### PR-023: Integration Tests for Media Import and Export
-**Status:** New
+**Status:** Planning
 **Dependencies:** PR-004, PR-020
 **Priority:** Medium
 
@@ -2040,7 +2040,7 @@ Include small test video files in repository (< 1MB each).
 ---
 
 ### PR-024: End-to-End Testing and Bug Fixes
-**Status:** New
+**Status:** Planning
 **Dependencies:** PR-021
 **Priority:** High
 
@@ -2068,7 +2068,7 @@ Focus on critical bugs first. Document known issues that are not showstoppers.
 ## Block 9: Packaging and Distribution (Depends on: Block 8)
 
 ### PR-025: Build and Packaging Configuration
-**Status:** New
+**Status:** Planning
 **Dependencies:** PR-001, PR-024
 **Priority:** High
 
@@ -2095,7 +2095,7 @@ Code signing can be skipped for MVP—focus on functional build.
 ---
 
 ### PR-026: Demo Video and Documentation
-**Status:** New
+**Status:** Planning
 **Dependencies:** PR-025
 **Priority:** High
 
@@ -2124,7 +2124,7 @@ Use ClipForge itself to create the demo video—dogfooding!
 ## Block 10: Final Architecture Documentation (Depends on: All previous blocks)
 
 ### PR-027: Generate Comprehensive Architecture Documentation
-**Status:** New
+**Status:** Planning
 **Dependencies:** PR-001, PR-002, PR-003, PR-004, PR-006, PR-007, PR-015, PR-019, PR-025
 **Priority:** Medium
 
