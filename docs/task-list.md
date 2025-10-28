@@ -2182,6 +2182,65 @@ Files I'll modify:
 - Real-time progress can be added in future PR when needed
 - Backend already supports full export - this is purely UI work
 
+**Implementation Summary (Orange):**
+
+**ExportDialog Component (272 lines):**
+- Modal dialog with dark theme UI matching app design
+- Resolution selection: Radio buttons for Source/720p/1080p
+- File picker: Tauri save dialog with default filename `ClipForge_Export_${timestamp}.mp4`
+- Export button: Disabled until output path selected, shows "Exporting..." during process
+- Progress indication: Indeterminate spinner with helpful message during export
+- Success state: Green checkmark with auto-close after 2 seconds
+- Error handling: Red error messages with retry capability
+- Form validation: Checks for output path and non-empty timeline
+- Info section: Shows export details (track 0 only, H.264 MP4, CRF 23)
+
+**Timeline.jsx Changes:**
+- Added `onExportClick` prop to Timeline component
+- Added Export button next to time display (top-left corner)
+- Blue button with hover effects and tooltip
+- Proper pointer-events handling to not interfere with canvas
+
+**App.jsx Integration:**
+- Imported ExportDialog component
+- Added `exportDialogOpen` state
+- Created `handleExportClick` and `handleExportDialogClose` handlers
+- Passed handlers to Timeline and ExportDialog
+- Dialog rendered at root level for proper z-index
+
+**API Wrapper:**
+- Added `exportTimeline(clips, settings)` function to api.js
+- Invokes backend `export_timeline` Tauri command
+- Proper JSDoc documentation
+
+**Data Flow:**
+1. User clicks Export button → opens dialog
+2. User selects resolution → updates state
+3. User clicks "Choose Location" → Tauri save dialog
+4. User clicks "Export" → validates, transforms clips, calls backend
+5. Backend processes export (blocking) → returns success/error
+6. Dialog shows result → auto-closes on success
+
+**Build Status:**
+- Frontend build: ✅ Successful (485.12 KB bundle, gzipped: 149.80 kB)
+- Rust backend: ✅ Successful (0.49s compilation)
+- No compilation errors or warnings in new code
+- Bundle size increase: ~13 KB (acceptable for new feature)
+
+**Core Acceptance Criteria Met: 5/8**
+- ✅ Export button opens dialog
+- ✅ Resolution options (Source, 720p, 1080p)
+- ✅ File save picker
+- ✅ Export completion notification
+- ✅ Functional export workflow
+
+**Deferred Features: 3/8** (simplified for MVP)
+- Quality/bitrate options (hardcoded CRF 23)
+- Real-time progress percentage (indeterminate spinner instead)
+- ETA and cancel button (requires async backend)
+
+**Completion:** Export dialog fully functional. Users can export timelines to MP4 with resolution selection. Simplified progress indication provides adequate UX for MVP. Ready for user testing. Advanced progress features can be added in future PR if needed.
+
 ---
 
 ### PR-021: Multi-Track Timeline Export (Overlays/PiP)
