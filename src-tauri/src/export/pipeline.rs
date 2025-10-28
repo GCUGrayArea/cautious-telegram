@@ -18,6 +18,21 @@ pub struct ClipData {
     pub track: u32,         // Track index (0 = base, 1+ = overlays)
 }
 
+/// Text overlay data from timeline (sent from frontend)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TextOverlayData {
+    pub id: u32,
+    pub text: String,           // Text content
+    pub start_time: f64,        // Position on timeline (seconds)
+    pub duration: f64,          // Duration (seconds)
+    pub x: f64,                 // X position (percentage)
+    pub y: f64,                 // Y position (percentage)
+    pub font_size: u32,         // Font size in pixels
+    pub font_family: String,    // Font name
+    pub color: String,          // Color in hex format (#RRGGBB)
+    pub animation: String,      // Animation type (none, fadeIn, fadeOut, slideIn*)
+}
+
 /// Export pipeline for processing timeline clips into final video
 pub struct ExportPipeline {
     ffmpeg: Arc<Mutex<FFmpegWrapper>>,

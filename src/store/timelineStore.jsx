@@ -11,8 +11,11 @@ import { useContext, useReducer, useCallback } from 'react';
 // Initial state
 const initialState = {
   clips: [], // Array of clip objects on the timeline
+  textOverlays: [], // Array of text overlay objects
   selectedClipId: null, // ID of currently selected clip
+  selectedTextOverlayId: null, // ID of currently selected text overlay
   nextClipId: 1, // Counter for generating unique clip IDs
+  nextTextOverlayId: 1, // Counter for generating unique text overlay IDs
   playheadTime: 0, // Current playhead position in seconds
   isPlaying: false, // Playback state
 };
@@ -27,6 +30,10 @@ const SET_PLAYHEAD_TIME = 'SET_PLAYHEAD_TIME';
 const TOGGLE_PLAYBACK = 'TOGGLE_PLAYBACK';
 const SET_PLAYBACK_STATE = 'SET_PLAYBACK_STATE';
 const SPLIT_CLIP = 'SPLIT_CLIP';
+const ADD_TEXT_OVERLAY = 'ADD_TEXT_OVERLAY';
+const REMOVE_TEXT_OVERLAY = 'REMOVE_TEXT_OVERLAY';
+const UPDATE_TEXT_OVERLAY = 'UPDATE_TEXT_OVERLAY';
+const SELECT_TEXT_OVERLAY = 'SELECT_TEXT_OVERLAY';
 
 // Reducer
 function timelineReducer(state, action) {
@@ -123,6 +130,55 @@ function timelineReducer(state, action) {
       };
     }
 
+    case ADD_TEXT_OVERLAY: {
+      const newTextOverlay = {
+        id: state.nextTextOverlayId,
+        text: action.payload.text || 'New Text',
+        startTime: action.payload.startTime || 0,
+        duration: action.payload.duration || 5, // Default 5 seconds
+        x: action.payload.x || 50, // Percentage of canvas width
+        y: action.payload.y || 50, // Percentage of canvas height
+        fontSize: action.payload.fontSize || 48,
+        fontFamily: action.payload.fontFamily || 'Arial',
+        color: action.payload.color || '#FFFFFF',
+        animation: action.payload.animation || 'none', // none, fadeIn, fadeOut, slideInLeft, slideInRight, slideInTop, slideInBottom
+      };
+
+      return {
+        ...state,
+        textOverlays: [...state.textOverlays, newTextOverlay],
+        nextTextOverlayId: state.nextTextOverlayId + 1,
+        selectedTextOverlayId: newTextOverlay.id,
+      };
+    }
+
+    case REMOVE_TEXT_OVERLAY: {
+      const textOverlayId = action.payload;
+      return {
+        ...state,
+        textOverlays: state.textOverlays.filter(overlay => overlay.id !== textOverlayId),
+        selectedTextOverlayId: state.selectedTextOverlayId === textOverlayId ? null : state.selectedTextOverlayId,
+      };
+    }
+
+    case UPDATE_TEXT_OVERLAY: {
+      const { textOverlayId, updates } = action.payload;
+      return {
+        ...state,
+        textOverlays: state.textOverlays.map(overlay =>
+          overlay.id === textOverlayId ? { ...overlay, ...updates } : overlay
+        ),
+      };
+    }
+
+    case SELECT_TEXT_OVERLAY: {
+      return {
+        ...state,
+        selectedTextOverlayId: action.payload,
+        selectedClipId: null, // Deselect clips when selecting text overlay
+      };
+    }
+
     default:
       return state;
   }
@@ -175,9 +231,27 @@ export function TimelineProvider({ children }) {
     dispatch({ type: SPLIT_CLIP, payload: { clipId, firstClip, secondClip } });
   }, []);
 
+  const addTextOverlay = useCallback((textOverlayData) => {
+    dispatch({ type: ADD_TEXT_OVERLAY, payload: textOverlayData });
+  }, []);
+
+  const removeTextOverlay = useCallback((textOverlayId) => {
+    dispatch({ type: REMOVE_TEXT_OVERLAY, payload: textOverlayId });
+  }, []);
+
+  const updateTextOverlay = useCallback((textOverlayId, updates) => {
+    dispatch({ type: UPDATE_TEXT_OVERLAY, payload: { textOverlayId, updates } });
+  }, []);
+
+  const selectTextOverlay = useCallback((textOverlayId) => {
+    dispatch({ type: SELECT_TEXT_OVERLAY, payload: textOverlayId });
+  }, []);
+
   const value = {
     clips: state.clips,
+    textOverlays: state.textOverlays,
     selectedClipId: state.selectedClipId,
+    selectedTextOverlayId: state.selectedTextOverlayId,
     playheadTime: state.playheadTime,
     isPlaying: state.isPlaying,
     addClip,
@@ -189,6 +263,10 @@ export function TimelineProvider({ children }) {
     togglePlayback,
     setPlaybackState,
     splitClip,
+    addTextOverlay,
+    removeTextOverlay,
+    updateTextOverlay,
+    selectTextOverlay,
   };
 
   return (

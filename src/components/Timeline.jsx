@@ -3,6 +3,7 @@ import { Stage, Layer, Rect, Text, Line } from 'react-konva';
 import TimeRuler from './timeline/TimeRuler';
 import Playhead from './timeline/Playhead';
 import TimelineClip from './timeline/TimelineClip';
+import TextOverlayClip from './timeline/TextOverlayClip';
 import {
   TIMELINE_CONFIG,
   applyZoom,
@@ -27,7 +28,23 @@ function Timeline() {
   const [dimensions, setDimensions] = useState({ width: 800, height: 300 });
 
   // Timeline store for clips and playhead time
-  const { clips, selectedClipId, playheadTime, selectClip, clearSelection, addClip, updateClip, setPlayheadTime, removeClip, splitClip } = useTimeline();
+  const {
+    clips,
+    textOverlays,
+    selectedClipId,
+    selectedTextOverlayId,
+    playheadTime,
+    selectClip,
+    clearSelection,
+    addClip,
+    updateClip,
+    setPlayheadTime,
+    removeClip,
+    splitClip,
+    selectTextOverlay,
+    updateTextOverlay,
+    removeTextOverlay,
+  } = useTimeline();
 
   // Drag store for custom drag-drop
   const { draggedItem, isDragging: isExternalDragActive, endDrag } = useDrag();
@@ -173,6 +190,21 @@ function Timeline() {
 
     console.log('🗑️ [Timeline] Deleting clip:', selectedClipId);
     removeClip(selectedClipId);
+  };
+
+  // Handle text overlay selection
+  const handleTextOverlayClick = (textOverlayId) => {
+    selectTextOverlay(textOverlayId);
+  };
+
+  // Handle text overlay drag end - update overlay position
+  const handleTextOverlayDragEnd = (textOverlayId, newStartTime) => {
+    updateTextOverlay(textOverlayId, { startTime: newStartTime });
+  };
+
+  // Handle text overlay trim end - update duration
+  const handleTextOverlayTrimEnd = (textOverlayId, updates) => {
+    updateTextOverlay(textOverlayId, updates);
   };
 
   // Keyboard event handler
@@ -546,6 +578,24 @@ function Timeline() {
               dash={[5, 5]}
             />
           )}
+        </Layer>
+
+        {/* Text overlays layer */}
+        <Layer>
+          {textOverlays.map(textOverlay => (
+            <TextOverlayClip
+              key={textOverlay.id}
+              textOverlay={textOverlay}
+              selected={textOverlay.id === selectedTextOverlayId}
+              onClick={handleTextOverlayClick}
+              onDragEnd={handleTextOverlayDragEnd}
+              onTrimEnd={handleTextOverlayTrimEnd}
+              pixelsPerSecond={pixelsPerSecond}
+              scrollX={scrollX}
+              clips={clips}
+              numTracks={numTracks}
+            />
+          ))}
         </Layer>
 
         {/* Time ruler layer */}
