@@ -458,11 +458,14 @@ function Timeline({ onExportClick }) {
     return tracks;
   };
 
+  // Calculate required timeline height dynamically based on config
+  const timelineHeight = TIMELINE_CONFIG.RULER_HEIGHT + (TIMELINE_CONFIG.TRACK_HEIGHT * 3);
+
   return (
     <div
       ref={containerRef}
       className="timeline-container bg-gray-900 border-t border-gray-700 overflow-hidden"
-      style={{ height: '250px', position: 'relative' }}
+      style={{ height: `${timelineHeight}px`, position: 'relative' }}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
