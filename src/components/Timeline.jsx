@@ -76,12 +76,11 @@ function Timeline() {
 
   // Handle click on timeline to jump playhead or clear selection
   const handleStageClick = (e) => {
-    // Only handle clicks on the stage background, not on other elements
-    if (e.target === e.target.getStage()) {
-      const clickX = e.evt.layerX + scrollX;
-      const newTime = clickX / pixelsPerSecond;
-      setCurrentTime(Math.max(0, newTime));
-      // Clear clip selection when clicking empty timeline
+    // Check if click was on a clip (clips have onClick handlers that set cancelBubble)
+    const clickedOnClip = e.cancelBubble === true;
+
+    if (!clickedOnClip) {
+      // Clear clip selection when clicking anywhere except clips
       clearSelection();
     }
   };
@@ -220,7 +219,6 @@ function Timeline() {
   const handleDragEnter = (e) => {
     console.log('⏱️ [Timeline] DragEnter event');
     e.preventDefault();
-    setIsExternalDragActive(true);
   };
 
   // Handle drag leave
@@ -228,7 +226,6 @@ function Timeline() {
     console.log('⏱️ [Timeline] DragLeave event');
     e.preventDefault();
     setDropIndicator(null);
-    setIsExternalDragActive(false);
   };
 
   // Handle drop
@@ -284,9 +281,8 @@ function Timeline() {
     } catch (err) {
       console.error('⏱️ [Timeline] Drop - Failed to handle drop:', err);
     } finally {
-      // Clear drop indicator and drag state
+      // Clear drop indicator
       setDropIndicator(null);
-      setIsExternalDragActive(false);
       console.log('⏱️ [Timeline] Drop - Completed');
     }
   };
