@@ -4552,7 +4552,7 @@ ClipForge currently uses default Tauri placeholder icons. Add a custom app icon 
 ---
 
 ### PR-POST-MVP-010: Set Timeline Area Minimum Height (15% of Window)
-**Status:** Planning
+**Status:** In Progress
 **Agent:** White
 **Dependencies:** None
 **Priority:** Medium (prevents UI issues)
@@ -4598,6 +4598,39 @@ Constrain the timeline area to a minimum of 15% of the window height. This ensur
 - Use CSS Grid with `minmax()` for row sizing: `grid-template-rows: 1fr minmax(15%, auto)`
 - Set max-height on preview area instead: `max-height: 85vh`
 - Make timeline area resizable with drag handle (more complex)
+
+**Planning Notes (White - 2025-10-28):**
+
+**Current State Analysis:**
+- App.jsx line 164-175: Main Editor Area uses flex column layout
+- Line 166: Preview Area has `flex-1` (grows to fill available space)
+- Line 171: Timeline Area has `min-h-[15vh]` but NO flex properties
+- **Issue:** Preview can grow indefinitely because Timeline isn't participating in flex calculation
+
+**Root Cause:**
+The Timeline Area has a min-height constraint but no flex properties, so it doesn't communicate its size requirements to the flex parent. The Preview Area's `flex-1` makes it grow greedily, potentially pushing the Timeline off-screen.
+
+**Solution:**
+Add `flex-shrink-0` to the Timeline Area to prevent it from shrinking below its min-height. This forces the flex parent to respect the Timeline's minimum size and makes the Preview shrink if necessary.
+
+**Implementation:**
+Change line 171 from:
+```jsx
+<div className="flex flex-col min-h-[15vh]">
+```
+to:
+```jsx
+<div className="flex flex-col min-h-[15vh] flex-shrink-0">
+```
+
+This ensures:
+1. Timeline maintains minimum 15vh height (`min-h-[15vh]`)
+2. Timeline won't shrink below its minimum (`flex-shrink-0`)
+3. Preview Area (flex-1) will shrink if needed to accommodate Timeline
+4. Proper layout balance between preview and timeline
+
+**Files to Modify:**
+- src/App.jsx (line 171) - Add `flex-shrink-0` to timeline container class
 
 ---
 
