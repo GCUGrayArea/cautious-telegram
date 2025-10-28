@@ -11,7 +11,7 @@ import { getClipAtTime, getClipSourceTime, formatTime, convertToAssetPath } from
  */
 function PreviewPlayer({ currentTime }) {
   const videoRef = useRef(null);
-  const { clips, isPlaying } = useTimeline();
+  const { clips, isPlaying, setPlayheadTime } = useTimeline();
   const [currentClip, setCurrentClip] = useState(null);
   const [videoError, setVideoError] = useState(null);
 
@@ -82,6 +82,24 @@ function PreviewPlayer({ currentTime }) {
       video.pause();
     }
   }, [isPlaying, currentClip]);
+
+  // Sync video playback to timeline playhead (two-way sync)
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !currentClip) return;
+
+    const handleTimeUpdate = () => {
+      // Calculate timeline position from video currentTime
+      const clipSourceTime = video.currentTime;
+      const timelinePosition = currentClip.startTime + (clipSourceTime - currentClip.inPoint);
+
+      // Update timeline playhead to match video position
+      setPlayheadTime(timelinePosition);
+    };
+
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    return () => video.removeEventListener('timeupdate', handleTimeUpdate);
+  }, [currentClip, setPlayheadTime]);
 
   return (
     <div className="preview-player flex flex-col items-center justify-center w-full h-full bg-black">
