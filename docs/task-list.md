@@ -4962,8 +4962,8 @@ Add export presets for common platforms: YouTube (1080p, 4K), Instagram (Stories
 ---
 
 ### PR-STRETCH-006: Text Overlays with Custom Fonts and Animations
-**Status:** New
-**Agent:** (unassigned)
+**Status:** Complete
+**Agent:** White
 **Dependencies:** PR-007 (Timeline Clip Rendering) ✅, PR-019 (Export Pipeline) ✅
 **Priority:** Medium (common feature request)
 
@@ -5074,16 +5074,99 @@ Add video filters for color correction and effects: brightness, contrast, satura
 
 ---
 
+### PR-STRETCH-009: AI-Powered One-Click Subtitling
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** PR-STRETCH-006 (Text Overlays) ✅
+**Priority:** High (significant value-add feature)
+
+**Description:**
+Automatically generate subtitles from video audio using AI speech-to-text, then create text overlays for each subtitle phrase. Enable one-click subtitle generation for entire timeline with customizable styling.
+
+**Current State:**
+- Text overlays require manual creation
+- No speech-to-text or subtitle generation
+- Can't automatically caption videos
+
+**Files:**
+- src/components/SubtitleGenerator.jsx (create) - UI panel for subtitle generation
+- src/components/SubtitlePreview.jsx (create) - Preview subtitles with audio sync
+- src/services/speechToText.js (create) - Speech recognition API integration
+- src/store/subtitleStore.jsx (create) - Subtitle state management (alternate to textOverlays)
+- src-tauri/src/subtitle/mod.rs (create) - Rust subtitle service wrapper
+- src-tauri/src/subtitle/processor.rs (create) - Speech-to-text processing
+
+**Acceptance Criteria:**
+- [ ] Click "Generate Subtitles" button in UI
+- [ ] Auto-detect audio track and language
+- [ ] Process audio through speech-to-text API (Google Cloud, Azure, or Whisper)
+- [ ] Display extracted text with timestamps
+- [ ] Create text overlays from detected phrases
+- [ ] Adjust subtitle timing/duration interactively
+- [ ] Merge adjacent short phrases for readability
+- [ ] Customizable font, size, position for generated subtitles
+- [ ] Support multiple languages (auto-detect or manual selection)
+- [ ] Export includes burned-in subtitles
+
+**Implementation Approach:**
+
+1. **Speech-to-Text Backend (Rust):**
+   - Use `whisper-rs` (Rust bindings to OpenAI Whisper) for local speech recognition
+   - OR integrate with cloud APIs (Google Cloud Speech-to-Text, Azure)
+   - Process video audio via FFmpeg extraction
+   - Return phrases with start/end timestamps
+
+2. **Frontend Integration (React):**
+   - SubtitleGenerator component with start/cancel buttons
+   - Progress indicator showing processing status (0-100%)
+   - Display extracted phrases in editable list
+   - Manual timing adjustment UI
+   - Batch create text overlays from phrases
+
+3. **Subtitle Processing:**
+   - Extract audio from video: `ffmpeg -i video.mp4 -q:a 9 -n -acodec libmp3lame -b:a 32k audio.mp3`
+   - Feed audio to speech-to-text engine
+   - Convert phrase objects to TextOverlay objects
+   - Apply default styling (white text, centered bottom, 48px)
+
+4. **State Management:**
+   - Store intermediate subtitle phrases in separate store
+   - Allow manual editing before converting to overlays
+   - Merge/split phrases as needed
+   - Final conversion: phrases → textOverlays array
+
+5. **Export:**
+   - Subtitles are already burned-in via FFmpeg drawtext from PR-STRETCH-006
+   - No additional export logic needed
+
+**API Integration Options:**
+- **Option A (Recommended):** OpenAI Whisper (local, open-source, high accuracy)
+- **Option B:** Google Cloud Speech-to-Text API (high accuracy, requires API key)
+- **Option C:** Azure Cognitive Services (requires API key)
+- **Option D:** Hybrid (local Whisper for fast preview, cloud for high-quality final)
+
+**Estimated Complexity:** High (speech-to-text integration + UI + timing sync)
+
+**Testing Considerations:**
+- Test with various audio quality levels
+- Verify timestamp accuracy
+- Test language detection
+- Verify subtitle overlay generation matches audio
+
+---
+
 ## Summary
 
-**Total PRs:** 45 (27 original MVP + 11 post-MVP bugfixes + 7 stretch goals)
+**Total PRs:** 46 (27 original MVP + 11 post-MVP bugfixes + 8 stretch goals)
 
 **Breakdown by Category:**
 - **MVP Features (PR-001 to PR-027):** 27 PRs - All Complete ✓
 - **Post-MVP Bugfixes (PR-POST-MVP-001 to PR-POST-MVP-011):** 11 PRs
   - Complete: 8 PRs ✓
   - New: 3 PRs (009, 010, 011)
-- **Stretch Goals (PR-STRETCH-001 to PR-STRETCH-008):** 7 PRs - All New
+- **Stretch Goals (PR-STRETCH-001 to PR-STRETCH-009):** 8 PRs
+  - Complete: 1 PR (PR-STRETCH-006) ✓
+  - New: 7 PRs
 
 **Post-MVP Status:**
 - **Complete:**
