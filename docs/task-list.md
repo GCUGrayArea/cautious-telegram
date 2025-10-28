@@ -3921,8 +3921,8 @@ Located in `src-tauri/src/export/pipeline.rs` lines 54-72. The export pipeline h
 ---
 
 ### PR-POST-MVP-006: Fix Playhead Not Moving During Preview Playback
-**Status:** New
-**Agent:** (unassigned)
+**Status:** Planning
+**Agent:** Pink
 **Dependencies:** None
 **Priority:** High (blocks timeline navigation)
 
