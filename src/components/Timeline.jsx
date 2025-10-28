@@ -563,11 +563,6 @@ function Timeline({ onExportClick }) {
         </Layer>
         </Stage>
       </div>
-
-      {/* Instructions */}
-      <div className="absolute bottom-2 left-2 text-xs text-gray-500 z-50" style={{ pointerEvents: 'none' }}>
-        <p>Ctrl+Scroll: Zoom | Scroll: Pan | Click: Jump playhead | Drag red handle: Scrub</p>
-      </div>
     </div>
   );
 }

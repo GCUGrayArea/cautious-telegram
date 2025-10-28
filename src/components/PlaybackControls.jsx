@@ -91,6 +91,11 @@ function PlaybackControls() {
         {hasClips && isPlaying && 'Playing...'}
         {hasClips && !isPlaying && 'Press Space or click Play to start'}
       </div>
+
+      {/* Timeline control hints */}
+      <div className="ml-auto text-xs text-gray-500">
+        <p>Ctrl+Scroll: Zoom | Scroll: Pan | Click: Jump playhead | Drag red handle: Scrub</p>
+      </div>
     </div>
   );
 }
