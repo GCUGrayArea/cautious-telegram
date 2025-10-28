@@ -4220,24 +4220,91 @@ The fix applies to all clip positions and video resolutions, not just the 0:00 e
 
 ---
 
+### PR-POST-MVP-008: Add Gold Film Camera Icon for App
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** None
+**Priority:** Low (visual polish)
+
+**Description:**
+ClipForge currently uses default Tauri placeholder icons. Add a custom app icon based on the film camera emoji (🎥) but colored gold to match the app's branding and give it a professional, distinctive appearance.
+
+**Requirements:**
+1. Create SVG-based icon inspired by film camera emoji design
+2. Use gold color scheme (#FFD700 or similar warm gold tones)
+3. Generate multiple sizes for different platforms:
+   - 32x32 (favicon, taskbar)
+   - 128x128 (app launcher)
+   - 256x256, 512x512 (high-DPI displays)
+   - 1024x1024 (macOS, promotional materials)
+4. Export to PNG format at required sizes
+5. Include ICO format for Windows
+6. Include ICNS format for macOS
+
+**Files:**
+- src-tauri/icons/icon.png (create/replace) - Main 1024x1024 source icon
+- src-tauri/icons/32x32.png (create/replace) - 32px favicon
+- src-tauri/icons/128x128.png (create/replace) - 128px app icon
+- src-tauri/icons/128x128@2x.png (create/replace) - 256px retina
+- src-tauri/icons/icon.icns (create/replace) - macOS icon bundle
+- src-tauri/icons/icon.ico (create/replace) - Windows icon bundle
+- src-tauri/icons/Square*.png (create/replace) - Windows Store assets
+- public/favicon.ico (create/replace) - Web favicon
+- README.md (modify) - Update screenshots/branding if needed
+
+**Implementation Approach:**
+1. Design gold film camera icon in SVG:
+   - Classic film camera silhouette
+   - Prominent lens circle in center
+   - Film reel details on top
+   - Warm gold color (#FFD700 base, darker gold #DAA520 for shadows)
+   - Simple, recognizable design that scales well
+2. Use design tool (Figma, Inkscape) or AI tool to create SVG
+3. Export SVG to PNG at multiple resolutions using image converter
+4. Generate ICO file using online converter or `png2ico` tool
+5. Generate ICNS file using `png2icns` (macOS) or online converter
+6. Update Tauri config if needed (tauri.conf.json already references icons/ folder)
+7. Test icon appearance in taskbar, app launcher, title bar
+
+**Acceptance Criteria:**
+- [ ] Gold film camera icon clearly visible and recognizable
+- [ ] Icon looks good at all sizes (32px to 1024px)
+- [ ] Icon appears in Windows taskbar/start menu
+- [ ] Icon appears in macOS dock/Finder
+- [ ] Icon appears in browser tab (favicon)
+- [ ] Icon maintains quality on high-DPI displays
+- [ ] Icon colors match gold theme (warm gold tones)
+- [ ] Design is simple enough to recognize at small sizes
+
+**Design Notes:**
+- Film camera emoji reference: 🎥
+- Suggested colors:
+  - Primary gold: #FFD700 (pure gold)
+  - Shadow gold: #DAA520 (goldenrod)
+  - Highlight: #FFF8DC (cornsilk for reflections)
+  - Dark accent: #8B7500 (dark goldenrod for details)
+- Style: Modern, flat design with subtle gradients
+- Keep it simple - icon should work at 16px size
+
+---
+
 ## Summary
 
-**Total PRs:** 34 (27 original + 7 post-MVP bugfixes)
-**Post-MVP Bugfix Block:** 7 PRs (all independent, can run in parallel)
+**Total PRs:** 35 (27 original + 8 post-MVP bugfixes/enhancements)
+**Post-MVP Block:** 8 PRs (most independent, can run in parallel)
 
-**Post-MVP Priority:**
-- **High Priority (must fix):**
-  - PR-POST-MVP-002: Zero-Length Recorded Clips
-  - PR-POST-MVP-004: Tab Switching Aborts Recording
-  - PR-POST-MVP-006: Playhead Not Moving During Playback
-  - PR-POST-MVP-007: Video Preview Massive Growth at 0:00
+**Post-MVP Status:**
+- **Complete:**
+  - PR-POST-MVP-001: Track 3 Height Issue ✓
+  - PR-POST-MVP-002: Zero-Length Recorded Clips ✓
+  - PR-POST-MVP-004: Tab Switching Aborts Recording ✓
+  - PR-POST-MVP-005: Export vs Preview Mismatch ✓
+  - PR-POST-MVP-006: Playhead Not Moving During Playback ✓
+  - PR-POST-MVP-007: Video Preview Massive Growth at 0:00 ✓
 
-- **Medium Priority (should fix):**
-  - PR-POST-MVP-003: Recording Preview (PiP)
-  - PR-POST-MVP-005: Export vs Preview Mismatch
-
-- **Low Priority (polish):**
-  - PR-POST-MVP-001: Track 3 Height Issue
+- **Remaining:**
+  - PR-POST-MVP-003: Recording Preview (PiP) - Blocked-Ready (waiting for White)
+  - PR-POST-MVP-008: Add Gold Film Camera Icon - New (low priority polish)
 
 **Parallel Opportunities:**
 All 7 post-MVP bugfix PRs are independent and can be worked on simultaneously by different agents. No file lock conflicts exist between these PRs.
