@@ -1,59 +1,58 @@
 import { useRef, useEffect, useState } from 'react';
 import { useTimeline } from '../store/timelineStore.jsx';
-import { getClipAtTime, getClipSourceTime, formatTime, convertToAssetPath } from '../utils/preview';
+import { getAllClipsAtTime, getClipSourceTime, formatTime, convertToAssetPath } from '../utils/preview';
 
 /**
  * PreviewPlayer Component
  *
  * Displays video preview at the current playhead position.
- * Uses HTML5 video element to show the frame from the active clip.
+ * Supports Picture-in-Picture for overlapping clips on different tracks.
  * Updates when playhead moves (scrubbing) and handles clip boundaries.
  */
 function PreviewPlayer({ currentTime }) {
-  const videoRef = useRef(null);
+  const videoRefsRef = useRef({});
   const { clips, isPlaying } = useTimeline();
-  const [currentClip, setCurrentClip] = useState(null);
+  const [activeClips, setActiveClips] = useState([]);
   const [videoError, setVideoError] = useState(null);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
 
-  // Find the clip at the current playhead position
+  // Find all clips at the current playhead position (for PiP)
   useEffect(() => {
-    const clip = getClipAtTime(clips, currentTime);
-    setCurrentClip(clip);
+    const clipsAtTime = getAllClipsAtTime(clips, currentTime);
+    setActiveClips(clipsAtTime);
   }, [clips, currentTime]);
 
-  // Update video element when clip or time changes
+  // Update video elements when clips or time changes
   useEffect(() => {
-    if (!videoRef.current || !currentClip) return;
+    if (activeClips.length === 0) return;
 
-    const video = videoRef.current;
-    const sourceTime = getClipSourceTime(currentClip, currentTime);
+    activeClips.forEach((clip) => {
+      const video = videoRefsRef.current[clip.id];
+      if (!video) return;
 
-    // Set video source if it changed
-    const videoPath = convertToAssetPath(currentClip.metadata?.path);
-    if (video.src !== videoPath) {
-      video.src = videoPath;
+      const sourceTime = getClipSourceTime(clip, currentTime);
+      const videoPath = convertToAssetPath(clip.metadata?.path);
 
-      // When metadata is loaded, seek to the correct time
-      const handleLoadedMetadata = () => {
+      // Set video source if it changed
+      if (video.src !== videoPath) {
+        video.src = videoPath;
+
+        // When metadata is loaded, seek to the correct time
+        const handleLoadedMetadata = () => {
+          if (Math.abs(video.currentTime - sourceTime) > 0.1) {
+            video.currentTime = sourceTime;
+          }
+        };
+
+        video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+      } else {
+        // Same source, just seek to new time
         if (Math.abs(video.currentTime - sourceTime) > 0.1) {
           video.currentTime = sourceTime;
         }
-      };
-
-      video.addEventListener('loadedmetadata', handleLoadedMetadata);
-
-      // Cleanup listener
-      return () => {
-        video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      };
-    } else {
-      // Same source, just seek to new time
-      if (Math.abs(video.currentTime - sourceTime) > 0.1) {
-        video.currentTime = sourceTime;
       }
-    }
-  }, [currentClip, currentTime]);
+    });
+  }, [activeClips, currentTime]);
 
   // Handle video errors
   const handleVideoError = (e) => {
@@ -66,28 +65,34 @@ function PreviewPlayer({ currentTime }) {
     setVideoError(null);
   };
 
-  // Handle playback state changes
+  // Handle playback state changes for all active videos
   useEffect(() => {
-    if (!videoRef.current || !currentClip) return;
+    if (activeClips.length === 0) return;
 
-    const video = videoRef.current;
+    activeClips.forEach((clip) => {
+      const video = videoRefsRef.current[clip.id];
+      if (!video) return;
 
-    if (isPlaying) {
-      // Start video playback
-      video.play().catch(err => {
-        console.error('Failed to play video:', err);
-        setVideoError('Failed to play video. Please try again.');
-      });
-    } else {
-      // Pause video playback
-      video.pause();
-    }
-  }, [isPlaying, currentClip]);
+      if (isPlaying) {
+        // Start video playback
+        video.play().catch(err => {
+          console.error('Failed to play video:', err);
+          setVideoError('Failed to play video. Please try again.');
+        });
+      } else {
+        // Pause video playback
+        video.pause();
+      }
+    });
+  }, [isPlaying, activeClips]);
 
-  // Track video playback time for display
+  // Track video playback time for display (use first active clip)
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !currentClip) return;
+    if (activeClips.length === 0) return;
+
+    const firstClip = activeClips[0];
+    const video = videoRefsRef.current[firstClip.id];
+    if (!video) return;
 
     const handleTimeUpdate = () => {
       setVideoCurrentTime(video.currentTime);
@@ -95,55 +100,79 @@ function PreviewPlayer({ currentTime }) {
 
     video.addEventListener('timeupdate', handleTimeUpdate);
     return () => video.removeEventListener('timeupdate', handleTimeUpdate);
-  }, [currentClip]);
+  }, [activeClips]);
 
   return (
     <div className="preview-player flex flex-col items-center justify-center w-full h-full bg-black">
-      {currentClip ? (
+      {activeClips.length > 0 ? (
         <div className="relative w-full h-full flex items-center justify-center">
-          {/* Video element */}
-          <video
-            ref={videoRef}
-            className="max-w-full max-h-full"
-            onError={handleVideoError}
-            onLoadedData={handleVideoLoad}
-            preload="metadata"
-            style={{
-              display: videoError ? 'none' : 'block',
-              objectFit: 'contain'
-            }}
-          />
+          {/* Render all active clips */}
+          {activeClips.map((clip, index) => {
+            const isBaseLayer = index === 0;
+            const isOverlay = index > 0;
+
+            return (
+              <video
+                key={clip.id}
+                ref={(el) => {
+                  if (el) videoRefsRef.current[clip.id] = el;
+                }}
+                className={isBaseLayer ? 'max-w-full max-h-full' : ''}
+                onError={handleVideoError}
+                onLoadedData={handleVideoLoad}
+                preload="metadata"
+                muted
+                style={{
+                  position: isOverlay ? 'absolute' : 'relative',
+                  width: isOverlay ? '25%' : '100%',
+                  height: isOverlay ? 'auto' : '100%',
+                  bottom: isOverlay ? '20px' : 'auto',
+                  right: isOverlay ? '20px' : 'auto',
+                  zIndex: clip.track,
+                  objectFit: 'contain',
+                  borderRadius: isOverlay ? '8px' : '0',
+                  border: isOverlay ? '2px solid rgba(255, 255, 255, 0.3)' : 'none',
+                  boxShadow: isOverlay ? '0 4px 12px rgba(0, 0, 0, 0.5)' : 'none'
+                }}
+              />
+            );
+          })}
 
           {/* Error message */}
           {videoError && (
-            <div className="text-center">
+            <div className="text-center absolute z-50">
               <p className="text-red-400 mb-2">⚠ {videoError}</p>
-              <p className="text-sm text-gray-500">Clip: {currentClip.metadata?.filename || 'Unknown'}</p>
+              <p className="text-sm text-gray-500">Clip: {activeClips[0]?.metadata?.filename || 'Unknown'}</p>
             </div>
           )}
 
-          {/* Video info overlay */}
-          <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 rounded px-3 py-2">
-            <p className="text-xs text-white">
-              <span className="font-semibold">{currentClip.metadata?.filename || 'Unknown'}</span>
-            </p>
-            <p className="text-xs text-gray-300">
-              {formatTime(getClipSourceTime(currentClip, currentTime))} / {formatTime(currentClip.metadata?.duration || 0)}
-            </p>
-            <p className="text-xs text-gray-400">
-              {currentClip.metadata?.width}x{currentClip.metadata?.height} @ {currentClip.metadata?.fps || 0}fps
-            </p>
-          </div>
+          {/* Video info overlay - show info for base clip */}
+          {activeClips[0] && (
+            <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 rounded px-3 py-2 z-40">
+              <p className="text-xs text-white">
+                <span className="font-semibold">{activeClips[0].metadata?.filename || 'Unknown'}</span>
+                {activeClips.length > 1 && <span className="ml-2 text-blue-400">+{activeClips.length - 1} overlay(s)</span>}
+              </p>
+              <p className="text-xs text-gray-300">
+                {formatTime(getClipSourceTime(activeClips[0], currentTime))} / {formatTime(activeClips[0].metadata?.duration || 0)}
+              </p>
+              <p className="text-xs text-gray-400">
+                {activeClips[0].metadata?.width}x{activeClips[0].metadata?.height} @ {activeClips[0].metadata?.fps || 0}fps
+              </p>
+            </div>
+          )}
 
           {/* Timeline position indicator */}
-          <div className="absolute top-4 left-4 bg-blue-600 bg-opacity-90 rounded px-3 py-2">
-            <p className="text-xs text-gray-300 font-mono mb-1">
-              Start play at: {formatTime(currentTime)}
-            </p>
-            <p className="text-xs text-white font-mono font-semibold">
-              Currently playing: {formatTime(currentClip.startTime + (videoCurrentTime - currentClip.inPoint))}
-            </p>
-          </div>
+          {activeClips[0] && (
+            <div className="absolute top-4 left-4 bg-blue-600 bg-opacity-90 rounded px-3 py-2 z-40">
+              <p className="text-xs text-gray-300 font-mono mb-1">
+                Start play at: {formatTime(currentTime)}
+              </p>
+              <p className="text-xs text-white font-mono font-semibold">
+                Currently playing: {formatTime(activeClips[0].startTime + (videoCurrentTime - activeClips[0].inPoint))}
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-center">
