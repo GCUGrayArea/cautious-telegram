@@ -2908,7 +2908,7 @@ Using Vitest for Vite-based projects (fast, modern, Vite-native).
 ---
 
 ### PR-023: Integration Tests for Media Import and Export
-**Status:** Planning
+**Status:** Complete
 **Agent:** Blonde
 **Dependencies:** PR-004 ✅, PR-020 ✅
 **Priority:** Medium
@@ -2916,21 +2916,55 @@ Using Vitest for Vite-based projects (fast, modern, Vite-native).
 **Description:**
 Write integration tests for import workflow (file selection, metadata extraction, database save) and export workflow (timeline to MP4).
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src-tauri/src/tests/import_test.rs (create) - Import integration tests
-- src-tauri/src/tests/export_test.rs (create) - Export integration tests
-- src-tauri/src/tests/fixtures/ (create) - Test video files
-- src-tauri/Cargo.toml (modify) - Test dependencies
+**Files (COMPLETED by Blonde):**
+- src-tauri/src/tests/mod.rs (created) - Test module declaration
+- src-tauri/src/tests/import_test.rs (created) - Import integration tests (174 lines, 5 tests)
+- src-tauri/src/tests/export_test.rs (created) - Export integration tests (264 lines, 8 tests)
+- src-tauri/src/tests/fixtures/test_video_2s.mp4 (created) - Test video fixture (25KB, 320x240, 2s)
+- src-tauri/src/main.rs (modified) - Added tests module
+- src-tauri/src/database/mod.rs (modified) - Added new_in_memory() and get_connection() for testing
 
 **Acceptance Criteria:**
-- [ ] Test import: file → metadata extraction → database save
-- [ ] Test export: timeline JSON → FFmpeg command → output file
-- [ ] Tests use fixture video files
-- [ ] Tests verify output file validity
-- [ ] All integration tests pass
+- [x] Test import: file → metadata extraction → database save
+- [x] Test export: timeline JSON → FFmpeg command → output file
+- [x] Tests use fixture video files
+- [x] Tests verify output file validity
+- [x] All integration tests pass (13/13 in 1.43s)
 
 **Notes:**
 Include small test video files in repository (< 1MB each).
+
+**Implementation Summary (Blonde):**
+
+**Test Coverage:**
+- **Import Tests (5):** Fixture validation, metadata extraction, full workflow integration, duplicate handling, error cases
+- **Export Tests (8):** Single/multi-clip, trimming, resolution scaling, multi-track overlays, error cases, output validation
+- **Total: 13 tests, 100% passing, 1.43s execution time**
+
+**Test Fixture:**
+- Generated 25KB test video (320x240, 2s, 1fps) using FFmpeg testsrc/sine
+- Stored in src-tauri/src/tests/fixtures/
+- Small enough for git repository, valid for all test scenarios
+
+**Key Testing Utilities:**
+- `Database::new_in_memory()`: In-memory SQLite for isolated test runs
+- `Database::get_connection()`: Helper to access connection from tests
+- `get_test_video_path()`: Fixture path resolution using CARGO_MANIFEST_DIR
+- `get_test_output_path()`: Temp output paths with automatic cleanup
+
+**Test Architecture:**
+- Integration tests validate full workflows (not mocked)
+- Each test is isolated (in-memory DB, temp outputs)
+- Tests verify both success and error paths
+- Export tests validate output files with FFmpeg probe
+
+**Build Status:**
+- ✅ All 13 tests passing
+- ✅ Test execution: 1.43s (fast)
+- ⚠️ 13 warnings (expected - unused CRUD operations, Project struct)
+- ✅ No compilation errors
+
+**Completion:** Full integration test suite implemented. Import and export workflows comprehensively tested. Ready for CI/CD integration.
 
 ---
 
