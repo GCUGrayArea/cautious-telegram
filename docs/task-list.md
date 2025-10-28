@@ -1233,11 +1233,11 @@ Trim should not affect source file—only in/out points for export.
 **Description:**
 Implement clip split at playhead position and clip deletion. Update timeline state, re-render affected clips.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src/components/Timeline.jsx (modify) - Split and delete actions
-- src/store/timelineStore.js (modify) - Split/delete state mutations
-- src/utils/timeline.js (modify) - Split calculation logic
-- src/components/TimelineControls.jsx (create) - Split/delete buttons
+**Files (PLANNED by Blonde):**
+- src/store/timelineStore.jsx (modify) - Add SPLIT_CLIP action to reducer
+- src/components/Timeline.jsx (modify) - Add keyboard handlers (Delete, Backspace, S key) and split logic
+- src/utils/timeline.js (modify) - Add splitClipAtTime utility function
+- (No TimelineControls.jsx needed - keyboard shortcuts will be sufficient for MVP)
 
 **Acceptance Criteria:**
 - [ ] User can split clip at playhead position (button or keyboard shortcut)
@@ -1316,7 +1316,7 @@ Create video preview player using HTML5 video element. Display frame at playhead
 ---
 
 ### PR-013: Timeline Playback Controls
-**Status:** Planning
+**Status:** In Progress
 **Agent:** Orange
 **Dependencies:** PR-012 ✅
 **Priority:** High
@@ -1997,3 +1997,22 @@ This is typically a 60-90 minute task. The agent should:
 - Recording features (Block 6) are important but can be prioritized after core editing works
 - Stretch features (text overlays, transitions, audio controls) are out of scope for 72-hour sprint
 - Final architecture documentation (Block 10) should be last—depends on all implementation
+
+**Implementation Summary (White):**
+
+**TimelineClip.jsx Changes:**
+- Added trim handles visible only when clip selected
+- Left handle: adjusts inPoint, startTime, and duration
+- Right handle: adjusts outPoint and duration
+- Visual feedback: yellow handles, 'ew-resize' cursor
+- Trim constraints: MIN_DURATION 0.1s, clamped to source duration
+
+**Timeline.jsx Changes:**
+- Added handleClipTrimEnd handler
+- Passes onTrimEnd prop to TimelineClip components
+- Updates clip via updateClip action
+
+**Build Status:**
+- Frontend build: ✅ Successful (466.78 KB, gzipped: 144.94 kB)
+
+**Completion:** All acceptance criteria met (6/6). Ready for user testing and commit approval.
