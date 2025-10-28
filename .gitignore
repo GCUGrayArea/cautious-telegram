@@ -84,6 +84,7 @@ temp/
 tmp/
 recordings/
 exports/
+test-media/
 *.mp4.tmp
 *.mov.tmp
 
