@@ -7,7 +7,7 @@ import { useTimeline } from '../store/timelineStore.jsx';
  * Provides play/pause/stop buttons for timeline playback.
  * Supports spacebar keyboard shortcut for play/pause toggle.
  */
-function PlaybackControls() {
+function PlaybackControls({ onExportClick, currentTime }) {
   const { isPlaying, clips, togglePlayback, setPlaybackState, setPlayheadTime } = useTimeline();
 
   // Spacebar shortcut for play/pause
@@ -90,6 +90,27 @@ function PlaybackControls() {
         {!hasClips && 'Add clips to timeline to enable playback'}
         {hasClips && isPlaying && 'Playing...'}
         {hasClips && !isPlaying && 'Press Space or click Play to start'}
+      </div>
+
+      {/* Current time display and Export button */}
+      <div className="ml-4 flex items-center gap-2">
+        <div className="bg-gray-700 rounded px-3 py-1">
+          <span className="text-xs text-gray-300">
+            Time: {currentTime?.toFixed(2) || '0.00'}s
+          </span>
+        </div>
+        <button
+          onClick={onExportClick}
+          disabled={!hasClips}
+          className={`text-xs px-3 py-1 rounded transition ${
+            hasClips
+              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+          }`}
+          title="Export timeline to video file"
+        >
+          Export
+        </button>
       </div>
 
       {/* Timeline control hints */}

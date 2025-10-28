@@ -169,8 +169,8 @@ function AppContent() {
 
           {/* Timeline Area */}
           <div className="flex flex-col">
-            <Timeline onExportClick={handleExportClick} />
-            <PlaybackControls />
+            <Timeline />
+            <PlaybackControls onExportClick={handleExportClick} currentTime={playheadTime} />
           </div>
         </div>
       </div>

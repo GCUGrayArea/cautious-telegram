@@ -22,7 +22,7 @@ import { useDrag } from '../store/dragStore.jsx';
  * Main timeline editor using Konva.js canvas. Provides time ruler, playhead,
  * multi-track layout, and zoom/pan controls.
  */
-function Timeline({ onExportClick }) {
+function Timeline() {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 300 });
 
@@ -495,23 +495,6 @@ function Timeline({ onExportClick }) {
           title="Zoom In (Ctrl + Scroll Up)"
         >
           +
-        </button>
-      </div>
-
-      {/* Current time display and Export button */}
-      <div className="absolute top-2 left-2 z-50 flex gap-2">
-        <div className="bg-gray-800 rounded px-3 py-1" style={{ pointerEvents: 'none' }}>
-          <span className="text-xs text-gray-400">
-            Time: {currentTime.toFixed(2)}s
-          </span>
-        </div>
-        <button
-          onClick={onExportClick}
-          className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded transition"
-          title="Export timeline to video file"
-          style={{ pointerEvents: 'auto' }}
-        >
-          Export
         </button>
       </div>
 

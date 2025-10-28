@@ -11,9 +11,10 @@ import { getClipAtTime, getClipSourceTime, formatTime, convertToAssetPath } from
  */
 function PreviewPlayer({ currentTime }) {
   const videoRef = useRef(null);
-  const { clips, isPlaying, setPlayheadTime } = useTimeline();
+  const { clips, isPlaying } = useTimeline();
   const [currentClip, setCurrentClip] = useState(null);
   const [videoError, setVideoError] = useState(null);
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
 
   // Find the clip at the current playhead position
   useEffect(() => {
@@ -83,23 +84,18 @@ function PreviewPlayer({ currentTime }) {
     }
   }, [isPlaying, currentClip]);
 
-  // Sync video playback to timeline playhead (two-way sync)
+  // Track video playback time for display
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !currentClip) return;
 
     const handleTimeUpdate = () => {
-      // Calculate timeline position from video currentTime
-      const clipSourceTime = video.currentTime;
-      const timelinePosition = currentClip.startTime + (clipSourceTime - currentClip.inPoint);
-
-      // Update timeline playhead to match video position
-      setPlayheadTime(timelinePosition);
+      setVideoCurrentTime(video.currentTime);
     };
 
     video.addEventListener('timeupdate', handleTimeUpdate);
     return () => video.removeEventListener('timeupdate', handleTimeUpdate);
-  }, [currentClip, setPlayheadTime]);
+  }, [currentClip]);
 
   return (
     <div className="preview-player flex flex-col items-center justify-center w-full h-full bg-black">
@@ -138,8 +134,11 @@ function PreviewPlayer({ currentTime }) {
 
           {/* Timeline position indicator */}
           <div className="absolute top-4 left-4 bg-blue-600 bg-opacity-90 rounded px-3 py-2">
-            <p className="text-xs text-white font-mono">
-              {formatTime(currentTime)}
+            <p className="text-xs text-gray-300 font-mono mb-1">
+              Start play at: {formatTime(currentTime)}
+            </p>
+            <p className="text-xs text-white font-mono font-semibold">
+              Currently playing: {formatTime(currentClip.startTime + (videoCurrentTime - currentClip.inPoint))}
             </p>
           </div>
         </div>
