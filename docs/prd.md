@@ -200,11 +200,11 @@ Modern content creators need fast, intuitive video editing tools. While web-base
   - Web-based frontend rendering
 
 #### Frontend Framework
-- **Preact**: Lightweight React alternative (3KB)
-  - React-compatible API for familiar development
-  - Smaller bundle than React while maintaining convenience
-  - Fast rendering performance
-  - Compatible with React ecosystem libraries
+- **React**: Industry-standard UI library
+  - Full compatibility with react-konva and react-reconciler
+  - Required for Konva.js integration (react-konva depends on react-reconciler)
+  - Large ecosystem with excellent tooling
+  - **Note**: Originally planned to use Preact for smaller bundle size, but refactored to React due to insoluble incompatibilities between Preact and Konva's use of react-reconciler. The reconciler is deeply integrated with React's internals and cannot be shimmed for Preact compatibility.
 
 #### Timeline UI
 - **Konva.js**: Canvas-based rendering library
@@ -245,7 +245,7 @@ Modern content creators need fast, intuitive video editing tools. While web-base
   - `PreviewPlayer`: Video preview window
   - `RecordingControls`: Screen/webcam recording UI
   - `ExportDialog`: Export configuration and progress
-- **State management**: Preact hooks (useState, useReducer, useContext) or lightweight state library (Zustand, Valtio)
+- **State management**: React hooks (useState, useReducer, useContext) or lightweight state library (Zustand, Valtio)
 - **Styling**: Tailwind CSS or CSS Modules for scoped styles
 
 #### Backend Architecture (Tauri Rust)
