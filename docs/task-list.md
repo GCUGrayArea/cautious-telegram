@@ -4552,7 +4552,7 @@ ClipForge currently uses default Tauri placeholder icons. Add a custom app icon 
 ---
 
 ### PR-POST-MVP-010: Set Timeline Area Minimum Height (10% of Window)
-**Status:** Complete
+**Status:** Suspended
 **Agent:** White
 **Dependencies:** None
 **Priority:** Medium (prevents UI issues)
@@ -4645,32 +4645,34 @@ This ensures:
 - Preview area cannot dominate entire screen
 - Adjusted from 15vh to 10vh for better balance on lower-resolution displays
 
-**Fix 2: Preview Player Responsive Sizing (PreviewPlayer.jsx)**
-- Modified src/components/PreviewPlayer.jsx lines 120, 127-128
-- Changed base layer video from fixed `width: 100%, height: 100%` to `auto` dimensions
-- Added `object-contain` to className for proper aspect ratio scaling
-- Preview now properly resizes and recenters when window is resized
-- Video maintains aspect ratio while fitting within available space
-- Prevents preview from becoming unusable on window resize
+**Suspension Notes (White - 2025-10-28):**
 
-**Testing:**
-- App builds successfully with no errors
-- Database initializes correctly
-- Dev server runs without issues
-- Layout constraints verified in code
-- Better balance on both high and low-resolution displays
-- Tested on 1080p display - preview no longer oversized
+**Completed Work:**
+- Fix 1 (Timeline minimum height) is DONE and kept (user manually added `max-h-[75vh]` and `min-h-[10vh] flex-shrink-0`)
+- Timeline constraint working correctly
 
-**Result:**
-✅ Timeline area has minimum height of 10vh
-✅ Preview area has maximum height of 75vh
-✅ Timeline cannot be pushed off-screen by expanding preview
-✅ Preview cannot dominate entire screen on any display
-✅ Preview properly resizes and recenters on window resize
-✅ Video maintains aspect ratio at all window sizes
-✅ Layout remains balanced and accessible
-✅ Works well on both high and low-resolution displays
-✅ All acceptance criteria met
+**Suspended Work:**
+- Fix 2 (Preview player resize/recenter) REVERTED - not working as expected
+- Attempted approaches that didn't work:
+  - Setting video dimensions to `auto` (didn't resize)
+  - Adding `object-position: center center` (still not recentering)
+  - ResizeObserver with display toggle (still not working)
+
+**Issue Description:**
+- When window shrinks, video resizes but doesn't recenter
+- Video shows same viewport/crop instead of recentering the content
+- Works correctly when window grows, but not when it shrinks
+- Screenshots show video frame stuck at previous position after shrink
+
+**What Still Needs to Be Done:**
+- Investigate why HTML5 video element doesn't recalculate rendering on shrink
+- May need different approach than CSS (possibly React state-based resize)
+- Consider forcing video src reload on resize as nuclear option
+- User wants to work on other things, will return to this later
+
+**Current Status:**
+✅ Timeline minimum height constraint working
+❌ Preview player resize/recenter NOT WORKING (suspended)
 
 ---
 
