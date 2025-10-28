@@ -3965,8 +3965,8 @@ Prevent tab switching during recording:
 ---
 
 ### PR-POST-MVP-005: Fix Export to Match Preview (Sequential Playback)
-**Status:** New
-**Agent:** (unassigned)
+**Status:** Planning
+**Agent:** Blue
 **Dependencies:** None
 **Priority:** Medium (functional correctness)
 
@@ -4012,6 +4012,25 @@ Located in `src-tauri/src/export/pipeline.rs` lines 54-72. The export pipeline h
 3. This makes export behavior match preview exactly
 
 **Note:** This removes the PiP feature from export entirely. If PiP is desired in future, the preview player should be updated to show PiP when clips overlap, making "what you see is what you get" accurate.
+
+**Planning Notes (Blue - 2025-10-28):**
+**No File Conflicts:** pipeline.rs is not locked by any other agent.
+
+**Root Cause Analysis:**
+The `export_timeline()` method (lines 37-72) detects temporal overlaps between clips on different tracks and routes to `export_multitrack()` for PiP composition. However:
+- PreviewPlayer.jsx shows ONE clip at a time based on playhead position
+- Preview switches between clips sequentially as playhead moves
+- Export creates PiP overlays for any temporal overlap
+
+**Implementation Plan:**
+1. Remove `has_temporal_overlap` detection (lines 57-63)
+2. Always route to sequential concatenation (simplified `export_singletrack`)
+3. Sort ALL clips by `start_time`, ignoring track numbers
+4. Remove or keep `export_multitrack()` as unused (for future true PiP feature)
+5. Test with overlapping clips to verify sequential export
+
+**Files to Modify:**
+- src-tauri/src/export/pipeline.rs (lines 37-72) - Remove overlap detection, always use sequential export
 
 ---
 
