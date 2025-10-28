@@ -3638,8 +3638,8 @@ Used Explore agent to conduct comprehensive codebase analysis, then documented t
 ## Block 11: Post-MVP Bugfixes (No dependencies - all can run in parallel)
 
 ### PR-POST-MVP-001: Fix Track 3 Height Issue
-**Status:** New
-**Agent:** (unassigned)
+**Status:** Planning
+**Agent:** Orange
 **Dependencies:** None
 **Priority:** Low (visual polish)
 
