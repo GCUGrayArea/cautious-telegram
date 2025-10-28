@@ -1794,30 +1794,65 @@ Auto-import makes workflow seamless—user records and immediately edits.
 ---
 
 ### PR-017: Webcam Recording Implementation
-**Status:** Planning
-**Dependencies:** PR-015
+**Status:** In Progress
+**Agent:** Pink
+**Dependencies:** PR-015 ✅
 **Priority:** Medium
 
 **Description:**
 Implement webcam recording using getUserMedia() web API. Capture video/audio from camera, save recording, import to media library.
 
-**Files (ESTIMATED - will be refined during Planning):**
-- src/components/WebcamRecorder.jsx (create) - Webcam recording component
-- src/utils/recording.js (create) - MediaRecorder wrapper
-- src-tauri/src/commands/recording.rs (modify) - Save webcam recording
-- src/components/RecordingPanel.jsx (modify) - Add webcam tab/option
+**Files (PLANNED by Pink):**
+- src/utils/webcamRecorder.js (create) - WebcamRecorder class using getUserMedia + MediaRecorder API
+- src/hooks/useWebcamRecording.js (create) - Preact hook for webcam recording state management
+- Backend: Reuse existing src-tauri/src/commands/recording.rs (no changes needed - commands are generic)
 
 **Acceptance Criteria:**
-- [ ] User can select webcam from available cameras
-- [ ] Preview webcam feed before recording
-- [ ] Start/stop recording with visual feedback
-- [ ] Recording saved as MP4 or WebM
-- [ ] Audio captured from camera/microphone
-- [ ] Recording imported to media library
-- [ ] Works on both macOS and Windows
+- [ ] User can select webcam from available cameras via enumerateDevices()
+- [ ] Preview webcam feed before recording (stream attached to video element)
+- [ ] Start/stop recording with visual feedback (state management in hook)
+- [ ] Recording saved as WebM (video/webm;codecs=vp9 or vp8)
+- [ ] Audio captured from camera/microphone (synchronized with video)
+- [ ] Recording imported to media library (reuse save_recording + import_recording commands)
+- [ ] Works on both macOS and Windows (getUserMedia is cross-platform)
+
+**Planning Notes (Pink):**
+
+**Implementation Approach:**
+Following PR-015's architecture pattern for consistency:
+1. **Backend**: Reuse existing `save_recording()` and `import_recording()` commands (no changes needed)
+2. **Frontend Utility**: Create `WebcamRecorder` class similar to `ScreenRecorder`
+3. **Frontend Hook**: Create `useWebcamRecording` hook similar to `useScreenRecording`
+
+**WebcamRecorder Class Features:**
+- `getDevices()`: Enumerate available cameras using navigator.mediaDevices.enumerateDevices()
+- `startPreview(deviceId)`: Start non-recording preview stream
+- `stopPreview()`: Stop preview stream
+- `start({ deviceId, audio, onDurationUpdate })`: Start recording with selected camera
+- `stop()`: Stop recording and return WebM blob
+- `generateFilename()`: Generate webcam_YYYYMMDDTHHMMSS.webm filename
+- `blobToUint8Array()`: Convert blob for Tauri command
+
+**useWebcamRecording Hook State:**
+- `availableDevices`: Array of camera devices
+- `selectedDeviceId`: Currently selected camera ID
+- `isPreviewing`: Preview active (not recording)
+- `isRecording`: Recording in progress
+- `duration`: Recording duration in seconds
+- `error`: Error message if any
+- `isSaving`: Saving/importing in progress
+
+**File Conflict Check:**
+- White (PR-016): RecordingPanel.jsx, App.jsx - **No conflict** (creating new files)
+- Orange (PR-019): export/* files - **No conflict**
+- Blonde (PR-022): test files - **No conflict**
+
+All files are new. Backend commands already exist and are generic enough for webcam recordings.
+
+**Estimated Time:** 60 minutes
 
 **Notes:**
-getUserMedia() is cross-platform and simpler than native APIs for webcam.
+getUserMedia() is cross-platform and simpler than native APIs for webcam. Reusing backend commands from PR-015.
 
 ---
 
