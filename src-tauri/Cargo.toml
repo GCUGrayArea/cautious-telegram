@@ -23,3 +23,9 @@ chrono = { version = "0.4", features = ["serde"] }
 # This feature is used for production builds or when `devPath` points to the filesystem
 # DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Link-time optimization
+strip = true        # Strip debug symbols
+codegen-units = 1   # Better optimization (slower compile)
