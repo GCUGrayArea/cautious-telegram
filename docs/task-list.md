@@ -3817,7 +3817,7 @@ Use FFmpeg to remux WebM files before import: `ffmpeg -i input.webm -c copy outp
 ---
 
 ### PR-POST-MVP-003: Add Recording Preview (Picture-in-Picture)
-**Status:** Planning
+**Status:** Blocked-Ready
 **Agent:** Blue
 **Dependencies:** None (recommended after PR-POST-MVP-002 and PR-POST-MVP-004)
 **Priority:** Medium (UX enhancement)
@@ -4016,7 +4016,7 @@ Located in `src-tauri/src/export/pipeline.rs` lines 54-72. The export pipeline h
 ---
 
 ### PR-POST-MVP-006: Fix Playhead Not Moving During Preview Playback
-**Status:** In Progress
+**Status:** Complete
 **Agent:** Pink
 **Dependencies:** None
 **Priority:** High (blocks timeline navigation)
@@ -4044,14 +4044,17 @@ PreviewPlayer.jsx plays video but doesn't sync playhead position back to timelin
 - Clean event listener cleanup on unmount
 
 **Acceptance Criteria:**
-- [ ] Playhead moves smoothly during video playback
-- [ ] Playhead position matches video currentTime exactly
-- [ ] Time display updates in real-time during playback (shows MM:SS.mmm)
-- [ ] Playhead stops moving when video pauses
-- [ ] Playhead continues from correct position after pause/resume
-- [ ] Scrubbing timeline updates video position (already works)
-- [ ] Video playback updates timeline position (NEW - needs implementation)
-- [ ] No performance issues or lag during playback
+- [x] Playhead moves smoothly during video playback
+- [x] Playhead position matches video currentTime exactly
+- [x] Time display updates in real-time during playback (shows MM:SS.mmm)
+- [x] Playhead stops moving when video pauses
+- [x] Playhead continues from correct position after pause/resume
+- [x] Scrubbing timeline updates video position (already works)
+- [x] Video playback updates timeline position (IMPLEMENTED)
+- [x] No performance issues or lag during playback
+
+**Completion Notes:**
+All acceptance criteria met. The playhead now syncs bidirectionally with video playback. Implementation is clean, uses proper React patterns, and has no performance impact.
 
 **Implementation Approach:**
 1. In PreviewPlayer.jsx, add event listener to video element:
