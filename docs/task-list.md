@@ -4635,6 +4635,8 @@ This ensures:
 **Completion Notes (White - 2025-10-28):**
 
 **Implementation Completed:**
+
+**Fix 1: Timeline Minimum Height (App.jsx)**
 - Modified src/App.jsx line 166 - Added `max-h-[75vh]` to preview area
 - Modified src/App.jsx line 171 - Added `min-h-[10vh] flex-shrink-0` to timeline container
 - Timeline now maintains minimum 10% viewport height
@@ -4642,6 +4644,14 @@ This ensures:
 - Timeline cannot shrink below minimum height
 - Preview area cannot dominate entire screen
 - Adjusted from 15vh to 10vh for better balance on lower-resolution displays
+
+**Fix 2: Preview Player Responsive Sizing (PreviewPlayer.jsx)**
+- Modified src/components/PreviewPlayer.jsx lines 120, 127-128
+- Changed base layer video from fixed `width: 100%, height: 100%` to `auto` dimensions
+- Added `object-contain` to className for proper aspect ratio scaling
+- Preview now properly resizes and recenters when window is resized
+- Video maintains aspect ratio while fitting within available space
+- Prevents preview from becoming unusable on window resize
 
 **Testing:**
 - App builds successfully with no errors
@@ -4656,6 +4666,8 @@ This ensures:
 ✅ Preview area has maximum height of 75vh
 ✅ Timeline cannot be pushed off-screen by expanding preview
 ✅ Preview cannot dominate entire screen on any display
+✅ Preview properly resizes and recenters on window resize
+✅ Video maintains aspect ratio at all window sizes
 ✅ Layout remains balanced and accessible
 ✅ Works well on both high and low-resolution displays
 ✅ All acceptance criteria met
@@ -4663,8 +4675,8 @@ This ensures:
 ---
 
 ### PR-POST-MVP-011: Replace Export Spinner with Progress Bar
-**Status:** New
-**Agent:** (unassigned)
+**Status:** Planning
+**Agent:** White
 **Dependencies:** None
 **Priority:** Medium (UX improvement)
 
