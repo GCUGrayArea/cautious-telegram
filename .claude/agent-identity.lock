@@ -10,7 +10,7 @@ This file tracks which agent identities are currently in use. Agents must claim 
 |----------|--------|-------------|------------|
 | White    | In Use | 2025-10-27 | PR-025 |
 | Orange   | In Use | 2025-10-27 | Claiming |
-| Blonde   | In Use | 2025-10-27 | Selecting next PR |
+| Blonde   | In Use | 2025-10-27 | PR-023 |
 | Pink     | Available | - | - |
 | Blue     | Available | - | - |
 | Brown    | Available | - | - |
