@@ -19,6 +19,20 @@ function AppContent() {
   const { playheadTime, clips, isPlaying, setPlayheadTime, setPlaybackState } = useTimeline();
   const playbackEngineRef = useRef(null);
 
+  // Recording state - lifted from RecordingPanel to persist across tab switches
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [recordingMode, setRecordingMode] = useState('screen');
+
+  // Recording refs - persist across tab switches
+  const screenMediaRecorderRef = useRef(null);
+  const screenChunksRef = useRef([]);
+  const screenStreamRef = useRef(null);
+  const webcamRecorderRef = useRef(null);
+  const webcamChunksRef = useRef([]);
+  const timerIntervalRef = useRef(null);
+  const startTimeRef = useRef(null);
+
   const handleMediaSelect = (media) => {
     console.log('Selected media:', media);
     setSelectedMedia(media);
@@ -50,10 +64,17 @@ function AppContent() {
       },
     });
 
-    // Cleanup on unmount
+    // Cleanup on unmount (app close only)
     return () => {
       if (playbackEngineRef.current) {
         playbackEngineRef.current.destroy();
+      }
+      // Cleanup recording streams only on app close
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => track.stop());
       }
     };
   }, [setPlayheadTime, setPlaybackState]);
@@ -119,7 +140,22 @@ function AppContent() {
             {activeTab === 'library' ? (
               <MediaLibrary onMediaSelect={handleMediaSelect} />
             ) : (
-              <RecordingPanel onRecordingImported={handleRecordingImported} />
+              <RecordingPanel
+                onRecordingImported={handleRecordingImported}
+                isRecording={isRecording}
+                setIsRecording={setIsRecording}
+                recordingTime={recordingTime}
+                setRecordingTime={setRecordingTime}
+                recordingMode={recordingMode}
+                setRecordingMode={setRecordingMode}
+                screenMediaRecorderRef={screenMediaRecorderRef}
+                screenChunksRef={screenChunksRef}
+                screenStreamRef={screenStreamRef}
+                webcamRecorderRef={webcamRecorderRef}
+                webcamChunksRef={webcamChunksRef}
+                timerIntervalRef={timerIntervalRef}
+                startTimeRef={startTimeRef}
+              />
             )}
           </div>
         </div>

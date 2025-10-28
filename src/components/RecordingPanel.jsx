@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { saveRecording, importRecording, formatDuration } from '../utils/api';
 import { WebcamRecorder } from '../utils/webcamRecorder';
 import { useTimeline } from '../store/timelineStore.jsx';
@@ -8,41 +8,32 @@ import { useTimeline } from '../store/timelineStore.jsx';
  *
  * Provides UI for screen, webcam, and simultaneous recording with source selection,
  * recording controls, timer, and automatic media library import.
+ *
+ * NOW A PRESENTATIONAL COMPONENT: Recording state is managed by parent App component
+ * to persist across tab switches.
  */
-function RecordingPanel({ onRecordingImported }) {
-  const [recordingMode, setRecordingMode] = useState('screen'); // 'screen', 'webcam', 'both'
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
+function RecordingPanel({
+  onRecordingImported,
+  isRecording,
+  setIsRecording,
+  recordingTime,
+  setRecordingTime,
+  recordingMode,
+  setRecordingMode,
+  screenMediaRecorderRef,
+  screenChunksRef,
+  screenStreamRef,
+  webcamRecorderRef,
+  webcamChunksRef,
+  timerIntervalRef,
+  startTimeRef,
+}) {
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const { addClip } = useTimeline();
 
-  // Screen recording refs
-  const screenMediaRecorderRef = useRef(null);
-  const screenChunksRef = useRef([]);
-  const screenStreamRef = useRef(null);
-
-  // Webcam recording refs
-  const webcamRecorderRef = useRef(null);
-  const webcamChunksRef = useRef([]);
-
-  // Shared timer
-  const timerIntervalRef = useRef(null);
-  const startTimeRef = useRef(null);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopRecording();
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
-      if (screenStreamRef.current) {
-        screenStreamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
+  // No cleanup useEffect needed - state persists in parent App component
 
   /**
    * Start recording based on selected mode
@@ -185,7 +176,8 @@ function RecordingPanel({ onRecordingImported }) {
 
         console.log('Saving screen recording:', screenFilename, 'Size:', screenBlob.size);
         const screenPath = await saveRecording(screenBlob, screenFilename);
-        const screenImport = await importRecording(screenPath);
+        // Pass recordingTime as duration override (fixes zero-length clips issue)
+        const screenImport = await importRecording(screenPath, recordingTime);
 
         if (screenImport.success) {
           recordings.push({ media: screenImport.media, track: 0, type: 'screen' });
@@ -199,7 +191,8 @@ function RecordingPanel({ onRecordingImported }) {
 
         console.log('Saving webcam recording:', webcamFilename, 'Size:', webcamBlob.size);
         const webcamPath = await saveRecording(webcamBlob, webcamFilename);
-        const webcamImport = await importRecording(webcamPath);
+        // Pass recordingTime as duration override (fixes zero-length clips issue)
+        const webcamImport = await importRecording(webcamPath, recordingTime);
 
         if (webcamImport.success) {
           recordings.push({ media: webcamImport.media, track: 1, type: 'webcam' });
