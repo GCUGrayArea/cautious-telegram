@@ -4494,6 +4494,56 @@ ClipForge currently uses default Tauri placeholder icons. Add a custom app icon 
 
 ---
 
+### PR-POST-MVP-010: Set Timeline Area Minimum Height (15% of Window)
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** None
+**Priority:** Medium (prevents UI issues)
+
+**Description:**
+When the preview player canvas expands (especially with certain video aspect ratios or window sizes), it can push the timeline area off-screen or make it unreachable. Set a minimum height constraint on the timeline area to ensure it's always accessible regardless of preview canvas size.
+
+**Problem:**
+- Preview canvas can grow dynamically based on video content
+- Timeline area has no minimum height constraint
+- Large preview videos can render timeline inaccessible
+- Users lose ability to edit when timeline is pushed off-screen
+
+**Solution:**
+Constrain the timeline area to a minimum of 15% of the window height. This ensures:
+- Timeline always visible and accessible
+- Sufficient space for timeline controls even with large preview
+- Proper layout balance between preview and timeline
+- Prevents preview from dominating entire window
+
+**Files:**
+- src/App.jsx (modify) - Add min-height constraint to timeline container
+- src/components/Timeline.jsx (reference) - Check current height settings
+- src/index.css (modify) - Add CSS constraint if needed
+
+**Acceptance Criteria:**
+- [ ] Timeline area maintains minimum 15% of window height
+- [ ] Timeline remains accessible when preview canvas expands
+- [ ] Timeline controls (zoom, playback) always visible
+- [ ] Works at various window sizes (small to 4K displays)
+- [ ] Preview area shrinks if necessary to accommodate timeline minimum
+- [ ] No scroll bars needed to access timeline
+- [ ] Layout remains balanced and usable
+
+**Implementation Approach:**
+1. Identify timeline container in App.jsx (likely a flex container)
+2. Add `min-height: 15vh` or `flex: 0 0 auto; min-height: 15%` constraint
+3. Ensure preview container has `flex: 1` to allow it to shrink
+4. Test with large videos and small windows
+5. Verify timeline remains accessible in all scenarios
+
+**Alternative Approaches:**
+- Use CSS Grid with `minmax()` for row sizing: `grid-template-rows: 1fr minmax(15%, auto)`
+- Set max-height on preview area instead: `max-height: 85vh`
+- Make timeline area resizable with drag handle (more complex)
+
+---
+
 ## Summary
 
 **Total PRs:** 36 (27 original + 9 post-MVP bugfixes/enhancements)
