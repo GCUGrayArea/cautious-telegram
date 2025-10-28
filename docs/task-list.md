@@ -2387,7 +2387,7 @@ Files I'll modify:
 ---
 
 ### PR-021: Multi-Track Timeline Export (Overlays/PiP)
-**Status:** Planning
+**Status:** In Progress
 **Agent:** White
 **Dependencies:** PR-019 ✅, PR-018 ✅
 **Priority:** Medium
