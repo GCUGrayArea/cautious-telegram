@@ -4427,8 +4427,8 @@ After reverting PR-POST-MVP-005, export now correctly creates PiP overlays for o
 ---
 
 ### PR-POST-MVP-009: Add Gold Film Camera Icon for App
-**Status:** New
-**Agent:** (unassigned)
+**Status:** Planning
+**Agent:** White
 **Dependencies:** None
 **Priority:** Low (visual polish)
 

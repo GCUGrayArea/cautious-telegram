@@ -8,7 +8,7 @@ This file tracks which agent identities are currently in use. Agents must claim 
 
 | Identity | Status | Last Commit | Current PR |
 |----------|--------|-------------|------------|
-| White    | In Use | 2025-10-28 | TBD (reviewing task list) |
+| White    | In Use | 2025-10-28 | PR-POST-MVP-009 (Planning) |
 | Orange   | Available | - | - |
 | Blonde   | Available | - | - |
 | Pink     | Available | - | - |
