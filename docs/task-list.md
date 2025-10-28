@@ -4278,7 +4278,7 @@ The fix applies to all clip positions and video resolutions, not just the 0:00 e
 ---
 
 ### PR-POST-MVP-008: Implement PiP Preview for Overlapping Clips (WYSIWYG)
-**Status:** Planning
+**Status:** In Progress
 **Agent:** White
 **Dependencies:** None
 **Priority:** High (WYSIWYG consistency)
