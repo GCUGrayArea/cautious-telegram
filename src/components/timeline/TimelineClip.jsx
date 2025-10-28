@@ -17,9 +17,11 @@ import { getAssetUrl } from '../../utils/api';
  * Renders a single video clip on the timeline as a Konva Group.
  * Displays thumbnail, filename, and visual boundaries.
  * Supports dragging to reposition clips on the timeline.
+ * Supports trimming via edge handles to adjust in/out points.
  */
-function TimelineClip({ clip, selected, onClick, onDragEnd, pixelsPerSecond, scrollX, clips, numTracks = 3 }) {
+function TimelineClip({ clip, selected, onClick, onDragEnd, onTrimEnd, pixelsPerSecond, scrollX, clips, numTracks = 3 }) {
   const [thumbnailImage, setThumbnailImage] = useState(null);
+  const [isTrimming, setIsTrimming] = useState(false);
 
   // Calculate clip position and dimensions
   const clipX = timeToPixels(clip.startTime, pixelsPerSecond) - scrollX;
@@ -116,11 +118,134 @@ function TimelineClip({ clip, selected, onClick, onDragEnd, pixelsPerSecond, scr
     console.log('🎬 [TimelineClip] Dragging clip:', clip.id, 'to', e.target.x(), e.target.y());
   };
 
+  // Trim handle dimensions
+  const trimHandleWidth = 10;
+  const trimHandleColor = selected ? '#fbbf24' : 'rgba(255, 255, 255, 0.2)'; // Yellow if selected, subtle white otherwise
+
+  // Get source duration from metadata
+  const sourceDuration = clip.metadata?.duration || clip.duration;
+  const MIN_CLIP_DURATION = 0.1; // Minimum 0.1 seconds
+
+  // Left trim handle drag end
+  const handleLeftTrimEnd = (e) => {
+    if (!onTrimEnd) return;
+    setIsTrimming(false);
+
+    const deltaX = e.target.x(); // How far the handle moved from its original position (0)
+    const deltaTime = pixelsToTime(deltaX, pixelsPerSecond);
+
+    // Calculate new values
+    let newInPoint = clip.inPoint + deltaTime;
+    let newStartTime = clip.startTime + deltaTime;
+    let newDuration = clip.duration - deltaTime;
+
+    // Constrain inPoint to valid range [0, outPoint - MIN_DURATION]
+    newInPoint = Math.max(0, Math.min(newInPoint, clip.outPoint - MIN_CLIP_DURATION));
+
+    // Recalculate based on constrained inPoint
+    const actualDelta = newInPoint - clip.inPoint;
+    newStartTime = clip.startTime + actualDelta;
+    newDuration = clip.outPoint - newInPoint;
+
+    // Ensure duration is valid
+    if (newDuration < MIN_CLIP_DURATION) {
+      return; // Don't apply trim if it would make clip too small
+    }
+
+    console.log('✂️ [TimelineClip] Left trim:', {
+      clipId: clip.id,
+      oldInPoint: clip.inPoint,
+      newInPoint,
+      oldStartTime: clip.startTime,
+      newStartTime,
+      oldDuration: clip.duration,
+      newDuration,
+    });
+
+    // Reset handle position (parent Group will re-render with new clip data)
+    e.target.x(0);
+
+    // Call trim handler
+    onTrimEnd(clip.id, {
+      inPoint: newInPoint,
+      startTime: newStartTime,
+      duration: newDuration,
+    });
+  };
+
+  // Right trim handle drag end
+  const handleRightTrimEnd = (e) => {
+    if (!onTrimEnd) return;
+    setIsTrimming(false);
+
+    const deltaX = e.target.x() - (clipWidth - trimHandleWidth); // How far from original position
+    const deltaTime = pixelsToTime(deltaX, pixelsPerSecond);
+
+    // Calculate new values
+    let newOutPoint = clip.outPoint + deltaTime;
+    let newDuration = clip.duration + deltaTime;
+
+    // Constrain outPoint to valid range [inPoint + MIN_DURATION, sourceDuration]
+    newOutPoint = Math.max(clip.inPoint + MIN_CLIP_DURATION, Math.min(newOutPoint, sourceDuration));
+
+    // Recalculate based on constrained outPoint
+    newDuration = newOutPoint - clip.inPoint;
+
+    // Ensure duration is valid
+    if (newDuration < MIN_CLIP_DURATION) {
+      return; // Don't apply trim if it would make clip too small
+    }
+
+    console.log('✂️ [TimelineClip] Right trim:', {
+      clipId: clip.id,
+      oldOutPoint: clip.outPoint,
+      newOutPoint,
+      oldDuration: clip.duration,
+      newDuration,
+    });
+
+    // Reset handle position (parent Group will re-render with new clip data)
+    e.target.x(clipWidth - trimHandleWidth);
+
+    // Call trim handler
+    onTrimEnd(clip.id, {
+      outPoint: newOutPoint,
+      duration: newDuration,
+    });
+  };
+
+  // Drag bound for left trim handle - only allow horizontal movement
+  const handleLeftTrimBound = (pos) => {
+    // Calculate max drag distance (can't trim beyond clip duration or source start)
+    const maxTrimTime = Math.min(clip.duration - MIN_CLIP_DURATION, clip.inPoint);
+    const maxDragX = timeToPixels(maxTrimTime, pixelsPerSecond);
+
+    return {
+      x: Math.max(-timeToPixels(clip.inPoint, pixelsPerSecond), Math.min(pos.x, maxDragX)),
+      y: 0,
+    };
+  };
+
+  // Drag bound for right trim handle - only allow horizontal movement
+  const handleRightTrimBound = (pos) => {
+    // Calculate max drag distance (can't trim beyond MIN_DURATION or source end)
+    const maxTrimLeftTime = -(clip.duration - MIN_CLIP_DURATION);
+    const maxTrimRightTime = sourceDuration - clip.outPoint;
+    const maxDragLeftX = timeToPixels(maxTrimLeftTime, pixelsPerSecond);
+    const maxDragRightX = timeToPixels(maxTrimRightTime, pixelsPerSecond);
+
+    const baseX = clipWidth - trimHandleWidth;
+    return {
+      x: Math.max(baseX + maxDragLeftX, Math.min(pos.x, baseX + maxDragRightX)),
+      y: 0,
+    };
+  };
+
   return (
     <Group
       x={clipX}
       y={clipY + 2} // 2px top padding
-      draggable={true}
+      draggable={!isTrimming} // Disable clip drag when trimming
       dragBoundFunc={handleDragBound}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
@@ -128,8 +253,10 @@ function TimelineClip({ clip, selected, onClick, onDragEnd, pixelsPerSecond, scr
       onClick={handleClick}
       onTap={handleClick}
       onMouseEnter={(e) => {
-        const container = e.target.getStage().container();
-        container.style.cursor = 'grab';
+        if (!isTrimming) {
+          const container = e.target.getStage().container();
+          container.style.cursor = 'grab';
+        }
       }}
       onMouseLeave={(e) => {
         const container = e.target.getStage().container();
@@ -192,6 +319,82 @@ function TimelineClip({ clip, selected, onClick, onDragEnd, pixelsPerSecond, scr
           fontFamily="Arial, sans-serif"
           opacity={0.9}
         />
+      )}
+
+      {/* Left trim handle (only show when selected) */}
+      {selected && (
+        <Group>
+          {/* Trim handle background (makes it easier to grab) */}
+          <Rect
+            x={0}
+            y={0}
+            width={trimHandleWidth}
+            height={clipHeight}
+            fill={trimHandleColor}
+            draggable={true}
+            dragBoundFunc={handleLeftTrimBound}
+            onDragStart={() => setIsTrimming(true)}
+            onDragEnd={handleLeftTrimEnd}
+            onMouseEnter={(e) => {
+              const container = e.target.getStage().container();
+              container.style.cursor = 'ew-resize';
+            }}
+            onMouseLeave={(e) => {
+              if (!isTrimming) {
+                const container = e.target.getStage().container();
+                container.style.cursor = 'default';
+              }
+            }}
+          />
+          {/* Visual indicator (vertical line) */}
+          <Rect
+            x={2}
+            y={clipHeight / 4}
+            width={2}
+            height={clipHeight / 2}
+            fill="#ffffff"
+            opacity={0.8}
+            listening={false}
+          />
+        </Group>
+      )}
+
+      {/* Right trim handle (only show when selected) */}
+      {selected && (
+        <Group>
+          {/* Trim handle background */}
+          <Rect
+            x={clipWidth - trimHandleWidth}
+            y={0}
+            width={trimHandleWidth}
+            height={clipHeight}
+            fill={trimHandleColor}
+            draggable={true}
+            dragBoundFunc={handleRightTrimBound}
+            onDragStart={() => setIsTrimming(true)}
+            onDragEnd={handleRightTrimEnd}
+            onMouseEnter={(e) => {
+              const container = e.target.getStage().container();
+              container.style.cursor = 'ew-resize';
+            }}
+            onMouseLeave={(e) => {
+              if (!isTrimming) {
+                const container = e.target.getStage().container();
+                container.style.cursor = 'default';
+              }
+            }}
+          />
+          {/* Visual indicator (vertical line) */}
+          <Rect
+            x={clipWidth - trimHandleWidth + 6}
+            y={clipHeight / 4}
+            width={2}
+            height={clipHeight / 2}
+            fill="#ffffff"
+            opacity={0.8}
+            listening={false}
+          />
+        </Group>
       )}
     </Group>
   );

@@ -11,6 +11,7 @@ import {
   getTrackIndexFromY,
   getClipSnapPoints,
   snapToPoints,
+  splitClipAtTime,
 } from '../utils/timeline';
 import { useTimeline } from '../store/timelineStore.jsx';
 import { useDrag } from '../store/dragStore.jsx';
@@ -26,7 +27,7 @@ function Timeline() {
   const [dimensions, setDimensions] = useState({ width: 800, height: 300 });
 
   // Timeline store for clips and playhead time
-  const { clips, selectedClipId, playheadTime, selectClip, clearSelection, addClip, updateClip, setPlayheadTime } = useTimeline();
+  const { clips, selectedClipId, playheadTime, selectClip, clearSelection, addClip, updateClip, setPlayheadTime, removeClip, splitClip } = useTimeline();
 
   // Drag store for custom drag-drop
   const { draggedItem, isDragging: isExternalDragActive, endDrag } = useDrag();
@@ -97,6 +98,87 @@ function Timeline() {
       track: newTrack,
     });
   };
+
+  // Handle clip trim end - update clip in/out points and duration in store
+  const handleClipTrimEnd = (clipId, updates) => {
+    console.log('✂️ [Timeline] Trim end for clip:', clipId, 'Updates:', updates);
+    updateClip(clipId, updates);
+  };
+
+  // Handle clip split at playhead position
+  const handleSplitClip = () => {
+    // Only split if a clip is selected
+    if (!selectedClipId) {
+      console.log('✂️ [Timeline] No clip selected for split');
+      return;
+    }
+
+    // Find the selected clip
+    const selectedClip = clips.find(clip => clip.id === selectedClipId);
+    if (!selectedClip) {
+      console.log('✂️ [Timeline] Selected clip not found');
+      return;
+    }
+
+    // Check if playhead intersects the selected clip
+    const clipEnd = selectedClip.startTime + selectedClip.duration;
+    if (playheadTime < selectedClip.startTime || playheadTime > clipEnd) {
+      console.log('✂️ [Timeline] Playhead not within selected clip');
+      return;
+    }
+
+    // Split the clip at playhead position
+    const result = splitClipAtTime(selectedClip, playheadTime);
+    if (!result) {
+      console.log('✂️ [Timeline] Cannot split at clip edges');
+      return;
+    }
+
+    const { firstClip, secondClip } = result;
+    console.log('✂️ [Timeline] Splitting clip:', selectedClipId, 'at time:', playheadTime);
+    console.log('✂️ [Timeline] First clip:', firstClip);
+    console.log('✂️ [Timeline] Second clip:', secondClip);
+
+    // Update the store
+    splitClip(selectedClipId, firstClip, secondClip);
+  };
+
+  // Handle clip deletion
+  const handleDeleteClip = () => {
+    // Only delete if a clip is selected
+    if (!selectedClipId) {
+      console.log('🗑️ [Timeline] No clip selected for deletion');
+      return;
+    }
+
+    console.log('🗑️ [Timeline] Deleting clip:', selectedClipId);
+    removeClip(selectedClipId);
+  };
+
+  // Keyboard event handler
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Split clip: S key or Ctrl+K
+      if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        handleSplitClip();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        handleSplitClip();
+      }
+      // Delete clip: Delete or Backspace key
+      else if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Only handle if not typing in an input field
+        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          handleDeleteClip();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedClipId, clips, playheadTime, splitClip, removeClip]);
 
   // Handle playhead time change from dragging
   const handlePlayheadTimeChange = (newTime) => {
@@ -401,6 +483,7 @@ function Timeline() {
               selected={clip.id === selectedClipId}
               onClick={handleClipClick}
               onDragEnd={handleClipDragEnd}
+              onTrimEnd={handleClipTrimEnd}
               pixelsPerSecond={pixelsPerSecond}
               scrollX={scrollX}
               clips={clips}
