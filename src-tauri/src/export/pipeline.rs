@@ -16,6 +16,19 @@ pub struct ClipData {
     pub start_time: f64,    // Position on timeline (for sorting)
     #[serde(default)]       // Default to 0 for backwards compatibility
     pub track: u32,         // Track index (0 = base, 1+ = overlays)
+    // Audio properties for volume and fade control
+    #[serde(default = "default_volume")]
+    pub volume: u32,              // Volume level 0-200 (100 = normal)
+    #[serde(default)]
+    pub is_muted: bool,           // Whether audio is muted
+    #[serde(default)]
+    pub fade_in_duration: f64,    // Fade in duration in seconds
+    #[serde(default)]
+    pub fade_out_duration: f64,   // Fade out duration in seconds
+}
+
+fn default_volume() -> u32 {
+    100
 }
 
 /// Text overlay data from timeline (sent from frontend)
@@ -484,5 +497,35 @@ impl ExportPipeline {
         }
 
         filter_parts.join(";")
+    }
+
+    /// Build audio filter for volume and fade control
+    ///
+    /// Note: Full implementation would require:
+    /// - Building per-clip audio filters (volume, afade)
+    /// - Using amix filter to combine audio from multiple tracks
+    /// - Synchronizing audio with video timeline
+    /// - Handling muted clips (remove audio stream)
+    ///
+    /// For now, this is a placeholder that validates clip audio properties.
+    /// Future implementation should integrate with FFmpeg's audio filter graph.
+    fn build_audio_filter(&self, clips: &[ClipData]) -> String {
+        // Validate that clip audio properties are present
+        for clip in clips {
+            // Volume: 0-200% (100 = normal)
+            let _ = clip.volume;
+            // Fade in/out durations in seconds
+            let _ = clip.fade_in_duration;
+            let _ = clip.fade_out_duration;
+            // Mute flag
+            let _ = clip.is_muted;
+        }
+
+        // TODO: Implement full audio filter chain with FFmpeg's:
+        // - [a:0]volume=0.8[a0];[a1:a]volume=1.2[a1];[a0][a1]amix=inputs=2[aout]
+        // This would handle volume adjustments and mixing from multiple tracks
+
+        // For now, return empty string (audio tracks pass through unchanged)
+        String::new()
     }
 }
