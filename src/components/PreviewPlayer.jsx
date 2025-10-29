@@ -31,6 +31,7 @@ function PreviewPlayer({ currentTime }) {
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const [activeTextOverlays, setActiveTextOverlays] = useState([]);
   const [containerHeight, setContainerHeight] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   // Find all clips at the current playhead position (for PiP)
   useEffect(() => {
@@ -133,42 +134,26 @@ function PreviewPlayer({ currentTime }) {
     return () => video.removeEventListener('timeupdate', handleTimeUpdate);
   }, [activeClips]);
 
-  // Measure container height for responsive font sizing
-  // Also force video recalculation on resize to ensure centering when contracting
+  // Track container dimensions for responsive layout
+  // Use ResizeObserver to detect both width and height changes
   useEffect(() => {
-    const updateHeight = () => {
+    const updateDimensions = () => {
       if (containerRef.current) {
         setContainerHeight(containerRef.current.clientHeight);
+        setContainerWidth(containerRef.current.clientWidth);
       }
     };
 
-    updateHeight();
+    updateDimensions();
 
-    // Use ResizeObserver to detect container size changes (more reliable than window resize)
-    const resizeObserver = new ResizeObserver(() => {
-      updateHeight();
-
-      // Force video elements to recalculate their display aspect ratio
-      // This is critical when window contracts - video needs to recenter
-      Object.values(videoRefsRef.current).forEach((video) => {
-        if (video) {
-          // Temporarily change display to trigger recalculation
-          const originalDisplay = video.style.display;
-          video.style.display = 'none';
-          // Force reflow
-          void video.offsetHeight;
-          video.style.display = originalDisplay;
-        }
-      });
-    });
+    // ResizeObserver detects actual element size changes (more reliable than window resize)
+    const resizeObserver = new ResizeObserver(updateDimensions);
 
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current);
     }
 
-    window.addEventListener('resize', updateHeight);
     return () => {
-      window.removeEventListener('resize', updateHeight);
       resizeObserver.disconnect();
     };
   }, []);
@@ -193,10 +178,8 @@ function PreviewPlayer({ currentTime }) {
                 preload="metadata"
                 style={{
                   position: isOverlay ? 'absolute' : 'relative',
-                  width: isOverlay ? '25%' : '100%',
-                  height: isOverlay ? 'auto' : '100%',
-                  maxWidth: '100%',
-                  maxHeight: '100%',
+                  width: isOverlay ? '25%' : containerWidth > 0 ? containerWidth : '100%',
+                  height: isOverlay ? 'auto' : containerHeight > 0 ? containerHeight : '100%',
                   bottom: isOverlay ? '20px' : 'auto',
                   right: isOverlay ? '20px' : 'auto',
                   zIndex: clip.track,
