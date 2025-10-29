@@ -135,12 +135,22 @@ function PreviewPlayer({ currentTime }) {
   }, [activeClips]);
 
   // Track container dimensions for responsive layout
-  // Use ResizeObserver to detect both width and height changes
+  // Use ResizeObserver to detect both width and height changes and force re-centering
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
         setContainerHeight(containerRef.current.clientHeight);
         setContainerWidth(containerRef.current.clientWidth);
+
+        // Force re-centering by triggering a reflow on video elements
+        Object.values(videoRefsRef.current).forEach((video) => {
+          if (video) {
+            // Force the browser to recalculate the video's layout
+            video.style.objectPosition = 'center center';
+            // Trigger reflow
+            void video.offsetHeight;
+          }
+        });
       }
     };
 

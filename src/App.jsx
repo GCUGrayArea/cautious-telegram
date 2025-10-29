@@ -162,9 +162,9 @@ function AppContent() {
         </div>
 
         {/* Main Editor Area (Timeline + Preview) */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
           {/* Preview Area */}
-          <div className="flex-1 bg-black max-h-[75vh]">
+          <div className="flex-1 bg-black max-h-[75vh]" style={{ minHeight: 0 }}>
             <PreviewPlayer currentTime={playheadTime} />
           </div>
 
