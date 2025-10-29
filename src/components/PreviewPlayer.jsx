@@ -169,9 +169,9 @@ function PreviewPlayer({ currentTime }) {
   }, []);
 
   return (
-    <div ref={containerRef} className="preview-player flex items-center justify-center w-full h-full bg-black overflow-hidden" style={{ minHeight: 0, minWidth: 0 }}>
+    <div ref={containerRef} className="preview-player flex items-center justify-center w-full h-full bg-black overflow-hidden">
       {activeClips.length > 0 ? (
-        <div className="relative w-full h-full flex items-center justify-center overflow-hidden" style={{ minHeight: 0, minWidth: 0 }}>
+        <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
           {/* Render all active clips */}
           {activeClips.map((clip, index) => {
             const isBaseLayer = index === 0;
