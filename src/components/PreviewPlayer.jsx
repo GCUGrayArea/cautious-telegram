@@ -169,7 +169,7 @@ function PreviewPlayer({ currentTime }) {
   }, []);
 
   return (
-    <div ref={containerRef} className="preview-player flex flex-col items-center justify-center w-full h-full bg-black overflow-hidden" style={{ minHeight: 0, minWidth: 0 }}>
+    <div ref={containerRef} className="preview-player flex items-center justify-center w-full h-full bg-black overflow-hidden" style={{ minHeight: 0, minWidth: 0 }}>
       {activeClips.length > 0 ? (
         <div className="relative w-full h-full flex items-center justify-center overflow-hidden" style={{ minHeight: 0, minWidth: 0 }}>
           {/* Render all active clips */}
