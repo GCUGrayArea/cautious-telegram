@@ -4822,8 +4822,8 @@ The `muted` attribute prevents audio from playing on preview videos, which was l
 ---
 
 ### PR-STRETCH-001: Auto-Save Project State
-**Status:** New
-**Agent:** (unassigned)
+**Status:** Complete
+**Agent:** Orange
 **Dependencies:** PR-002 (SQLite Database) ✅
 **Priority:** High (prevents data loss)
 
@@ -5208,18 +5208,121 @@ Automatically generate subtitles from video audio using AI speech-to-text, then 
 
 ---
 
+### PR-STRETCH-010: Multi-Project Support with Project Switcher
+**Status:** New
+**Agent:** (unassigned)
+**Dependencies:** PR-STRETCH-001 (Auto-Save Project State) ✅
+**Priority:** Medium (useful for managing multiple editing sessions)
+
+**Description:**
+Extend single-project auto-save to support multiple independent projects. Add UI to create, switch between, and manage projects. Each project saves its own timeline state independently.
+
+**Current State:**
+- Auto-save saves to hardcoded project ID=1
+- No way to create new projects from UI
+- No project management or switching capability
+- Database supports multiple projects (projects table) but only one is used
+
+**Files:**
+- src/store/projectContext.jsx (create) - Project state management context
+- src/components/ProjectTabs.jsx (create) - UI tab showing projects list
+- src/components/ProjectModals.jsx (create) - Modals for create/rename/delete operations
+- src/App.jsx (modify) - Wrap with ProjectProvider, pass activeProjectId
+- src/hooks/useAutoSave.js (modify) - Use dynamic projectId instead of hardcoded 1
+- src-tauri/src/commands/project.rs (modify) - Already supports multi-project (no changes needed)
+
+**Acceptance Criteria:**
+- [ ] ProjectContext tracks activeProjectId and list of projects
+- [ ] Create new blank project with custom name
+- [ ] Switch between existing projects (loads timeline from DB)
+- [ ] Projects tab shows list of all projects with names
+- [ ] Highlight currently active project in list
+- [ ] Delete project with confirmation dialog
+- [ ] Rename project with edit modal
+- [ ] Switching projects saves current timeline then loads new one
+- [ ] Auto-save continues working, saves to correct project
+- [ ] Project metadata (created_at, updated_at) displays in UI
+- [ ] UI prevents accidental project deletion
+
+**Implementation Approach:**
+
+1. **ProjectContext (250 lines):**
+   - State: `activeProjectId`, `projects: [{id, name, created_at, updated_at}]`
+   - Actions:
+     - `initializeProjects()` - Load all projects from DB on app start
+     - `createProject(name)` - Create new project via Tauri command
+     - `switchProject(projectId)` - Change active project (saves current first)
+     - `deleteProject(projectId)` - Delete project via Tauri command
+     - `renameProject(projectId, newName)` - Update project name in DB
+   - Handles API calls and error states
+
+2. **ProjectTabs Component (300 lines):**
+   - Displays list of all projects
+   - Shows active project with highlight
+   - "New Project" button opens create modal
+   - Each project row has:
+     - Project name
+     - Last modified timestamp
+     - Click to switch
+     - Edit button (opens rename modal)
+     - Delete button (shows confirmation)
+   - Shows loading state while switching
+
+3. **ProjectModals Component (200 lines):**
+   - CreateProjectModal: Input for project name, validates non-empty
+   - RenameProjectModal: Text input with current name, validates
+   - DeleteConfirmModal: Shows project name, "are you sure" warning
+   - Uses existing modal patterns from ExportDialog
+
+4. **App.jsx Integration (50 lines):**
+   - Wrap children with ProjectProvider
+   - Get `activeProjectId` from ProjectContext
+   - Pass to useAutoSave hook
+   - Call `initializeProjects()` on mount
+
+5. **useAutoSave.js Modifications (20 lines):**
+   - Change from hardcoded `projectId = 1` to `projectId` from props
+   - Already accepts projectId, just pass the dynamic value
+
+**Edge Cases to Handle:**
+- User switches projects while unsaved changes exist (auto-save happens to current before switch)
+- Deleting active project → switch to another or create default blank
+- Loading project while auto-save timer is running (timer continues for new project)
+- Network/DB errors during project operations (show error toast)
+- Rapid project switching (debounce or disable UI while loading)
+
+**Database Schema Notes:**
+- Projects table already exists with columns: id, name, timeline_json, created_at, updated_at, last_opened_at
+- No schema changes needed
+- May add `is_favorite` or `color_tag` in future for better organization
+
+**Testing Considerations:**
+- Create multiple projects, verify each loads correct timeline
+- Switch between projects multiple times, verify state integrity
+- Auto-save to correct project while switching rapidly
+- Delete project while it's active (should switch to another)
+- Verify project metadata updates (last_opened_at on switch, updated_at on save)
+- Test error cases: DB failure, invalid project ID, etc.
+
+**Estimated Complexity:** Medium (10-14 hours including testing)
+
+**Files Modified:** 5
+**Lines of Code:** ~1,000 (mostly UI)
+
+---
+
 ## Summary
 
-**Total PRs:** 46 (27 original MVP + 11 post-MVP bugfixes + 8 stretch goals)
+**Total PRs:** 47 (27 original MVP + 11 post-MVP bugfixes + 9 stretch goals)
 
 **Breakdown by Category:**
 - **MVP Features (PR-001 to PR-027):** 27 PRs - All Complete ✓
 - **Post-MVP Bugfixes (PR-POST-MVP-001 to PR-POST-MVP-011):** 11 PRs
   - Complete: 8 PRs ✓
   - New: 3 PRs (009, 010, 011)
-- **Stretch Goals (PR-STRETCH-001 to PR-STRETCH-009):** 8 PRs
-  - Complete: 1 PR (PR-STRETCH-006) ✓
-  - New: 7 PRs
+- **Stretch Goals (PR-STRETCH-001 to PR-STRETCH-010):** 10 PRs
+  - Complete: 2 PRs (PR-STRETCH-001, PR-STRETCH-006) ✓
+  - New: 8 PRs
 
 **Post-MVP Status:**
 - **Complete:**
@@ -5251,25 +5354,28 @@ Most post-MVP PRs are independent. PR-POST-MVP-008 may have minor overlap with P
 These features extend beyond the MVP and post-MVP bugfixes, adding professional-grade editing capabilities mentioned in the original specification as optional enhancements.
 
 **Priority Breakdown:**
-- **High Priority (Critical for Professional Use):** 3 PRs
-  - PR-STRETCH-001: Auto-Save Project State
+- **High Priority (Critical for Professional Use):** 4 PRs
+  - PR-STRETCH-001: Auto-Save Project State ✓ (Complete)
   - PR-STRETCH-002: Undo/Redo Functionality
   - PR-STRETCH-003: Audio Controls
+  - PR-STRETCH-010: Multi-Project Support
 
-- **Medium Priority (Valuable Features):** 4 PRs
+- **Medium Priority (Valuable Features):** 5 PRs
   - PR-STRETCH-004: Copy/Cut/Paste Shortcuts
   - PR-STRETCH-005: Export Presets for Platforms
-  - PR-STRETCH-006: Text Overlays
+  - PR-STRETCH-006: Text Overlays ✓ (Complete)
   - PR-STRETCH-007: Transitions Between Clips
+  - PR-STRETCH-009: AI-Powered One-Click Subtitling
 
 - **Low Priority (Polish):** 1 PR
   - PR-STRETCH-008: Filters and Effects
 
 **Recommended Implementation Order:**
-1. Auto-Save (prevents data loss, database already exists)
+1. ✓ Auto-Save (prevents data loss, database already exists) - COMPLETE
 2. Undo/Redo (critical for editing workflow)
 3. Audio Controls (essential for professional video)
 4. Copy/Cut/Paste (quick win, completes keyboard shortcuts)
-5. Export Presets (extends existing export dialog)
-6. Text Overlays, Transitions, Filters (polish features)
+5. Multi-Project Support (extends auto-save to manage multiple projects)
+6. Export Presets (extends existing export dialog)
+7. Transitions, Filters, Subtitling (polish and advanced features)
 
