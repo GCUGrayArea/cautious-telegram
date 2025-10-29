@@ -12,7 +12,7 @@ import { useTimeline } from '../store/timelineStore';
  * - Animation type
  */
 function TextOverlayEditor({ textOverlay, onClose }) {
-  const { updateTextOverlay, removeTextOverlay } = useTimeline();
+  const { updateTextOverlay, removeTextOverlay, clearSelection } = useTimeline();
 
   const [text, setText] = useState(textOverlay.text);
   const [fontSize, setFontSize] = useState(textOverlay.fontSize);
@@ -75,7 +75,7 @@ function TextOverlayEditor({ textOverlay, onClose }) {
   const handleDelete = () => {
     if (confirm('Delete this text overlay?')) {
       removeTextOverlay(textOverlay.id);
-      onClose();
+      clearSelection();
     }
   };
 
@@ -85,7 +85,7 @@ function TextOverlayEditor({ textOverlay, onClose }) {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-white">Text Overlay</h2>
         <button
-          onClick={onClose}
+          onClick={clearSelection}
           className="text-gray-400 hover:text-gray-200 text-2xl leading-none"
         >
           ×
@@ -208,13 +208,21 @@ function TextOverlayEditor({ textOverlay, onClose }) {
         </select>
       </div>
 
-      {/* Delete Button */}
-      <button
-        onClick={handleDelete}
-        className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition-colors"
-      >
-        Delete Text Overlay
-      </button>
+      {/* Action Buttons */}
+      <div className="flex gap-2">
+        <button
+          onClick={clearSelection}
+          className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold transition-colors"
+        >
+          Done
+        </button>
+        <button
+          onClick={handleDelete}
+          className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition-colors"
+        >
+          Delete
+        </button>
+      </div>
     </div>
   );
 }

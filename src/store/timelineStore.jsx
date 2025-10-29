@@ -81,6 +81,7 @@ function timelineReducer(state, action) {
       return {
         ...state,
         selectedClipId: action.payload,
+        selectedTextOverlayId: null,
       };
     }
 
@@ -88,6 +89,7 @@ function timelineReducer(state, action) {
       return {
         ...state,
         selectedClipId: null,
+        selectedTextOverlayId: null,
       };
     }
 

@@ -11,16 +11,32 @@ import { getAllClipsAtTime, getClipSourceTime, formatTime, convertToAssetPath } 
  */
 function PreviewPlayer({ currentTime }) {
   const videoRefsRef = useRef({});
-  const { clips, isPlaying } = useTimeline();
+  const { clips, isPlaying, textOverlays } = useTimeline();
   const [activeClips, setActiveClips] = useState([]);
   const [videoError, setVideoError] = useState(null);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+  const [activeTextOverlays, setActiveTextOverlays] = useState([]);
 
   // Find all clips at the current playhead position (for PiP)
   useEffect(() => {
     const clipsAtTime = getAllClipsAtTime(clips, currentTime);
     setActiveClips(clipsAtTime);
   }, [clips, currentTime]);
+
+  // Find all text overlays at the current playhead position
+  useEffect(() => {
+    if (!textOverlays || textOverlays.length === 0) {
+      setActiveTextOverlays([]);
+      return;
+    }
+
+    const overlaysAtTime = textOverlays.filter(overlay => {
+      const overlayEnd = overlay.startTime + overlay.duration;
+      return currentTime >= overlay.startTime && currentTime < overlayEnd;
+    });
+
+    setActiveTextOverlays(overlaysAtTime);
+  }, [textOverlays, currentTime]);
 
   // Update video elements when clips or time changes
   useEffect(() => {
@@ -120,7 +136,6 @@ function PreviewPlayer({ currentTime }) {
                 onError={handleVideoError}
                 onLoadedData={handleVideoLoad}
                 preload="metadata"
-                muted
                 style={{
                   position: isOverlay ? 'absolute' : 'relative',
                   width: isOverlay ? '25%' : '100%',
@@ -142,6 +157,33 @@ function PreviewPlayer({ currentTime }) {
             <div className="text-center absolute z-50">
               <p className="text-red-400 mb-2">⚠ {videoError}</p>
               <p className="text-sm text-gray-500">Clip: {activeClips[0]?.metadata?.filename || 'Unknown'}</p>
+            </div>
+          )}
+
+          {/* Text overlays - render on top of video */}
+          {activeTextOverlays.length > 0 && (
+            <div className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center">
+              {activeTextOverlays.map((overlay) => (
+                <div
+                  key={overlay.id}
+                  style={{
+                    position: 'absolute',
+                    left: `${overlay.x}%`,
+                    top: `${overlay.y}%`,
+                    transform: 'translate(-50%, -50%)',
+                    fontSize: `${Math.max(12, overlay.fontSize / 2)}px`,
+                    fontFamily: overlay.fontFamily || 'Arial',
+                    color: overlay.color || '#FFFFFF',
+                    textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '80%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {overlay.text}
+                </div>
+              ))}
             </div>
           )}
 

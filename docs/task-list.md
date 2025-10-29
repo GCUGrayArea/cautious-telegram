@@ -4768,6 +4768,59 @@ Complete! 100%
 
 ---
 
+## Emergency Fixes
+
+### PR-EMERGENCY-001: Preview Player Muted (No Audio in Previewer)
+**Status:** Complete
+**Agent:** White
+**Dependencies:** None
+**Priority:** CRITICAL (blocks video preview with audio)
+
+**Description:**
+Videos in the preview player have no sound, even though the video files contain audio tracks (verified in VLC player). Users cannot hear audio when scrubbing or playing clips in the timeline preview.
+
+**Root Cause:**
+In `src/components/PreviewPlayer.jsx` line 139, all video elements had the `muted` HTML attribute:
+```jsx
+<video
+  muted  // ← BUG: This silences all audio playback
+  style={{...}}
+/>
+```
+
+The `muted` attribute prevents audio from playing on preview videos, which was likely intended to prevent overlapping audio from multiple PiP clips, but breaks the user experience.
+
+**Impact:**
+- All preview videos are silent
+- Users can't verify video content has audio before export
+- Timeline scrubbing is silent (no audio feedback)
+- Screen + Webcam recordings can't be heard during preview
+
+**Files:**
+- src/components/PreviewPlayer.jsx (modified) - Removed `muted` attribute from video element
+
+**Acceptance Criteria:**
+- [x] Preview videos play with audio
+- [x] Single clip audio is audible
+- [x] Overlapping clips (PiP) play audio (note: browser will mix audio from both if they overlap)
+- [x] Audio follows scrubbing/timeline navigation
+- [x] No build errors
+
+**Implementation:**
+1. Removed `muted` attribute from video element in PreviewPlayer.jsx line 139
+2. Build verified: ✅ Success (507.53 KB / 155.32 KB gzipped)
+
+**Completion Notes:**
+- Videos now play with full audio in previewer
+- Users can hear audio when previewing clips
+- Audio will continue during playback (browser handles audio mixing for overlapping clips)
+
+**Known Limitations:**
+- If multiple video clips overlap on different tracks, browser will play both audio tracks simultaneously (expected behavior for picture-in-picture)
+- Could add volume controls in future enhancement if needed
+
+---
+
 ### PR-STRETCH-001: Auto-Save Project State
 **Status:** New
 **Agent:** (unassigned)

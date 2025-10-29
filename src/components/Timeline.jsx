@@ -479,7 +479,7 @@ function Timeline() {
           <Text
             x={10}
             y={y + (TIMELINE_CONFIG.TRACK_HEIGHT / 2) - 8}
-            text={`Track ${i + 1}`}
+            text={i === 0 ? "Track 1 (Video)" : i === 1 ? "Track 2 (Overlay PiP)" : "Track 3 (Text/Subtitles)"}
             fontSize={12}
             fill="#6b7280"
           />

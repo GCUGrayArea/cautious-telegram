@@ -5,6 +5,7 @@ import Timeline from './components/Timeline';
 import PreviewPlayer from './components/PreviewPlayer';
 import PlaybackControls from './components/PlaybackControls';
 import ExportDialog from './components/ExportDialog';
+import TextOverlayEditor from './components/TextOverlayEditor';
 import { TimelineProvider, useTimeline } from './store/timelineStore.jsx';
 import { DragProvider } from './store/dragStore.jsx';
 import { PlaybackEngine, calculateTimelineDuration } from './utils/playback';
@@ -16,7 +17,7 @@ function AppContent() {
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [activeTab, setActiveTab] = useState('library'); // 'library' or 'record'
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const { playheadTime, clips, isPlaying, setPlayheadTime, setPlaybackState } = useTimeline();
+  const { playheadTime, clips, isPlaying, setPlayheadTime, setPlaybackState, selectedTextOverlayId, textOverlays, clearSelection } = useTimeline();
   const playbackEngineRef = useRef(null);
 
   // Recording state - lifted from RecordingPanel to persist across tab switches
@@ -180,6 +181,19 @@ function AppContent() {
         isOpen={exportDialogOpen}
         onClose={handleExportDialogClose}
       />
+
+      {/* Text Overlay Editor Panel */}
+      {selectedTextOverlayId !== null && textOverlays && (
+        (() => {
+          const selectedOverlay = textOverlays.find(o => o.id === selectedTextOverlayId);
+          return selectedOverlay ? (
+            <TextOverlayEditor
+              textOverlay={selectedOverlay}
+              onClose={clearSelection}
+            />
+          ) : null;
+        })()
+      )}
     </div>
   );
 }

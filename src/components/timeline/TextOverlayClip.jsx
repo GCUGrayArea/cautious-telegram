@@ -11,24 +11,30 @@ import {
 /**
  * TextOverlayClip Component
  *
- * Renders a text overlay on the timeline as a Konva Group.
- * Displays text with customizable font, size, and color.
- * Supports dragging to reposition text overlays on the timeline.
- * Supports trimming via edge handles to adjust duration.
+ * Renders a text overlay on Track 3 of the timeline as a Konva Group.
+ * Text overlays are semi-transparent overlays that appear on top of video.
+ * Supports dragging to reposition in time and trimming to adjust duration.
+ * Text is displayed with customizable font, size, and color.
  */
 function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd, pixelsPerSecond, scrollX, clips, numTracks = 3 }) {
   const [isTrimming, setIsTrimming] = useState(false);
 
+  // Track 3 is for text overlays - positioned on top of Track 1 (base video)
+  const TRACK_3_INDEX = 2; // Zero-indexed, so track 3 = index 2
+
   // Calculate overlay position and dimensions
   const clipX = timeToPixels(textOverlay.startTime, pixelsPerSecond) - scrollX;
-  const clipY = TIMELINE_CONFIG.RULER_HEIGHT + (numTracks * TIMELINE_CONFIG.TRACK_HEIGHT) + 10; // Below tracks
+  const trackY = TIMELINE_CONFIG.RULER_HEIGHT + (TRACK_3_INDEX * TIMELINE_CONFIG.TRACK_HEIGHT);
+  const clipY = trackY;
   const clipWidth = timeToPixels(textOverlay.duration, pixelsPerSecond);
   const clipHeight = TIMELINE_CONFIG.TRACK_HEIGHT - 4;
 
-  // Overlay colors
-  const overlayColor = selected ? '#ef4444' : '#8b5cf6'; // Red if selected, purple otherwise
-  const borderColor = selected ? '#dc2626' : '#7c3aed';
-  const textColor = '#ffffff';
+  // Overlay colors - Material green by default, pale yellow when selected
+  const backgroundColor = selected ? '#fffacd' : '#4caf50'; // Pale yellow when selected, green by default
+  const backgroundOpacity = selected ? 0.3 : 0.25; // Slightly less opacity for green
+  const borderColor = selected ? '#fbbf24' : '#388e3c'; // Gold border when selected, darker green otherwise
+  const borderWidth = selected ? 2 : 1;
+  const textColor = textOverlay.color || '#ffffff';
 
   // Truncate text if too long for display
   const maxTextLength = Math.floor(clipWidth / 7);
@@ -54,11 +60,13 @@ function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd,
     onDragEnd(textOverlay.id, newStartTime);
   };
 
-  // Drag bound function - constrains drag position
+  // Drag bound function - constrains drag position to Track 3 only (horizontal movement)
   const handleDragBound = (pos) => {
     const minX = -scrollX;
     const constrainedX = Math.max(minX, pos.x);
-    return { x: constrainedX, y: pos.y };
+    // Keep Y position locked to Track 3 (don't allow dragging to other tracks)
+    // Return clipY to keep at the Track 3 position
+    return { x: constrainedX, y: clipY };
   };
 
   // Handle left trim (resize start)
@@ -97,49 +105,77 @@ function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd,
   };
 
   return (
-    <Group>
-      {/* Main overlay background */}
+    <Group
+      x={clipX}
+      y={clipY}
+      draggable={!isTrimming}
+      dragBoundFunc={handleDragBound}
+      onDragEnd={handleDragEnd}
+      onMouseEnter={(e) => {
+        if (!isTrimming) {
+          const container = e.target.getStage().container();
+          container.style.cursor = 'grab';
+        }
+      }}
+      onMouseLeave={(e) => {
+        const container = e.target.getStage().container();
+        container.style.cursor = 'default';
+      }}
+    >
+      {/* Invisible hit area for dragging and clicking */}
       <Rect
-        x={clipX}
-        y={clipY}
+        x={0}
+        y={0}
         width={Math.max(clipWidth, 20)}
         height={clipHeight}
-        fill={overlayColor}
-        opacity={0.8}
-        draggable
-        onDragEnd={handleDragEnd}
-        dragBoundFunc={handleDragBound}
-        onMouseDown={handleClick}
+        fill="transparent"
+        stroke="transparent"
         onClick={handleClick}
+        onTap={handleClick}
       />
 
-      {/* Selection border */}
-      {selected && (
-        <Rect
-          x={clipX}
-          y={clipY}
-          width={Math.max(clipWidth, 20)}
-          height={clipHeight}
-          stroke={borderColor}
-          strokeWidth={3}
-          fill="transparent"
-          pointerEvents="none"
-        />
-      )}
+      {/* Background - always visible with pale yellow */}
+      <Rect
+        x={0}
+        y={0}
+        width={Math.max(clipWidth, 20)}
+        height={clipHeight}
+        fill={backgroundColor}
+        opacity={backgroundOpacity}
+        stroke={borderColor}
+        strokeWidth={borderWidth}
+        pointerEvents="none"
+      />
 
-      {/* Text label */}
-      {clipWidth > 40 && (
-        <Text
-          x={clipX + 8}
-          y={clipY + (clipHeight / 2) - 8}
-          text={displayText}
-          fontSize={12}
-          fontFamily="Arial"
-          fill={textColor}
-          pointerEvents="none"
-          width={Math.max(clipWidth - 16, 0)}
-          ellipsis
-        />
+      {/* Text content - main visual */}
+      {clipWidth > 30 && (
+        <>
+          {/* Subtle background for text readability (black shadow) */}
+          <Text
+            x={8}
+            y={(clipHeight / 2) - 12}
+            text={displayText}
+            fontSize={16}
+            fontFamily={textOverlay.fontFamily || "Arial"}
+            fill="#000000"
+            opacity={0.3}
+            pointerEvents="none"
+            width={Math.max(clipWidth - 16, 0)}
+            ellipsis
+          />
+          {/* Actual text overlay */}
+          <Text
+            x={8}
+            y={(clipHeight / 2) - 12}
+            text={displayText}
+            fontSize={16}
+            fontFamily={textOverlay.fontFamily || "Arial"}
+            fill={textColor}
+            pointerEvents="none"
+            width={Math.max(clipWidth - 16, 0)}
+            ellipsis
+          />
+        </>
       )}
 
       {/* Trim handles (only when selected) */}
@@ -147,8 +183,8 @@ function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd,
         <>
           {/* Left trim handle */}
           <Rect
-            x={clipX}
-            y={clipY}
+            x={0}
+            y={0}
             width={6}
             height={clipHeight}
             fill="#fbbf24"
@@ -156,7 +192,7 @@ function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd,
             onDragStart={() => setIsTrimming(true)}
             onDragEnd={handleLeftTrimDragEnd}
             dragBoundFunc={(pos) => ({
-              x: Math.max(-scrollX, Math.min(pos.x, clipX + clipWidth - 10 - scrollX)),
+              x: Math.max(0, Math.min(pos.x, clipWidth - 10)),
               y: pos.y,
             })}
             cursor="col-resize"
@@ -164,8 +200,8 @@ function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd,
 
           {/* Right trim handle */}
           <Rect
-            x={clipX + clipWidth - 6}
-            y={clipY}
+            x={clipWidth - 6}
+            y={0}
             width={6}
             height={clipHeight}
             fill="#fbbf24"

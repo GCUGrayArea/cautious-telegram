@@ -5,6 +5,7 @@ mod commands;
 mod database;
 mod ffmpeg;
 mod export;
+mod transcription;
 
 #[cfg(test)]
 mod tests;
@@ -19,6 +20,8 @@ pub struct AppState {
 }
 
 fn main() {
+    // Load environment variables from .env file (if present)
+    dotenv::dotenv().ok();
     // Initialize database
     let db_path = Database::get_db_path().expect("Failed to get database path");
     println!("Database path: {:?}", db_path);
@@ -46,6 +49,7 @@ fn main() {
             commands::recording::import_recording,
             commands::export::export_timeline,
             commands::export::get_export_progress,
+            commands::transcription::transcribe_timeline,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
