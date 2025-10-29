@@ -16,7 +16,7 @@ import { exportTimeline, getExportProgress } from '../utils/api';
 import { getPresets, applyPreset } from '../utils/exportPresets';
 
 export default function ExportDialog({ isOpen, onClose }) {
-  const { clips, transitions } = useTimeline();
+  const { clips, transitions, textOverlays } = useTimeline();
 
   // Component state
   const [selectedPreset, setSelectedPreset] = useState(null);
@@ -192,8 +192,22 @@ export default function ExportDialog({ isOpen, onClose }) {
         duration: t.duration
       }));
 
+      // Prepare text overlay data for export
+      const textOverlayData = textOverlays.map(overlay => ({
+        id: overlay.id,
+        text: overlay.text,
+        start_time: overlay.startTime,
+        duration: overlay.duration,
+        x: overlay.x || 50,  // Default to center if not specified
+        y: overlay.y || 50,  // Default to center if not specified
+        font_size: overlay.fontSize || 48,
+        font_family: overlay.fontFamily || 'Arial',
+        color: overlay.color || '#FFFFFF',  // Default to white
+        animation: overlay.animation || 'none'
+      }));
+
       // Call backend export command
-      const result = await exportTimeline(clipData, transitionData, settings);
+      const result = await exportTimeline(clipData, transitionData, textOverlayData, settings);
 
       // Success
       setSuccess(true);

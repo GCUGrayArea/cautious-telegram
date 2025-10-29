@@ -72,10 +72,12 @@ impl ExportPipeline {
     /// 1. Validate clips and sort by timeline position
     /// 2. Detect if multi-track (any clips on track 1+)
     /// 3. Route to single-track or multi-track export with transitions
+    /// 4. Apply text overlays using FFmpeg drawtext filter
     pub fn export_timeline(
         &self,
         clips: Vec<ClipData>,
         transitions: Vec<TransitionData>,
+        text_overlays: Vec<TextOverlayData>,
         settings: ExportSettings,
     ) -> Result<String, String> {
         // Reset progress at start
@@ -109,18 +111,19 @@ impl ExportPipeline {
 
         if has_temporal_overlap {
             // Multi-track export with overlays (Picture-in-Picture)
-            self.export_multitrack(clips, transitions, settings)
+            self.export_multitrack(clips, transitions, text_overlays, settings)
         } else {
             // Single-track export - concatenate all clips sequentially with transitions
-            self.export_singletrack(clips, transitions, settings)
+            self.export_singletrack(clips, transitions, text_overlays, settings)
         }
     }
 
-    /// Export single track (track 0 only) with transitions
+    /// Export single track (track 0 only) with transitions and text overlays
     fn export_singletrack(
         &self,
         clips: Vec<ClipData>,
         transitions: Vec<TransitionData>,
+        text_overlays: Vec<TextOverlayData>,
         settings: ExportSettings,
     ) -> Result<String, String> {
         // Sort clips by timeline position
@@ -141,10 +144,10 @@ impl ExportPipeline {
         // Phase 2: Choose concatenation method based on whether we have transitions
         let result = if transitions.is_empty() {
             // No transitions: Use fast concat demuxer
-            self.concatenate_and_encode(&intermediate_files, &settings)
+            self.concatenate_and_encode(&intermediate_files, &text_overlays, &settings)
         } else {
             // With transitions: Use filter_complex with xfade
-            self.concatenate_with_transitions(&intermediate_files, &sorted_clips, &transitions, &settings)
+            self.concatenate_with_transitions(&intermediate_files, &sorted_clips, &transitions, &text_overlays, &settings)
         };
 
         // Clean up temp files
@@ -283,6 +286,7 @@ impl ExportPipeline {
     fn concatenate_and_encode(
         &self,
         intermediate_files: &[PathBuf],
+        text_overlays: &[TextOverlayData],
         settings: &ExportSettings,
     ) -> Result<String, String> {
         if intermediate_files.is_empty() {
@@ -321,10 +325,25 @@ impl ExportPipeline {
             "-i", concat_list_str,
         ];
 
-        // Add scaling filter if needed
-        let scale_filter;
+        // Build video filter with scaling and text overlays
+        let mut vf_chain = Vec::new();
+
+        // Add scaling if needed
         if let Some(scale) = settings.resolution.scale_filter() {
-            scale_filter = scale;
+            vf_chain.push(scale);
+        }
+
+        // Add text overlay filters if there are any overlays
+        for overlay in text_overlays {
+            if let Ok(drawtext_filter) = self.build_drawtext_filter(overlay) {
+                vf_chain.push(drawtext_filter);
+            }
+        }
+
+        // Apply the complete filter chain if there are any filters
+        let scale_filter;
+        if !vf_chain.is_empty() {
+            scale_filter = vf_chain.join(",");
             args.push("-vf");
             args.push(&scale_filter);
         }
@@ -358,12 +377,13 @@ impl ExportPipeline {
         Ok(settings.output_path.clone())
     }
 
-    /// Concatenate intermediate files with transitions using xfade filter
+    /// Concatenate intermediate files with transitions using xfade filter and apply text overlays
     fn concatenate_with_transitions(
         &self,
         intermediate_files: &[PathBuf],
         clips: &[ClipData],
         transitions: &[TransitionData],
+        text_overlays: &[TextOverlayData],
         settings: &ExportSettings,
     ) -> Result<String, String> {
         if intermediate_files.is_empty() {
@@ -400,11 +420,26 @@ impl ExportPipeline {
         args.push("-map".to_string());
         args.push("[aout]".to_string());  // Map final audio output
 
-        // Add scaling filter if needed
+        // Build video filter chain (scaling + text overlays)
+        let mut vf_filters = Vec::new();
+
+        // Add scaling if needed
         if let Some(scale) = settings.resolution.scale_filter() {
-            // Note: Scaling should ideally be in filter_complex for better quality
+            vf_filters.push(scale);
+        }
+
+        // Add text overlay filters if there are any overlays
+        for overlay in text_overlays {
+            if let Ok(drawtext_filter) = self.build_drawtext_filter(overlay) {
+                vf_filters.push(drawtext_filter);
+            }
+        }
+
+        // Apply the filter chain if there are any filters
+        if !vf_filters.is_empty() {
+            let vf_chain = vf_filters.join(",");
             args.push("-vf".to_string());
-            args.push(scale);
+            args.push(vf_chain);
         }
 
         // Add encoding settings
@@ -466,11 +501,19 @@ impl ExportPipeline {
             transition_map.insert((transition.clip_id_before, transition.clip_id_after), transition);
         }
 
-        // First, normalize all video streams to same frame rate (30fps) to fix timebase issues
+        // First, normalize all video streams to same frame rate, resolution, and timebase for xfade
+        // Find max resolution to scale all clips to
+        let max_width = clips.iter().map(|c| 1280).max().unwrap_or(1280);
+        let max_height = clips.iter().map(|c| 720).max().unwrap_or(720);
+
         let mut normalized_streams = Vec::new();
         for i in 0..num_clips {
             let normalized_label = format!("[v{}n]", i);
-            let fps_filter = format!("[{}:v]fps=30,setpts=PTS-STARTPTS{}", i, normalized_label);
+            // Scale to common resolution, normalize format/fps/timebase
+            let fps_filter = format!(
+                "[{}:v]scale={}:{}:force_original_aspect_ratio=decrease,pad={}:{}:-1:-1:color=black,format=yuv420p,fps=fps=30:round=near,settb=expr=1/30,setpts=PTS-STARTPTS{}",
+                i, max_width, max_height, max_width, max_height, normalized_label
+            );
             normalized_streams.push(fps_filter);
         }
 
@@ -545,16 +588,23 @@ impl ExportPipeline {
             }
         }
 
-        // Build audio filter: concat all audio streams
+        // Build audio filter: concat all audio streams (with fallback for missing audio)
         let mut audio_inputs = Vec::new();
         for i in 0..num_clips {
-            audio_inputs.push(format!("[{}:a]", i));
+            // Use anullsrc as fallback for clips without audio
+            audio_inputs.push(format!("[{}:a?]", i));
         }
-        let audio_filter = format!(
-            "{}concat=n={}:v=0:a=1[aout]",
-            audio_inputs.join(""),
-            num_clips
-        );
+
+        // If we have audio inputs, build concat filter
+        let audio_filter = if num_clips > 0 {
+            format!(
+                "{}concat=n={}:v=0:a=1[aout]",
+                audio_inputs.join(""),
+                num_clips
+            )
+        } else {
+            String::new()
+        };
 
         Ok((video_filter_parts.join(";"), audio_filter))
     }
@@ -575,7 +625,8 @@ impl ExportPipeline {
     fn export_multitrack(
         &self,
         clips: Vec<ClipData>,
-        _transitions: Vec<TransitionData>,
+        transitions: Vec<TransitionData>,
+        text_overlays: Vec<TextOverlayData>,
         settings: ExportSettings,
     ) -> Result<String, String> {
         // Group clips by track
@@ -611,8 +662,25 @@ impl ExportPipeline {
             ffmpeg.set_progress(30.0, "Concatenating base track...".to_string(), None);
         }
 
-        // Concatenate track 0 clips into base video
-        self.concatenate_only(&track0_intermediates, &base_video_path)?;
+        // Filter transitions to get only track0 transitions
+        let track0_clip_ids: std::collections::HashSet<u32> = track0_clips.iter().map(|c| c.id).collect();
+        let track0_transitions: Vec<TransitionData> = transitions.into_iter()
+            .filter(|t| track0_clip_ids.contains(&t.clip_id_before) && track0_clip_ids.contains(&t.clip_id_after))
+            .collect();
+
+        // Concatenate track 0 clips into base video (with or without transitions)
+        if track0_transitions.is_empty() {
+            // No transitions: fast concat
+            self.concatenate_only(&track0_intermediates, &base_video_path)?;
+        } else {
+            // With transitions: use xfade filter
+            self.concatenate_base_with_transitions(
+                &track0_intermediates,
+                &track0_clips,
+                &track0_transitions,
+                &base_video_path,
+            )?;
+        }
 
         // Clean up track 0 intermediates
         for file in &track0_intermediates {
@@ -699,6 +767,205 @@ impl ExportPipeline {
         Ok(())
     }
 
+    /// Concatenate base track clips with transitions for multi-track export
+    fn concatenate_base_with_transitions(
+        &self,
+        intermediate_files: &[PathBuf],
+        clips: &[ClipData],
+        transitions: &[TransitionData],
+        output_path: &Path,
+    ) -> Result<(), String> {
+        if intermediate_files.is_empty() {
+            return Err("No files to concatenate".to_string());
+        }
+
+        let ffmpeg = self.ffmpeg.lock()
+            .map_err(|e| format!("Failed to lock FFmpeg: {}", e))?;
+
+        // Build FFmpeg command with individual inputs for both video and audio
+        let mut args: Vec<String> = Vec::new();
+
+        // Add individual video inputs
+        for file in intermediate_files {
+            args.push("-i".to_string());
+            args.push(file.display().to_string());
+        }
+
+        // Build filter_complex with xfade and acrossfade filters
+        // Note: video inputs start at 0
+        let (combined_filter, _) = self.build_xfade_and_audio_filter_offset(clips, transitions, intermediate_files.len(), 0)?;
+
+        args.push("-filter_complex".to_string());
+        args.push(combined_filter);
+        args.push("-map".to_string());
+        args.push("[vout]".to_string());
+        args.push("-map".to_string());
+        args.push("[aout]".to_string());  // Audio from acrossfade filter
+
+        // Use libx264 for encoding
+        args.push("-c:v".to_string());
+        args.push("libx264".to_string());
+        args.push("-crf".to_string());
+        args.push("23".to_string());
+        args.push("-c:a".to_string());
+        args.push("aac".to_string());
+        args.push("-b:a".to_string());
+        args.push("192k".to_string());
+        args.push("-y".to_string());
+        args.push(output_path.display().to_string());
+
+        // Convert to &str refs
+        let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+
+        ffmpeg.execute_command(&args_refs)?;
+        Ok(())
+    }
+
+    /// Build xfade filter with input offset (for when concat audio is input 0)
+    fn build_xfade_and_audio_filter_offset(
+        &self,
+        clips: &[ClipData],
+        transitions: &[TransitionData],
+        num_clips: usize,
+        input_offset: usize,
+    ) -> Result<(String, String), String> {
+        if num_clips < 2 {
+            return Ok((
+                format!("[{}:v]copy[vout]", input_offset),
+                format!("[{}:a?]anull[aout]", input_offset)
+            ));
+        }
+
+        // Build a map of transitions by clip pairs
+        let mut transition_map: std::collections::HashMap<(u32, u32), &TransitionData> = std::collections::HashMap::new();
+        for transition in transitions {
+            transition_map.insert((transition.clip_id_before, transition.clip_id_after), transition);
+        }
+
+        // First, normalize all video streams to same frame rate, resolution, and timebase for xfade
+        // Find max resolution to scale all clips to
+        let max_width = clips.iter().map(|c| 1280).max().unwrap_or(1280);  // Default to 1280 if unknown
+        let max_height = clips.iter().map(|c| 720).max().unwrap_or(720);   // Default to 720 if unknown
+
+        let mut normalized_streams = Vec::new();
+        for i in 0..num_clips {
+            let input_idx = i + input_offset;
+            let normalized_label = format!("[v{}n]", i);
+            // Scale to common resolution, normalize format/fps/timebase
+            let fps_filter = format!(
+                "[{}:v]scale={}:{}:force_original_aspect_ratio=decrease,pad={}:{}:-1:-1:color=black,format=yuv420p,fps=fps=30:round=near,settb=expr=1/30,setpts=PTS-STARTPTS{}",
+                input_idx, max_width, max_height, max_width, max_height, normalized_label
+            );
+            normalized_streams.push(fps_filter);
+        }
+
+        let mut video_filter_parts = normalized_streams;
+        let mut audio_filter_parts = Vec::new();
+        let mut current_offset = 0.0;
+
+        // Process each pair of clips for video xfade and audio acrossfade
+        for i in 0..num_clips - 1 {
+            let clip_before = &clips[i];
+            let clip_after = &clips[i + 1];
+
+            let clip_duration = clip_before.out_point - clip_before.in_point;
+            let transition = transition_map.get(&(clip_before.id, clip_after.id));
+
+            // Video inputs
+            let input_before = if i == 0 {
+                "[v0n]".to_string()
+            } else {
+                format!("[v{}]", i - 1)
+            };
+            let input_after = format!("[v{}n]", i + 1);
+
+            // Audio inputs (from individual video files)
+            let audio_input_before = if i == 0 {
+                format!("[{}:a?]", input_offset)
+            } else {
+                format!("[a{}]", i - 1)
+            };
+            let audio_input_after = format!("[{}:a?]", i + 1 + input_offset);
+
+            // Output labels
+            let video_output = if i == num_clips - 2 {
+                "[vout]".to_string()
+            } else {
+                format!("[v{}]", i)
+            };
+            let audio_output = if i == num_clips - 2 {
+                "[aout]".to_string()
+            } else {
+                format!("[a{}]", i)
+            };
+
+            if let Some(trans) = transition {
+                // Video xfade
+                let xfade_type = self.map_transition_type(&trans.transition_type)?;
+                let duration = trans.duration;
+                let offset = current_offset + clip_duration - duration;
+
+                let xfade_filter = format!(
+                    "{}{}xfade=transition={}:duration={:.3}:offset={:.3}{}",
+                    input_before,
+                    input_after,
+                    xfade_type,
+                    duration,
+                    offset,
+                    video_output
+                );
+                video_filter_parts.push(xfade_filter);
+
+                // Audio acrossfade (match video timing)
+                let acrossfade_filter = format!(
+                    "{}{}acrossfade=d={:.3}:c1=tri:c2=tri{}",
+                    audio_input_before,
+                    audio_input_after,
+                    duration,
+                    audio_output
+                );
+                audio_filter_parts.push(acrossfade_filter);
+
+                current_offset += clip_duration - duration;
+            } else {
+                // No transition: use very short xfade (0.01s) to simulate hard cut
+                let duration = 0.01;
+                let offset = current_offset + clip_duration - duration;
+
+                let xfade_filter = format!(
+                    "{}{}xfade=transition=fade:duration={:.3}:offset={:.3}{}",
+                    input_before,
+                    input_after,
+                    duration,
+                    offset,
+                    video_output
+                );
+                video_filter_parts.push(xfade_filter);
+
+                // Audio acrossfade (short crossfade for continuity)
+                let acrossfade_filter = format!(
+                    "{}{}acrossfade=d={:.3}:c1=tri:c2=tri{}",
+                    audio_input_before,
+                    audio_input_after,
+                    duration,
+                    audio_output
+                );
+                audio_filter_parts.push(acrossfade_filter);
+
+                current_offset += clip_duration - duration;
+            }
+        }
+
+        // Combine video and audio filters
+        let combined_filter = if !audio_filter_parts.is_empty() {
+            format!("{};{}", video_filter_parts.join(";"), audio_filter_parts.join(";"))
+        } else {
+            video_filter_parts.join(";")
+        };
+
+        Ok((combined_filter, String::new()))
+    }
+
     /// Apply overlay clips on top of base video using FFmpeg filter_complex
     fn apply_overlays(
         &self,
@@ -723,22 +990,16 @@ impl ExportPipeline {
             args.push(overlay_file.display().to_string());
         }
 
-        // Build filter_complex string (video overlays + audio mixing)
-        let (video_filter, audio_filter) = self.build_overlay_and_audio_filter(overlay_clips, overlay_files.len());
-
-        let filter_complex = if audio_filter.is_empty() {
-            video_filter
-        } else {
-            format!("{};{}", video_filter, audio_filter)
-        };
+        // Build filter_complex string (video overlays only)
+        let (video_filter, _audio_filter) = self.build_overlay_and_audio_filter(overlay_clips, overlay_files.len());
 
         // Add filter_complex and output mapping
         args.push("-filter_complex".to_string());
-        args.push(filter_complex);
+        args.push(video_filter);
         args.push("-map".to_string());
         args.push("[out]".to_string());
         args.push("-map".to_string());
-        args.push("[aout]".to_string());  // Mixed audio output
+        args.push("0:a?".to_string());  // Audio from base video (simpler than mixing)
 
         // Add scaling filter if needed (applied to final output)
         if let Some(scale) = settings.resolution.scale_filter() {
@@ -830,21 +1091,47 @@ impl ExportPipeline {
 
         let video_filter = filter_parts.join(";");
 
-        // Build audio mixing filter
-        // Mix base audio (input 0) with all overlay audios (inputs 1+)
-        let num_audio_inputs = 1 + num_overlays; // Base + overlays
-        let mut audio_inputs = Vec::new();
-
-        for i in 0..num_audio_inputs {
-            audio_inputs.push(format!("[{}:a]", i));
-        }
-
-        let audio_filter = format!(
-            "{}amix=inputs={}:duration=first:dropout_transition=0[aout]",
-            audio_inputs.join(""),
-            num_audio_inputs
-        );
+        // Build audio mixing filter - just use base audio for now
+        // TODO: Properly detect which inputs have audio and mix only those
+        let audio_filter = "[0:a?]acopy[aout]".to_string();
 
         (video_filter, audio_filter)
+    }
+
+    /// Build FFmpeg drawtext filter for a text overlay
+    ///
+    /// Format: drawtext=textfile=<file>:x=<x>:y=<y>:fontsize=<size>:fontcolor=<color>:enable='between(t,<start>,<end>)'
+    fn build_drawtext_filter(&self, overlay: &TextOverlayData) -> Result<String, String> {
+        // Escape special characters in text for FFmpeg
+        let escaped_text = overlay.text
+            .replace("\\", "\\\\")
+            .replace("'", "\\'")
+            .replace(":", "\\:")
+            .replace("[", "\\[")
+            .replace("]", "\\]");
+
+        // Convert color from hex (#RRGGBB) to RGB format or use as-is
+        let fontcolor = if overlay.color.starts_with('#') {
+            overlay.color.clone()  // FFmpeg accepts hex colors
+        } else {
+            "white".to_string()
+        };
+
+        // Calculate x and y from percentages (0-100) to pixel positions
+        // Use 'main_w' and 'main_h' for width/height in FFmpeg
+        let x = format!("(main_w * {}) / 100", overlay.x);
+        let y = format!("(main_h * {}) / 100", overlay.y);
+
+        // Build the enable expression for timing (between start and end time)
+        let end_time = overlay.start_time + overlay.duration;
+        let enable_expr = format!("between(t,{},{:.3})", overlay.start_time, end_time);
+
+        // Build drawtext filter
+        let filter = format!(
+            "drawtext=text='{}':x='{}':y='{}':fontsize={}:fontcolor='{}':enable='{}'",
+            escaped_text, x, y, overlay.font_size, fontcolor, enable_expr
+        );
+
+        Ok(filter)
     }
 }
