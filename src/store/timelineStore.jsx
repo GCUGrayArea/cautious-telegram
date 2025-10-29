@@ -145,6 +145,8 @@ function timelineReducer(state, action) {
         fontFamily: action.payload.fontFamily || 'Arial',
         color: action.payload.color || '#FFFFFF',
         animation: action.payload.animation || 'none', // none, fadeIn, fadeOut, slideInLeft, slideInRight, slideInTop, slideInBottom
+        backgroundColor: action.payload.backgroundColor || '#000000', // Default to black for readability
+        backgroundOpacity: action.payload.backgroundOpacity || 0, // Default to transparent (0)
       };
 
       return {

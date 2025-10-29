@@ -3,6 +3,19 @@ import { useTimeline } from '../store/timelineStore.jsx';
 import { getAllClipsAtTime, getClipSourceTime, formatTime, convertToAssetPath } from '../utils/preview';
 
 /**
+ * Convert hex color to rgba format
+ * @param {string} hex - Hex color code (e.g., '#FFFFFF')
+ * @param {number} alpha - Alpha/opacity value (0-1)
+ * @returns {string} rgba color string
+ */
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
  * PreviewPlayer Component
  *
  * Displays video preview at the current playhead position.
@@ -196,6 +209,10 @@ function PreviewPlayer({ currentTime }) {
                 // Convert y position from center anchor to bottom anchor
                 const bottomPercent = 100 - overlay.y;
 
+                // Determine if background should be visible
+                const backgroundOpacity = overlay.backgroundOpacity || 0;
+                const showBackground = backgroundOpacity > 0;
+
                 return (
                   <div
                     key={overlay.id}
@@ -212,6 +229,10 @@ function PreviewPlayer({ currentTime }) {
                       maxWidth: '70%',
                       lineHeight: '1.2',
                       textAlign: 'center',
+                      // Background styling
+                      backgroundColor: showBackground ? hexToRgba(overlay.backgroundColor || '#000000', backgroundOpacity) : 'transparent',
+                      padding: showBackground ? '8px 16px' : '0',
+                      borderRadius: showBackground ? '4px' : '0',
                     }}
                   >
                     {overlay.text}

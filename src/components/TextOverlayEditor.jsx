@@ -18,6 +18,8 @@ function TextOverlayEditor({ textOverlay, onClose }) {
   const [fontSize, setFontSize] = useState(textOverlay.fontSize);
   const [fontFamily, setFontFamily] = useState(textOverlay.fontFamily);
   const [color, setColor] = useState(textOverlay.color);
+  const [backgroundColor, setBackgroundColor] = useState(textOverlay.backgroundColor || '#000000');
+  const [backgroundOpacity, setBackgroundOpacity] = useState((textOverlay.backgroundOpacity || 0) * 100); // Convert to 0-100%
   const [positionX, setPositionX] = useState(textOverlay.x);
   const [positionY, setPositionY] = useState(textOverlay.y);
   const [animation, setAnimation] = useState(textOverlay.animation);
@@ -48,6 +50,20 @@ function TextOverlayEditor({ textOverlay, onClose }) {
     const newColor = e.target.value;
     setColor(newColor);
     updateTextOverlay(textOverlay.id, { color: newColor });
+  };
+
+  // Handle background color change
+  const handleBackgroundColorChange = (e) => {
+    const newBackgroundColor = e.target.value;
+    setBackgroundColor(newBackgroundColor);
+    updateTextOverlay(textOverlay.id, { backgroundColor: newBackgroundColor });
+  };
+
+  // Handle background opacity change
+  const handleBackgroundOpacityChange = (e) => {
+    const newOpacity = parseInt(e.target.value);
+    setBackgroundOpacity(newOpacity);
+    updateTextOverlay(textOverlay.id, { backgroundOpacity: newOpacity / 100 }); // Convert back to 0-1
   };
 
   // Handle position X change
@@ -156,6 +172,42 @@ function TextOverlayEditor({ textOverlay, onClose }) {
             placeholder="#FFFFFF"
           />
         </div>
+      </div>
+
+      {/* Background Color */}
+      <div className="mb-6">
+        <label className="block text-sm font-semibold text-gray-300 mb-2">Background Color</label>
+        <div className="flex gap-3">
+          <input
+            type="color"
+            value={backgroundColor}
+            onChange={handleBackgroundColorChange}
+            className="w-16 h-10 rounded cursor-pointer border border-gray-700"
+          />
+          <input
+            type="text"
+            value={backgroundColor}
+            onChange={handleBackgroundColorChange}
+            className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+            placeholder="#000000"
+          />
+        </div>
+      </div>
+
+      {/* Background Opacity */}
+      <div className="mb-6">
+        <label className="block text-sm font-semibold text-gray-300 mb-2">
+          Background Opacity: {backgroundOpacity}%
+        </label>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value={backgroundOpacity}
+          onChange={handleBackgroundOpacityChange}
+          className="w-full accent-blue-500"
+        />
       </div>
 
       {/* Position X */}
