@@ -6,6 +6,7 @@ import PreviewPlayer from './components/PreviewPlayer';
 import PlaybackControls from './components/PlaybackControls';
 import ExportDialog from './components/ExportDialog';
 import TextOverlayEditor from './components/TextOverlayEditor';
+import ClipPropertiesPanel from './components/ClipPropertiesPanel';
 import { TimelineProvider, useTimeline } from './store/timelineStore.jsx';
 import { DragProvider } from './store/dragStore.jsx';
 import { PlaybackEngine, calculateTimelineDuration } from './utils/playback';
@@ -220,6 +221,9 @@ function AppContent() {
         isOpen={exportDialogOpen}
         onClose={handleExportDialogClose}
       />
+
+      {/* Clip Properties Panel (Audio Controls) */}
+      <ClipPropertiesPanel />
 
       {/* Text Overlay Editor Panel */}
       {selectedTextOverlayId !== null && textOverlays && (

@@ -4,6 +4,8 @@ import TimeRuler from './timeline/TimeRuler';
 import Playhead from './timeline/Playhead';
 import TimelineClip from './timeline/TimelineClip';
 import TextOverlayClip from './timeline/TextOverlayClip';
+import TransitionIndicator from './timeline/TransitionIndicator';
+import TransitionEditor from './TransitionEditor';
 import {
   TIMELINE_CONFIG,
   applyZoom,
@@ -32,8 +34,10 @@ function Timeline() {
   const {
     clips,
     textOverlays,
+    transitions,
     selectedClipId,
     selectedTextOverlayId,
+    selectedTransitionId,
     playheadTime,
     selectClip,
     clearSelection,
@@ -45,6 +49,7 @@ function Timeline() {
     selectTextOverlay,
     updateTextOverlay,
     removeTextOverlay,
+    selectTransition,
     undo,
     redo,
     canUndo,
@@ -65,6 +70,7 @@ function Timeline() {
   const [isDragging, setIsDragging] = useState(false);
   const [dropIndicator, setDropIndicator] = useState(null); // { x, y, track, width }
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 }); // Track mouse for custom drag
+  const [transitionEditorState, setTransitionEditorState] = useState(null); // { transition, clipBefore, clipAfter } or null
 
   // Number of tracks to display
   const numTracks = 3;
@@ -279,6 +285,51 @@ function Timeline() {
   // Handle text overlay trim end - update duration
   const handleTextOverlayTrimEnd = (textOverlayId, updates) => {
     updateTextOverlay(textOverlayId, updates);
+  };
+
+  // Handle transition click - select it
+  const handleTransitionClick = (transitionId) => {
+    selectTransition(transitionId);
+  };
+
+  // Handle transition double-click - open editor
+  const handleTransitionDoubleClick = (transitionId) => {
+    const transition = transitions.find(t => t.id === transitionId);
+    if (!transition) return;
+
+    const clipBefore = clips.find(c => c.id === transition.clipIdBefore);
+    const clipAfter = clips.find(c => c.id === transition.clipIdAfter);
+
+    if (clipBefore && clipAfter) {
+      setTransitionEditorState({ transition, clipBefore, clipAfter });
+    }
+  };
+
+  // Helper function to find adjacent clips on the same track
+  const findAdjacentClips = (clips) => {
+    const adjacentPairs = [];
+    const sortedClips = [...clips].sort((a, b) => {
+      if (a.track !== b.track) return a.track - b.track;
+      return a.startTime - b.startTime;
+    });
+
+    for (let i = 0; i < sortedClips.length - 1; i++) {
+      const clip1 = sortedClips[i];
+      const clip2 = sortedClips[i + 1];
+
+      // Check if on same track and adjacent (clip1 ends where clip2 starts)
+      if (clip1.track === clip2.track) {
+        const clip1End = clip1.startTime + (clip1.outPoint - clip1.inPoint);
+        const gap = Math.abs(clip2.startTime - clip1End);
+
+        // Consider adjacent if gap is less than 0.1 seconds
+        if (gap < 0.1) {
+          adjacentPairs.push({ clipBefore: clip1, clipAfter: clip2 });
+        }
+      }
+    }
+
+    return adjacentPairs;
   };
 
   // Log when selectedTextOverlayId changes
@@ -659,6 +710,33 @@ function Timeline() {
           )}
         </Layer>
 
+        {/* Transitions layer */}
+        <Layer>
+          {transitions.map(transition => {
+            const clipBefore = clips.find(c => c.id === transition.clipIdBefore);
+            const clipAfter = clips.find(c => c.id === transition.clipIdAfter);
+
+            if (!clipBefore || !clipAfter) return null;
+
+            // Calculate position at the boundary between clips
+            const clipBeforeEnd = clipBefore.startTime + (clipBefore.outPoint - clipBefore.inPoint);
+            const transitionX = (clipBeforeEnd * pixelsPerSecond) - scrollX;
+            const transitionY = getTrackY(clipBefore.track) + (TIMELINE_CONFIG.TRACK_HEIGHT / 2);
+
+            return (
+              <TransitionIndicator
+                key={transition.id}
+                x={transitionX}
+                y={transitionY}
+                transition={transition}
+                isSelected={transition.id === selectedTransitionId}
+                onClick={() => handleTransitionClick(transition.id)}
+                onDoubleClick={() => handleTransitionDoubleClick(transition.id)}
+              />
+            );
+          })}
+        </Layer>
+
         {/* Text overlays layer */}
         <Layer>
           {console.log('Rendering text overlays:', textOverlays.length, textOverlays, 'selectedTextOverlayId:', selectedTextOverlayId)}
@@ -699,6 +777,16 @@ function Timeline() {
         </Layer>
         </Stage>
       </div>
+
+      {/* Transition Editor Modal */}
+      {transitionEditorState && (
+        <TransitionEditor
+          transition={transitionEditorState.transition}
+          clipBefore={transitionEditorState.clipBefore}
+          clipAfter={transitionEditorState.clipAfter}
+          onClose={() => setTransitionEditorState(null)}
+        />
+      )}
     </div>
   );
 }

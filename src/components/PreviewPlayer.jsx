@@ -83,6 +83,16 @@ function PreviewPlayer({ currentTime }) {
           video.currentTime = sourceTime;
         }
       }
+
+      // Apply volume and mute settings
+      if (clip.isMuted) {
+        video.muted = true;
+        video.volume = 0;
+      } else {
+        video.muted = false;
+        // Normalize volume from 0-200% range to 0-1 HTML5 range
+        video.volume = Math.max(0, Math.min(1, (clip.volume || 100) / 100));
+      }
     });
   }, [activeClips, currentTime]);
 

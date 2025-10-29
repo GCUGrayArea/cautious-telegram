@@ -16,6 +16,19 @@ pub struct ClipData {
     pub start_time: f64,    // Position on timeline (for sorting)
     #[serde(default)]       // Default to 0 for backwards compatibility
     pub track: u32,         // Track index (0 = base, 1+ = overlays)
+    // Audio properties for volume and fade control
+    #[serde(default = "default_volume")]
+    pub volume: u32,              // Volume level 0-200 (100 = normal)
+    #[serde(default)]
+    pub is_muted: bool,           // Whether audio is muted
+    #[serde(default)]
+    pub fade_in_duration: f64,    // Fade in duration in seconds
+    #[serde(default)]
+    pub fade_out_duration: f64,   // Fade out duration in seconds
+}
+
+fn default_volume() -> u32 {
+    100
 }
 
 /// Text overlay data from timeline (sent from frontend)
@@ -31,6 +44,16 @@ pub struct TextOverlayData {
     pub font_family: String,    // Font name
     pub color: String,          // Color in hex format (#RRGGBB)
     pub animation: String,      // Animation type (none, fadeIn, fadeOut, slideIn*)
+}
+
+/// Transition data from timeline (sent from frontend)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransitionData {
+    pub id: u32,
+    pub clip_id_before: u32,   // ID of clip before transition
+    pub clip_id_after: u32,    // ID of clip after transition
+    pub transition_type: String, // Type: fade, crossfade, fadeToBlack, wipeLeft, wipeRight, dissolve
+    pub duration: f64,         // Duration in seconds
 }
 
 /// Export pipeline for processing timeline clips into final video

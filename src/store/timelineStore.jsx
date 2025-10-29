@@ -12,10 +12,13 @@ import { useContext, useReducer, useCallback } from 'react';
 const initialState = {
   clips: [], // Array of clip objects on the timeline
   textOverlays: [], // Array of text overlay objects
+  transitions: [], // Array of transition objects between clips
   selectedClipId: null, // ID of currently selected clip
   selectedTextOverlayId: null, // ID of currently selected text overlay
+  selectedTransitionId: null, // ID of currently selected transition
   nextClipId: 1, // Counter for generating unique clip IDs
   nextTextOverlayId: 1, // Counter for generating unique text overlay IDs
+  nextTransitionId: 1, // Counter for generating unique transition IDs
   playheadTime: 0, // Current playhead position in seconds
   isPlaying: false, // Playback state
   // Undo/Redo stacks store snapshots of clips and textOverlays state
@@ -40,6 +43,10 @@ const ADD_TEXT_OVERLAY = 'ADD_TEXT_OVERLAY';
 const REMOVE_TEXT_OVERLAY = 'REMOVE_TEXT_OVERLAY';
 const UPDATE_TEXT_OVERLAY = 'UPDATE_TEXT_OVERLAY';
 const SELECT_TEXT_OVERLAY = 'SELECT_TEXT_OVERLAY';
+const ADD_TRANSITION = 'ADD_TRANSITION';
+const REMOVE_TRANSITION = 'REMOVE_TRANSITION';
+const UPDATE_TRANSITION = 'UPDATE_TRANSITION';
+const SELECT_TRANSITION = 'SELECT_TRANSITION';
 const RESTORE_STATE = 'RESTORE_STATE';
 const UNDO = 'UNDO';
 const REDO = 'REDO';
@@ -47,13 +54,15 @@ const COPY_CLIP = 'COPY_CLIP';
 const CUT_CLIP = 'CUT_CLIP';
 const PASTE_CLIP = 'PASTE_CLIP';
 
-// Helper: Create a snapshot of editable state (clips and overlays)
+// Helper: Create a snapshot of editable state (clips, overlays, and transitions)
 function createStateSnapshot(state) {
   return {
     clips: state.clips.length > 0 ? structuredClone(state.clips) : [],
     textOverlays: state.textOverlays.length > 0 ? structuredClone(state.textOverlays) : [],
+    transitions: state.transitions.length > 0 ? structuredClone(state.transitions) : [],
     nextClipId: state.nextClipId,
     nextTextOverlayId: state.nextTextOverlayId,
+    nextTransitionId: state.nextTransitionId,
   };
 }
 
@@ -77,6 +86,11 @@ function timelineReducer(state, action) {
         inPoint: action.payload.inPoint || 0,
         outPoint: action.payload.outPoint || action.payload.duration,
         metadata: action.payload.metadata || {},
+        // Audio properties for volume and fade control
+        volume: action.payload.volume || 100, // 0-200, default 100%
+        isMuted: action.payload.isMuted || false,
+        fadeInDuration: action.payload.fadeInDuration || 0, // seconds
+        fadeOutDuration: action.payload.fadeOutDuration || 0, // seconds
       };
 
       return {
@@ -228,21 +242,75 @@ function timelineReducer(state, action) {
       return newState;
     }
 
+    case ADD_TRANSITION: {
+      const newTransition = {
+        id: state.nextTransitionId,
+        clipIdBefore: action.payload.clipIdBefore,
+        clipIdAfter: action.payload.clipIdAfter,
+        type: action.payload.type || 'fade', // fade, crossfade, fadeToBlack, wipeLeft, wipeRight, dissolve
+        duration: action.payload.duration || 1.0, // Default 1 second
+      };
+
+      return {
+        ...state,
+        transitions: [...state.transitions, newTransition],
+        nextTransitionId: state.nextTransitionId + 1,
+        selectedTransitionId: newTransition.id,
+        undoStack: pushUndoStack(state.undoStack, createStateSnapshot(state)),
+        redoStack: [],
+      };
+    }
+
+    case REMOVE_TRANSITION: {
+      const transitionId = action.payload;
+      return {
+        ...state,
+        transitions: state.transitions.filter(transition => transition.id !== transitionId),
+        selectedTransitionId: state.selectedTransitionId === transitionId ? null : state.selectedTransitionId,
+        undoStack: pushUndoStack(state.undoStack, createStateSnapshot(state)),
+        redoStack: [],
+      };
+    }
+
+    case UPDATE_TRANSITION: {
+      const { transitionId, updates } = action.payload;
+      return {
+        ...state,
+        transitions: state.transitions.map(transition =>
+          transition.id === transitionId ? { ...transition, ...updates } : transition
+        ),
+        undoStack: pushUndoStack(state.undoStack, createStateSnapshot(state)),
+        redoStack: [],
+      };
+    }
+
+    case SELECT_TRANSITION: {
+      return {
+        ...state,
+        selectedTransitionId: action.payload,
+        selectedClipId: null,
+        selectedTextOverlayId: null,
+      };
+    }
+
     case RESTORE_STATE: {
       // Restore entire timeline state from saved data
-      const { clips, textOverlays, playheadTime, nextClipId, nextTextOverlayId } = action.payload;
+      const { clips, textOverlays, transitions, playheadTime, nextClipId, nextTextOverlayId, nextTransitionId } = action.payload;
       const restoredState = {
         ...state,
         clips: clips || [],
         textOverlays: textOverlays || [],
+        transitions: transitions || [],
         playheadTime: playheadTime || 0,
         nextClipId: nextClipId || 1,
         nextTextOverlayId: nextTextOverlayId || 1,
+        nextTransitionId: nextTransitionId || 1,
         selectedClipId: null,
         selectedTextOverlayId: null,
+        selectedTransitionId: null,
         isPlaying: false,
       };
-      console.log('🔄 [Store] RESTORE_STATE - restored timeline with', restoredState.clips.length, 'clips and', restoredState.textOverlays.length, 'overlays');
+      console.log('🔄 [Store] RESTORE_STATE - restored timeline with', restoredState.clips.length, 'clips,', restoredState.textOverlays.length, 'overlays, and', restoredState.transitions.length, 'transitions');
       return restoredState;
     }
 
@@ -261,10 +329,13 @@ function timelineReducer(state, action) {
         ...state,
         clips: snapshotToRestore.clips,
         textOverlays: snapshotToRestore.textOverlays,
+        transitions: snapshotToRestore.transitions,
         nextClipId: snapshotToRestore.nextClipId,
         nextTextOverlayId: snapshotToRestore.nextTextOverlayId,
+        nextTransitionId: snapshotToRestore.nextTransitionId,
         selectedClipId: null,
         selectedTextOverlayId: null,
+        selectedTransitionId: null,
         undoStack: newUndoStack,
         redoStack: [...state.redoStack, currentSnapshot],
       };
@@ -285,10 +356,13 @@ function timelineReducer(state, action) {
         ...state,
         clips: snapshotToRestore.clips,
         textOverlays: snapshotToRestore.textOverlays,
+        transitions: snapshotToRestore.transitions,
         nextClipId: snapshotToRestore.nextClipId,
         nextTextOverlayId: snapshotToRestore.nextTextOverlayId,
+        nextTransitionId: snapshotToRestore.nextTransitionId,
         selectedClipId: null,
         selectedTextOverlayId: null,
+        selectedTransitionId: null,
         undoStack: [...state.undoStack, currentSnapshot],
         redoStack: newRedoStack,
       };
@@ -416,6 +490,22 @@ export function TimelineProvider({ children }) {
     dispatch({ type: SELECT_TEXT_OVERLAY, payload: textOverlayId });
   }, []);
 
+  const addTransition = useCallback((transitionData) => {
+    dispatch({ type: ADD_TRANSITION, payload: transitionData });
+  }, []);
+
+  const removeTransition = useCallback((transitionId) => {
+    dispatch({ type: REMOVE_TRANSITION, payload: transitionId });
+  }, []);
+
+  const updateTransition = useCallback((transitionId, updates) => {
+    dispatch({ type: UPDATE_TRANSITION, payload: { transitionId, updates } });
+  }, []);
+
+  const selectTransition = useCallback((transitionId) => {
+    dispatch({ type: SELECT_TRANSITION, payload: transitionId });
+  }, []);
+
   const restoreState = useCallback((savedState) => {
     dispatch({ type: RESTORE_STATE, payload: savedState });
   }, []);
@@ -443,12 +533,15 @@ export function TimelineProvider({ children }) {
   const value = {
     clips: state.clips,
     textOverlays: state.textOverlays,
+    transitions: state.transitions,
     selectedClipId: state.selectedClipId,
     selectedTextOverlayId: state.selectedTextOverlayId,
+    selectedTransitionId: state.selectedTransitionId,
     playheadTime: state.playheadTime,
     isPlaying: state.isPlaying,
     nextClipId: state.nextClipId,
     nextTextOverlayId: state.nextTextOverlayId,
+    nextTransitionId: state.nextTransitionId,
     addClip,
     removeClip,
     updateClip,
@@ -462,6 +555,10 @@ export function TimelineProvider({ children }) {
     removeTextOverlay,
     updateTextOverlay,
     selectTextOverlay,
+    addTransition,
+    removeTransition,
+    updateTransition,
+    selectTransition,
     restoreState,
     undo,
     redo,
