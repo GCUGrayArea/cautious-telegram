@@ -77,11 +77,6 @@ function timelineReducer(state, action) {
         inPoint: action.payload.inPoint || 0,
         outPoint: action.payload.outPoint || action.payload.duration,
         metadata: action.payload.metadata || {},
-        // Audio properties for volume and fade control
-        volume: action.payload.volume || 100, // 0-200, default 100%
-        isMuted: action.payload.isMuted || false,
-        fadeInDuration: action.payload.fadeInDuration || 0, // seconds
-        fadeOutDuration: action.payload.fadeOutDuration || 0, // seconds
       };
 
       return {
