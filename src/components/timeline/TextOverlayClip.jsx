@@ -44,8 +44,11 @@ function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd,
 
   // Handle click
   const handleClick = (e) => {
+    console.log('TextOverlayClip clicked:', textOverlay.id, 'onClick prop:', typeof onClick);
     e.cancelBubble = true;
+    e.evt?.stopPropagation?.();
     if (onClick) {
+      console.log('Calling onClick with id:', textOverlay.id);
       onClick(textOverlay.id);
     }
   };
@@ -111,6 +114,8 @@ function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd,
       draggable={!isTrimming}
       dragBoundFunc={handleDragBound}
       onDragEnd={handleDragEnd}
+      onClick={handleClick}
+      onTap={handleClick}
       onMouseEnter={(e) => {
         if (!isTrimming) {
           const container = e.target.getStage().container();
@@ -128,10 +133,9 @@ function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd,
         y={0}
         width={Math.max(clipWidth, 20)}
         height={clipHeight}
-        fill="transparent"
+        fill="rgba(255, 255, 255, 0.01)"
         stroke="transparent"
-        onClick={handleClick}
-        onTap={handleClick}
+        listening={false}
       />
 
       {/* Background - always visible with pale yellow */}
@@ -144,6 +148,7 @@ function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd,
         opacity={backgroundOpacity}
         stroke={borderColor}
         strokeWidth={borderWidth}
+        listening={false}
         pointerEvents="none"
       />
 

@@ -11,11 +11,13 @@ import { getAllClipsAtTime, getClipSourceTime, formatTime, convertToAssetPath } 
  */
 function PreviewPlayer({ currentTime }) {
   const videoRefsRef = useRef({});
+  const containerRef = useRef(null);
   const { clips, isPlaying, textOverlays } = useTimeline();
   const [activeClips, setActiveClips] = useState([]);
   const [videoError, setVideoError] = useState(null);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const [activeTextOverlays, setActiveTextOverlays] = useState([]);
+  const [containerHeight, setContainerHeight] = useState(0);
 
   // Find all clips at the current playhead position (for PiP)
   useEffect(() => {
@@ -118,8 +120,21 @@ function PreviewPlayer({ currentTime }) {
     return () => video.removeEventListener('timeupdate', handleTimeUpdate);
   }, [activeClips]);
 
+  // Measure container height for responsive font sizing
+  useEffect(() => {
+    const updateHeight = () => {
+      if (containerRef.current) {
+        setContainerHeight(containerRef.current.clientHeight);
+      }
+    };
+
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+  }, []);
+
   return (
-    <div className="preview-player flex flex-col items-center justify-center w-full h-full bg-black">
+    <div ref={containerRef} className="preview-player flex flex-col items-center justify-center w-full h-full bg-black">
       {activeClips.length > 0 ? (
         <div className="relative w-full h-full flex items-center justify-center">
           {/* Render all active clips */}
@@ -162,28 +177,47 @@ function PreviewPlayer({ currentTime }) {
 
           {/* Text overlays - render on top of video */}
           {activeTextOverlays.length > 0 && (
-            <div className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center">
-              {activeTextOverlays.map((overlay) => (
-                <div
-                  key={overlay.id}
-                  style={{
-                    position: 'absolute',
-                    left: `${overlay.x}%`,
-                    top: `${overlay.y}%`,
-                    transform: 'translate(-50%, -50%)',
-                    fontSize: `${Math.max(12, overlay.fontSize / 2)}px`,
-                    fontFamily: overlay.fontFamily || 'Arial',
-                    color: overlay.color || '#FFFFFF',
-                    textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
-                    whiteSpace: 'nowrap',
-                    maxWidth: '80%',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {overlay.text}
-                </div>
-              ))}
+            <div className="absolute inset-0 pointer-events-none z-30">
+              {activeTextOverlays.map((overlay) => {
+                // Calculate baseline font size as 1/16 of container height
+                let fontSize = Math.max(12, Math.round(containerHeight * 0.0625)); // 1/16 = 0.0625
+
+                // For longer text, reduce font size to fit within maxWidth
+                const estimatedChars = overlay.text.length;
+                const estimatedWidthAtBaseline = fontSize * estimatedChars * 0.55; // Rough estimate: char width ~0.55 of font size
+                const maxAllowedWidth = Math.round(window.innerWidth * 0.7); // 70% of viewport width
+
+                // If text would overflow, scale it down proportionally
+                if (estimatedWidthAtBaseline > maxAllowedWidth) {
+                  const scaleFactor = maxAllowedWidth / estimatedWidthAtBaseline;
+                  fontSize = Math.max(12, Math.round(fontSize * scaleFactor * 0.9)); // 0.9 for a bit of safety margin
+                }
+
+                // Convert y position from center anchor to bottom anchor
+                const bottomPercent = 100 - overlay.y;
+
+                return (
+                  <div
+                    key={overlay.id}
+                    style={{
+                      position: 'absolute',
+                      left: `${overlay.x}%`,
+                      bottom: `${bottomPercent}%`,
+                      transform: 'translateX(-50%)',
+                      fontSize: `${fontSize}px`,
+                      fontFamily: overlay.fontFamily || 'Arial',
+                      color: overlay.color || '#FFFFFF',
+                      textShadow: '0 2px 4px rgba(0, 0, 0, 0.8)',
+                      whiteSpace: 'normal',
+                      maxWidth: '70%',
+                      lineHeight: '1.2',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {overlay.text}
+                  </div>
+                );
+              })}
             </div>
           )}
 

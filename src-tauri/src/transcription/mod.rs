@@ -43,13 +43,9 @@ pub fn extract_timeline_audio(clips: &[ClipData]) -> Result<String, String> {
     fs::create_dir_all(&temp_dir)
         .map_err(|e| format!("Failed to create temp directory: {}", e))?;
 
-    // Sort clips by timeline position
-    let mut sorted_clips = clips.to_vec();
-    sorted_clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap_or(std::cmp::Ordering::Equal));
-
     // If only one clip, extract and trim that clip
-    if sorted_clips.len() == 1 {
-        let clip = &sorted_clips[0];
+    if clips.len() == 1 {
+        let clip = &clips[0];
         return extract_and_trim_audio(
             &clip.path,
             clip.in_point,
@@ -57,69 +53,282 @@ pub fn extract_timeline_audio(clips: &[ClipData]) -> Result<String, String> {
         );
     }
 
-    // Multiple clips - create concat demux file
-    let concat_file = temp_dir.join(format!("concat_{}.txt", uuid::Uuid::new_v4()));
-    let mut concat_content = String::new();
+    // Multiple clips - need to merge overlapping audio from different tracks
+    // Step 1: Find all unique time boundaries
+    let mut time_points: Vec<f64> = Vec::new();
+    for clip in clips {
+        time_points.push(clip.start_time);
+        time_points.push(clip.start_time + (clip.out_point - clip.in_point));
+    }
+    time_points.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    time_points.dedup_by(|a, b| (*a - *b).abs() < 0.001); // Dedup with tolerance
 
-    for clip in &sorted_clips {
-        // Extract trimmed audio for this clip
-        let trimmed_audio = extract_and_trim_audio(
+    eprintln!("=== MULTI-TRACK AUDIO MERGING ===");
+    eprintln!("Found {} unique time points: {:?}", time_points.len(), time_points);
+
+    // Step 2: For each time segment, identify which clips contribute audio
+    let mut audio_segments: Vec<(f64, f64, Vec<usize>)> = Vec::new(); // (start, end, clip_indices)
+
+    for i in 0..time_points.len() - 1 {
+        let segment_start = time_points[i];
+        let segment_end = time_points[i + 1];
+        let segment_mid = (segment_start + segment_end) / 2.0;
+
+        let mut contributing_clips = Vec::new();
+        for (clip_idx, clip) in clips.iter().enumerate() {
+            let clip_end = clip.start_time + (clip.out_point - clip.in_point);
+            if clip.start_time <= segment_mid && segment_mid < clip_end {
+                contributing_clips.push(clip_idx);
+            }
+        }
+
+        if !contributing_clips.is_empty() {
+            eprintln!("  Segment [{:.3}, {:.3}): clips {:?}", segment_start, segment_end, contributing_clips);
+            audio_segments.push((segment_start, segment_end, contributing_clips));
+        }
+    }
+
+    // Step 3: Extract audio for all clips
+    let mut clip_audio_paths: Vec<Option<String>> = vec![None; clips.len()];
+    for (idx, clip) in clips.iter().enumerate() {
+        let audio_path = extract_and_trim_audio(
             &clip.path,
             clip.in_point,
             clip.out_point,
         )?;
-
-        // Add to concat file
-        concat_content.push_str(&format!("file '{}'\n", trimmed_audio.replace('\\', "\\\\")));
+        clip_audio_paths[idx] = Some(audio_path);
     }
 
-    // Write concat file
-    let mut file = fs::File::create(&concat_file)
-        .map_err(|e| format!("Failed to create concat file: {}", e))?;
-    file.write_all(concat_content.as_bytes())
-        .map_err(|e| format!("Failed to write concat file: {}", e))?;
-
-    // Output path
+    // Step 4: Merge audio segments - for each segment, mix contributing clips and concatenate all
     let output_path = temp_dir.join(format!("timeline_audio_{}.wav", uuid::Uuid::new_v4()));
+    let mut merged_segment_paths: Vec<String> = Vec::new();
 
-    // Use FFmpeg to concatenate
+    for (seg_idx, (segment_start, segment_end, contributing_clips)) in audio_segments.iter().enumerate() {
+        let segment_duration = segment_end - segment_start;
+
+        eprintln!("Processing segment {} (duration: {:.3}s, clips: {:?})", seg_idx, segment_duration, contributing_clips);
+
+        if contributing_clips.len() == 1 {
+            // Single clip in this segment - trim it to the segment's duration
+            let clip_idx = contributing_clips[0];
+            let clip = &clips[clip_idx];
+            let offset_in_clip = segment_start - clip.start_time;
+
+            if let Some(audio_path) = &clip_audio_paths[clip_idx] {
+                let segment_output = temp_dir.join(format!("segment_{}_{}.wav", seg_idx, uuid::Uuid::new_v4()));
+
+                // Trim the audio to this segment's portion
+                let output = Command::new("ffmpeg")
+                    .arg("-i")
+                    .arg(audio_path)
+                    .arg("-ss")
+                    .arg(offset_in_clip.to_string())
+                    .arg("-t")
+                    .arg(segment_duration.to_string())
+                    .arg("-c:a")
+                    .arg("pcm_s16le")
+                    .arg("-ar")
+                    .arg("16000")
+                    .arg("-ac")
+                    .arg("1")
+                    .arg(&segment_output)
+                    .arg("-y")
+                    .output()
+                    .map_err(|e| format!("Failed to trim audio for segment {}: {}", seg_idx, e))?;
+
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    return Err(format!("FFmpeg trim error for segment {}: {}", seg_idx, stderr));
+                }
+
+                merged_segment_paths.push(segment_output.to_string_lossy().to_string());
+            }
+        } else {
+            // Multiple clips - need to mix them
+            let segment_output = temp_dir.join(format!("segment_{}_{}.wav", seg_idx, uuid::Uuid::new_v4()));
+
+            // Build FFmpeg command to mix this segment's audio
+            let mut cmd = Command::new("ffmpeg");
+
+            // Add input files for this segment, with atrim filters to get only the segment portion
+            for (input_idx, &clip_idx) in contributing_clips.iter().enumerate() {
+                if let Some(audio_path) = &clip_audio_paths[clip_idx] {
+                    cmd.arg("-i").arg(audio_path);
+                }
+            }
+
+            // Build filter to trim and mix the inputs
+            // Each input needs to be trimmed to only the part that corresponds to this segment
+            let mut filter_parts = Vec::new();
+            for (input_idx, &clip_idx) in contributing_clips.iter().enumerate() {
+                let clip = &clips[clip_idx];
+                let offset_in_clip = segment_start - clip.start_time;
+
+                // Create trim filter for this input
+                let trim_filter = format!(
+                    "[{}]atrim=start={}:duration={}[trim{}]",
+                    input_idx, offset_in_clip, segment_duration, input_idx
+                );
+                filter_parts.push(trim_filter);
+            }
+
+            // Create mix filter using trimmed inputs
+            let trim_labels: Vec<String> = (0..contributing_clips.len())
+                .map(|i| format!("[trim{}]", i))
+                .collect();
+            let mix_filter = format!(
+                "{}amix=inputs={}:duration=longest[out]",
+                trim_labels.join(""),
+                contributing_clips.len()
+            );
+            filter_parts.push(mix_filter);
+
+            let filter_complex = filter_parts.join(";");
+            eprintln!("  Mix filter for segment {}: {}", seg_idx, filter_complex);
+
+            cmd.arg("-filter_complex")
+                .arg(&filter_complex)
+                .arg("-map")
+                .arg("[out]")
+                .arg("-c:a")
+                .arg("pcm_s16le")
+                .arg("-ar")
+                .arg("16000")
+                .arg("-ac")
+                .arg("1")
+                .arg(&segment_output)
+                .arg("-y");
+
+            let output = cmd
+                .output()
+                .map_err(|e| format!("Failed to execute FFmpeg mix for segment {}: {}", seg_idx, e))?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("FFmpeg mix error for segment {}: {}", seg_idx, stderr));
+            }
+
+            merged_segment_paths.push(segment_output.to_string_lossy().to_string());
+        }
+    }
+
+    // Step 5: Concatenate all merged segments
+    if merged_segment_paths.is_empty() {
+        return Err("No audio segments to concatenate".to_string());
+    }
+
+    if merged_segment_paths.len() == 1 {
+        // Only one segment, copy it to output
+        fs::copy(&merged_segment_paths[0], &output_path)
+            .map_err(|e| format!("Failed to copy audio file: {}", e))?;
+    } else {
+        // Multiple segments - concatenate them
+        let concat_file = temp_dir.join(format!("concat_{}.txt", uuid::Uuid::new_v4()));
+        let mut concat_content = String::new();
+
+        for path in &merged_segment_paths {
+            concat_content.push_str(&format!("file '{}'\n", path.replace('\\', "\\\\")));
+        }
+
+        let mut file = fs::File::create(&concat_file)
+            .map_err(|e| format!("Failed to create concat file: {}", e))?;
+        file.write_all(concat_content.as_bytes())
+            .map_err(|e| format!("Failed to write concat file: {}", e))?;
+
+        let output = Command::new("ffmpeg")
+            .arg("-f")
+            .arg("concat")
+            .arg("-safe")
+            .arg("0")
+            .arg("-i")
+            .arg(&concat_file)
+            .arg("-c:a")
+            .arg("pcm_s16le")
+            .arg("-ar")
+            .arg("16000")
+            .arg("-ac")
+            .arg("1")
+            .arg(&output_path)
+            .arg("-y")
+            .output()
+            .map_err(|e| format!("Failed to execute FFmpeg concat: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("FFmpeg concat error: {}", stderr));
+        }
+
+        let _ = fs::remove_file(&concat_file);
+    }
+
+    // Clean up segment files
+    for path in &merged_segment_paths {
+        let _ = fs::remove_file(path);
+    }
+
+    eprintln!("=== MERGE COMPLETE ===");
+    Ok(output_path.to_string_lossy().to_string())
+}
+
+/// Check if a video file has an audio stream
+fn has_audio_stream(video_path: &str) -> Result<bool, String> {
+    let output = Command::new("ffmpeg")
+        .arg("-i")
+        .arg(video_path)
+        .output()
+        .map_err(|e| format!("Failed to check audio: {}", e))?;
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    Ok(stderr.contains("Audio:"))
+}
+
+/// Generate silent audio for a specified duration
+fn generate_silent_audio(duration: f64) -> Result<String, String> {
+    let temp_dir = std::env::temp_dir().join("clipforge_transcription");
+    fs::create_dir_all(&temp_dir)
+        .map_err(|e| format!("Failed to create temp directory: {}", e))?;
+
+    let audio_path = temp_dir.join(format!("audio_{}.wav", uuid::Uuid::new_v4()));
+
+    // Generate silent audio using anullsrc filter
     let output = Command::new("ffmpeg")
         .arg("-f")
-        .arg("concat")
-        .arg("-safe")
-        .arg("0")
+        .arg("lavfi")
         .arg("-i")
-        .arg(&concat_file)
-        .arg("-c:a")
+        .arg(format!("anullsrc=r=16000:cl=mono,atrim=duration={}", duration))
+        .arg("-q:a")
+        .arg("9")
+        .arg("-acodec")
         .arg("pcm_s16le")
-        .arg("-ar")
-        .arg("16000")
-        .arg("-ac")
-        .arg("1")
-        .arg(&output_path)
-        .arg("-y")
+        .arg(&audio_path)
+        .arg("-y") // Overwrite
         .output()
-        .map_err(|e| format!("Failed to execute FFmpeg concat: {}", e))?;
+        .map_err(|e| format!("Failed to generate silence: {}", e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("FFmpeg concat error: {}", stderr));
+        return Err(format!("FFmpeg silence generation error: {}", stderr));
     }
 
-    // Clean up concat file and individual audio files
-    let _ = fs::remove_file(&concat_file);
-
-    Ok(output_path.to_string_lossy().to_string())
+    Ok(audio_path.to_string_lossy().to_string())
 }
 
 /// Extract and trim audio from a video file
 /// Returns the path to the extracted audio file (.wav)
+/// If the file has no audio, generates silent audio with the same duration
 fn extract_and_trim_audio(video_path: &str, in_point: f64, out_point: f64) -> Result<String, String> {
     let temp_dir = std::env::temp_dir().join("clipforge_transcription");
     fs::create_dir_all(&temp_dir)
         .map_err(|e| format!("Failed to create temp directory: {}", e))?;
 
     let duration = out_point - in_point;
+
+    // Check if file has audio
+    if !has_audio_stream(video_path)? {
+        // Generate silent audio matching the duration
+        return generate_silent_audio(duration);
+    }
+
     let audio_path = temp_dir.join(format!("audio_{}.wav", uuid::Uuid::new_v4()));
 
     // Use FFmpeg to extract and trim audio

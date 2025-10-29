@@ -71,14 +71,16 @@ function PlaybackControls({ onExportClick, currentTime }) {
 
       // Add text overlays from transcription result
       if (result && result.segments && result.segments.length > 0) {
+        console.log('Transcription result segments:', result.segments);
         result.segments.forEach(segment => {
+          console.log(`Adding overlay: text="${segment.text}", startTime=${segment.startTime}, duration=${segment.duration}`);
           addTextOverlay({
             text: segment.text,
-            startTime: segment.start_time,
+            startTime: segment.startTime,
             duration: segment.duration,
             x: 50,
-            y: 10, // 10% from bottom instead of center
-            fontSize: 64, // Double the size
+            y: 90, // 10% from bottom (100 - 90 = 10)
+            fontSize: 64,
             fontFamily: 'Arial',
             color: '#FFFFFF',
             animation: 'none',

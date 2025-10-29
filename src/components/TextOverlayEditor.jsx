@@ -80,7 +80,7 @@ function TextOverlayEditor({ textOverlay, onClose }) {
   };
 
   return (
-    <div className="fixed right-0 top-16 bottom-0 w-80 bg-gray-900 border-l border-gray-700 p-4 overflow-y-auto shadow-lg">
+    <div className="fixed right-0 top-16 bottom-0 w-80 bg-gray-900 border-l border-gray-700 p-4 overflow-y-auto shadow-lg z-50">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-white">Text Overlay</h2>

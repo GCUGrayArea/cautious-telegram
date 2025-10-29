@@ -194,7 +194,9 @@ function Timeline() {
 
   // Handle text overlay selection
   const handleTextOverlayClick = (textOverlayId) => {
+    console.log('Timeline: handleTextOverlayClick called with id:', textOverlayId);
     selectTextOverlay(textOverlayId);
+    console.log('Timeline: selectTextOverlay called');
   };
 
   // Handle text overlay drag end - update overlay position
@@ -582,6 +584,7 @@ function Timeline() {
 
         {/* Text overlays layer */}
         <Layer>
+          {console.log('Rendering text overlays:', textOverlays.length, textOverlays)}
           {textOverlays.map(textOverlay => (
             <TextOverlayClip
               key={textOverlay.id}
