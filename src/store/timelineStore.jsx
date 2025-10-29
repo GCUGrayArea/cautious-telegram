@@ -18,6 +18,9 @@ const initialState = {
   nextTextOverlayId: 1, // Counter for generating unique text overlay IDs
   playheadTime: 0, // Current playhead position in seconds
   isPlaying: false, // Playback state
+  // Undo/Redo stacks store snapshots of clips and textOverlays state
+  undoStack: [], // Array of state snapshots for undo (max 50)
+  redoStack: [], // Array of state snapshots for redo (max 50)
 };
 
 // Action types
@@ -35,6 +38,24 @@ const REMOVE_TEXT_OVERLAY = 'REMOVE_TEXT_OVERLAY';
 const UPDATE_TEXT_OVERLAY = 'UPDATE_TEXT_OVERLAY';
 const SELECT_TEXT_OVERLAY = 'SELECT_TEXT_OVERLAY';
 const RESTORE_STATE = 'RESTORE_STATE';
+const UNDO = 'UNDO';
+const REDO = 'REDO';
+
+// Helper: Create a snapshot of editable state (clips and overlays)
+function createStateSnapshot(state) {
+  return {
+    clips: state.clips.length > 0 ? structuredClone(state.clips) : [],
+    textOverlays: state.textOverlays.length > 0 ? structuredClone(state.textOverlays) : [],
+    nextClipId: state.nextClipId,
+    nextTextOverlayId: state.nextTextOverlayId,
+  };
+}
+
+// Helper: Add snapshot to undo stack, limit to 50 entries
+function pushUndoStack(undoStack, snapshot) {
+  const newStack = [...undoStack, snapshot];
+  return newStack.slice(-50); // Keep only last 50 snapshots
+}
 
 // Reducer
 function timelineReducer(state, action) {
@@ -57,6 +78,8 @@ function timelineReducer(state, action) {
         clips: [...state.clips, newClip],
         nextClipId: state.nextClipId + 1,
         selectedClipId: newClip.id, // Auto-select newly added clip
+        undoStack: pushUndoStack(state.undoStack, createStateSnapshot(state)),
+        redoStack: [], // Clear redo stack on new action
       };
     }
 
@@ -66,6 +89,8 @@ function timelineReducer(state, action) {
         ...state,
         clips: state.clips.filter(clip => clip.id !== clipId),
         selectedClipId: state.selectedClipId === clipId ? null : state.selectedClipId,
+        undoStack: pushUndoStack(state.undoStack, createStateSnapshot(state)),
+        redoStack: [],
       };
     }
 
@@ -76,6 +101,8 @@ function timelineReducer(state, action) {
         clips: state.clips.map(clip =>
           clip.id === clipId ? { ...clip, ...updates } : clip
         ),
+        undoStack: pushUndoStack(state.undoStack, createStateSnapshot(state)),
+        redoStack: [],
       };
     }
 
@@ -131,6 +158,8 @@ function timelineReducer(state, action) {
         clips: [...clipsWithoutOriginal, firstClipWithId, secondClipWithId],
         nextClipId: state.nextClipId + 2,
         selectedClipId: secondClipWithId.id, // Select second clip after split
+        undoStack: pushUndoStack(state.undoStack, createStateSnapshot(state)),
+        redoStack: [],
       };
     }
 
@@ -155,6 +184,8 @@ function timelineReducer(state, action) {
         textOverlays: [...state.textOverlays, newTextOverlay],
         nextTextOverlayId: state.nextTextOverlayId + 1,
         selectedTextOverlayId: newTextOverlay.id,
+        undoStack: pushUndoStack(state.undoStack, createStateSnapshot(state)),
+        redoStack: [],
       };
     }
 
@@ -164,6 +195,8 @@ function timelineReducer(state, action) {
         ...state,
         textOverlays: state.textOverlays.filter(overlay => overlay.id !== textOverlayId),
         selectedTextOverlayId: state.selectedTextOverlayId === textOverlayId ? null : state.selectedTextOverlayId,
+        undoStack: pushUndoStack(state.undoStack, createStateSnapshot(state)),
+        redoStack: [],
       };
     }
 
@@ -174,6 +207,8 @@ function timelineReducer(state, action) {
         textOverlays: state.textOverlays.map(overlay =>
           overlay.id === textOverlayId ? { ...overlay, ...updates } : overlay
         ),
+        undoStack: pushUndoStack(state.undoStack, createStateSnapshot(state)),
+        redoStack: [],
       };
     }
 
@@ -203,6 +238,54 @@ function timelineReducer(state, action) {
       };
       console.log('🔄 [Store] RESTORE_STATE - restored timeline with', restoredState.clips.length, 'clips and', restoredState.textOverlays.length, 'overlays');
       return restoredState;
+    }
+
+    case UNDO: {
+      // Pop from undo stack and push current state to redo stack
+      if (state.undoStack.length === 0) {
+        console.log('🔄 [Store] UNDO - nothing to undo');
+        return state;
+      }
+
+      const newUndoStack = state.undoStack.slice(0, -1);
+      const snapshotToRestore = state.undoStack[state.undoStack.length - 1];
+      const currentSnapshot = createStateSnapshot(state);
+
+      return {
+        ...state,
+        clips: snapshotToRestore.clips,
+        textOverlays: snapshotToRestore.textOverlays,
+        nextClipId: snapshotToRestore.nextClipId,
+        nextTextOverlayId: snapshotToRestore.nextTextOverlayId,
+        selectedClipId: null,
+        selectedTextOverlayId: null,
+        undoStack: newUndoStack,
+        redoStack: [...state.redoStack, currentSnapshot],
+      };
+    }
+
+    case REDO: {
+      // Pop from redo stack and push current state to undo stack
+      if (state.redoStack.length === 0) {
+        console.log('🔄 [Store] REDO - nothing to redo');
+        return state;
+      }
+
+      const newRedoStack = state.redoStack.slice(0, -1);
+      const snapshotToRestore = state.redoStack[state.redoStack.length - 1];
+      const currentSnapshot = createStateSnapshot(state);
+
+      return {
+        ...state,
+        clips: snapshotToRestore.clips,
+        textOverlays: snapshotToRestore.textOverlays,
+        nextClipId: snapshotToRestore.nextClipId,
+        nextTextOverlayId: snapshotToRestore.nextTextOverlayId,
+        selectedClipId: null,
+        selectedTextOverlayId: null,
+        undoStack: [...state.undoStack, currentSnapshot],
+        redoStack: newRedoStack,
+      };
     }
 
     default:
@@ -277,6 +360,14 @@ export function TimelineProvider({ children }) {
     dispatch({ type: RESTORE_STATE, payload: savedState });
   }, []);
 
+  const undo = useCallback(() => {
+    dispatch({ type: UNDO });
+  }, []);
+
+  const redo = useCallback(() => {
+    dispatch({ type: REDO });
+  }, []);
+
   const value = {
     clips: state.clips,
     textOverlays: state.textOverlays,
@@ -300,6 +391,10 @@ export function TimelineProvider({ children }) {
     updateTextOverlay,
     selectTextOverlay,
     restoreState,
+    undo,
+    redo,
+    canUndo: state.undoStack.length > 0,
+    canRedo: state.redoStack.length > 0,
   };
 
   return (

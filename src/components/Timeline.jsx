@@ -45,6 +45,10 @@ function Timeline() {
     selectTextOverlay,
     updateTextOverlay,
     removeTextOverlay,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useTimeline();
 
   // Drag store for custom drag-drop
@@ -78,6 +82,31 @@ function Timeline() {
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
   }, [totalHeight]);
+
+  // Handle keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl+Z or Cmd+Z for undo (but not in text inputs)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        if (canUndo) {
+          undo();
+          console.log('↶ [Timeline] Undo triggered');
+        }
+      }
+      // Ctrl+Y or Cmd+Shift+Z for redo (but not in text inputs)
+      else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z')) && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        if (canRedo) {
+          redo();
+          console.log('↷ [Timeline] Redo triggered');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo, canUndo, canRedo]);
 
   // Handle zoom with mouse wheel (Ctrl+Scroll)
   const handleWheel = (e) => {

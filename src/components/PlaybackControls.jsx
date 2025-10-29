@@ -234,7 +234,7 @@ function PlaybackControls({ onExportClick, currentTime }) {
 
       {/* Timeline control hints */}
       <div className="ml-auto text-xs text-gray-500">
-        <p>Ctrl+Scroll: Zoom | Scroll: Pan | Click: Jump playhead | Drag red handle: Scrub</p>
+        <p>Ctrl+Scroll: Zoom | Scroll: Pan | Click: Jump playhead | S: Split at playhead | Ctrl+Z: Undo | Ctrl+Y: Redo</p>
       </div>
     </div>
   );
