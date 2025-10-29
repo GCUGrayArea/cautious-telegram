@@ -3,7 +3,8 @@
  *
  * Modal dialog for exporting timeline to video file.
  * Features:
- * - Resolution selection (Source, 720p, 1080p)
+ * - Preset selection for different platforms (YouTube, TikTok, etc.)
+ * - Manual resolution selection (Source, 720p, 1080p)
  * - File save picker
  * - Export progress indication
  * - Success/error messaging
@@ -12,29 +13,54 @@ import { useState, useEffect, useRef } from 'react';
 import { save } from '@tauri-apps/api/dialog';
 import { useTimeline } from '../store/timelineStore';
 import { exportTimeline, getExportProgress } from '../utils/api';
+import { getPresets, applyPreset } from '../utils/exportPresets';
 
 export default function ExportDialog({ isOpen, onClose }) {
   const { clips, transitions } = useTimeline();
 
   // Component state
+  const [selectedPreset, setSelectedPreset] = useState(null);
   const [resolution, setResolution] = useState('source');
   const [outputPath, setOutputPath] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [progress, setProgress] = useState({ percentage: 0, current_operation: 'Ready', eta_seconds: null });
+  const [showCustomOptions, setShowCustomOptions] = useState(false);
 
   // Ref for progress polling interval
   const progressIntervalRef = useRef(null);
 
+  // Handle preset selection
+  const handlePresetSelect = (presetId) => {
+    setSelectedPreset(presetId);
+    const presetSettings = applyPreset(presetId);
+    if (presetSettings) {
+      setResolution(presetSettings.resolution);
+    }
+    // Don't show custom options when preset is selected
+    setShowCustomOptions(false);
+  };
+
+  // Handle custom options toggle
+  const handleCustomToggle = () => {
+    if (!showCustomOptions) {
+      // Switch to custom - clear preset selection
+      setSelectedPreset(null);
+    }
+    setShowCustomOptions(!showCustomOptions);
+  };
+
   // Reset state when dialog opens
   useEffect(() => {
     if (isOpen) {
+      setSelectedPreset(null);
       setResolution('source');
       setOutputPath('');
       setError(null);
       setSuccess(false);
       setIsExporting(false);
+      setShowCustomOptions(false);
       setProgress({ percentage: 0, current_operation: 'Ready', eta_seconds: null });
     }
   }, [isOpen]);
@@ -196,8 +222,116 @@ export default function ExportDialog({ isOpen, onClose }) {
 
         {/* Content */}
         <div className="px-6 py-4 space-y-4">
-          {/* Resolution Selection */}
+          {/* Preset Selection */}
           <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Preset (Select for quick setup)
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {getPresets().map((preset) => (
+                <button
+                  key={preset.id}
+                  onClick={() => handlePresetSelect(preset.id)}
+                  disabled={isExporting}
+                  className={`px-3 py-2 rounded text-sm font-medium transition ${
+                    selectedPreset === preset.id
+                      ? 'bg-blue-600 text-white border border-blue-500'
+                      : 'bg-gray-700 text-gray-200 border border-gray-600 hover:bg-gray-600'
+                  } disabled:opacity-50`}
+                  title={preset.description}
+                >
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleCustomToggle}
+              disabled={isExporting}
+              className={`mt-2 text-xs font-medium transition ${
+                showCustomOptions
+                  ? 'text-blue-400 hover:text-blue-300'
+                  : 'text-gray-400 hover:text-gray-300'
+              } disabled:opacity-50`}
+            >
+              {showCustomOptions ? '✓ Custom options' : '+ Custom options'}
+            </button>
+          </div>
+
+          {/* Custom Resolution Selection (shown when custom options enabled or no preset selected) */}
+          {showCustomOptions || (!selectedPreset && !showCustomOptions) && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                {selectedPreset ? 'Custom Resolution' : 'Resolution'}
+              </label>
+              <div className="space-y-2">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="resolution"
+                    value="source"
+                    checked={resolution === 'source'}
+                    onChange={(e) => {
+                      setResolution(e.target.value);
+                      if (selectedPreset) {
+                        setSelectedPreset(null);
+                        setShowCustomOptions(true);
+                      }
+                    }}
+                    disabled={isExporting}
+                    className="mr-2"
+                  />
+                  <span className="text-gray-200">Source (Original Resolution)</span>
+                </label>
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="resolution"
+                    value="720p"
+                    checked={resolution === '720p'}
+                    onChange={(e) => {
+                      setResolution(e.target.value);
+                      if (selectedPreset) {
+                        setSelectedPreset(null);
+                        setShowCustomOptions(true);
+                      }
+                    }}
+                    disabled={isExporting}
+                    className="mr-2"
+                  />
+                  <span className="text-gray-200">720p (1280x720)</span>
+                </label>
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="resolution"
+                    value="1080p"
+                    checked={resolution === '1080p'}
+                    onChange={(e) => {
+                      setResolution(e.target.value);
+                      if (selectedPreset) {
+                        setSelectedPreset(null);
+                        setShowCustomOptions(true);
+                      }
+                    }}
+                    disabled={isExporting}
+                    className="mr-2"
+                  />
+                  <span className="text-gray-200">1080p (1920x1080)</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Preset Info */}
+          {selectedPreset && !showCustomOptions && (
+            <div className="bg-blue-900 bg-opacity-30 border border-blue-700 rounded px-4 py-2">
+              <p className="text-blue-200 text-sm font-medium">{getPresets().find(p => p.id === selectedPreset)?.description}</p>
+              <p className="text-blue-300 text-xs mt-1">{getPresets().find(p => p.id === selectedPreset)?.notes}</p>
+            </div>
+          )}
+
+          {/* Resolution Selection */}
+          <div style={{ display: 'none' }}>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Resolution
             </label>

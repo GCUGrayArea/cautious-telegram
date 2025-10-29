@@ -138,8 +138,14 @@ impl ExportPipeline {
         // Phase 1: Trim clips to intermediate files
         let intermediate_files = self.trim_clips(&sorted_clips, &temp_dir)?;
 
-        // Phase 2: Concatenate and re-encode
-        let result = self.concatenate_and_encode(&intermediate_files, &settings);
+        // Phase 2: Choose concatenation method based on whether we have transitions
+        let result = if transitions.is_empty() {
+            // No transitions: Use fast concat demuxer
+            self.concatenate_and_encode(&intermediate_files, &settings)
+        } else {
+            // With transitions: Use filter_complex with xfade
+            self.concatenate_with_transitions(&intermediate_files, &sorted_clips, &transitions, &settings)
+        };
 
         // Clean up temp files
         for file in &intermediate_files {
@@ -273,6 +279,219 @@ impl ExportPipeline {
         // Complete!
         ffmpeg.set_progress(100.0, "Complete!".to_string(), None);
         Ok(settings.output_path.clone())
+    }
+
+    /// Concatenate intermediate files with transitions using xfade filter
+    fn concatenate_with_transitions(
+        &self,
+        intermediate_files: &[PathBuf],
+        clips: &[ClipData],
+        transitions: &[TransitionData],
+        settings: &ExportSettings,
+    ) -> Result<String, String> {
+        if intermediate_files.is_empty() {
+            return Err("No intermediate files to concatenate".to_string());
+        }
+
+        let ffmpeg = self.ffmpeg.lock()
+            .map_err(|e| format!("Failed to lock FFmpeg: {}", e))?;
+
+        // Update progress
+        ffmpeg.set_progress(40.0, "Building transition filters...".to_string(), None);
+
+        // Build FFmpeg command with all clips as inputs
+        let mut args: Vec<String> = Vec::new();
+        for file in intermediate_files {
+            args.push("-i".to_string());
+            args.push(file.display().to_string());
+        }
+
+        // Build filter_complex with xfade filters for video and concat for audio
+        let (video_filter, audio_filter) = self.build_xfade_and_audio_filter(clips, transitions, intermediate_files.len())?;
+
+        // Combine video and audio filters
+        let filter_complex = if audio_filter.is_empty() {
+            video_filter
+        } else {
+            format!("{};{}", video_filter, audio_filter)
+        };
+
+        args.push("-filter_complex".to_string());
+        args.push(filter_complex);
+        args.push("-map".to_string());
+        args.push("[vout]".to_string());  // Map final video output
+        args.push("-map".to_string());
+        args.push("[aout]".to_string());  // Map final audio output
+
+        // Add scaling filter if needed
+        if let Some(scale) = settings.resolution.scale_filter() {
+            // Note: Scaling should ideally be in filter_complex for better quality
+            args.push("-vf".to_string());
+            args.push(scale);
+        }
+
+        // Add encoding settings
+        args.push("-c:v".to_string());
+        args.push("libx264".to_string());
+        args.push("-crf".to_string());
+        args.push("23".to_string());
+        args.push("-c:a".to_string());
+        args.push("aac".to_string());
+        args.push("-b:a".to_string());
+        args.push("192k".to_string());
+        args.push("-y".to_string());
+        args.push(settings.output_path.clone());
+
+        // Convert to &str refs
+        let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+
+        // Update progress
+        ffmpeg.set_progress(50.0, "Rendering transitions...".to_string(), None);
+
+        // Execute FFmpeg
+        let result = ffmpeg.execute_command(&args_refs);
+
+        // Update progress
+        ffmpeg.set_progress(95.0, "Finalizing...".to_string(), None);
+
+        result?;
+
+        // Complete!
+        ffmpeg.set_progress(100.0, "Complete!".to_string(), None);
+        Ok(settings.output_path.clone())
+    }
+
+    /// Build FFmpeg filter_complex string with xfade transitions for video and concat for audio
+    ///
+    /// Returns (video_filter, audio_filter)
+    ///
+    /// Example video filter for 3 clips with 2 transitions:
+    /// "[0:v][1:v]xfade=transition=fade:duration=1:offset=5[v01];[v01][2:v]xfade=transition=wipeleft:duration=1.5:offset=12[vout]"
+    ///
+    /// Example audio filter:
+    /// "[0:a][1:a][2:a]concat=n=3:v=0:a=1[aout]"
+    fn build_xfade_and_audio_filter(
+        &self,
+        clips: &[ClipData],
+        transitions: &[TransitionData],
+        num_clips: usize,
+    ) -> Result<(String, String), String> {
+        if num_clips < 2 {
+            return Ok((
+                "[0:v]copy[vout]".to_string(),
+                "[0:a]acopy[aout]".to_string()
+            ));
+        }
+
+        // Build a map of transitions by clip pairs
+        let mut transition_map: std::collections::HashMap<(u32, u32), &TransitionData> = std::collections::HashMap::new();
+        for transition in transitions {
+            transition_map.insert((transition.clip_id_before, transition.clip_id_after), transition);
+        }
+
+        // First, normalize all video streams to same frame rate (30fps) to fix timebase issues
+        let mut normalized_streams = Vec::new();
+        for i in 0..num_clips {
+            let normalized_label = format!("[v{}n]", i);
+            let fps_filter = format!("[{}:v]fps=30,setpts=PTS-STARTPTS{}", i, normalized_label);
+            normalized_streams.push(fps_filter);
+        }
+
+        let mut video_filter_parts = normalized_streams;
+        let mut current_offset = 0.0;
+
+        // Process each pair of clips for video xfade
+        for i in 0..num_clips - 1 {
+            let clip_before = &clips[i];
+            let clip_after = &clips[i + 1];
+
+            // Get duration of current clip (before transition)
+            let clip_duration = clip_before.out_point - clip_before.in_point;
+
+            // Check if there's a transition between these clips
+            let transition = transition_map.get(&(clip_before.id, clip_after.id));
+
+            // Input labels (use normalized streams)
+            let input_before = if i == 0 {
+                "[v0n]".to_string()
+            } else {
+                format!("[v{}]", i - 1)
+            };
+            let input_after = format!("[v{}n]", i + 1);
+
+            // Output label
+            let output = if i == num_clips - 2 {
+                "[vout]".to_string()
+            } else {
+                format!("[v{}]", i)
+            };
+
+            if let Some(trans) = transition {
+                // There's a transition: use xfade
+                let xfade_type = self.map_transition_type(&trans.transition_type)?;
+                let duration = trans.duration;
+
+                // Offset is when the transition starts (clip duration - transition duration)
+                let offset = current_offset + clip_duration - duration;
+
+                let xfade_filter = format!(
+                    "{}{}xfade=transition={}:duration={:.3}:offset={:.3}{}",
+                    input_before,
+                    input_after,
+                    xfade_type,
+                    duration,
+                    offset,
+                    output
+                );
+
+                video_filter_parts.push(xfade_filter);
+
+                // Update offset: add current clip duration minus overlap
+                current_offset += clip_duration - duration;
+            } else {
+                // No transition: use very short xfade (0.01s) to simulate hard cut
+                // This keeps the filter chain consistent
+                let duration = 0.01;
+                let offset = current_offset + clip_duration - duration;
+
+                let xfade_filter = format!(
+                    "{}{}xfade=transition=fade:duration={:.3}:offset={:.3}{}",
+                    input_before,
+                    input_after,
+                    duration,
+                    offset,
+                    output
+                );
+
+                video_filter_parts.push(xfade_filter);
+                current_offset += clip_duration - duration;
+            }
+        }
+
+        // Build audio filter: concat all audio streams
+        let mut audio_inputs = Vec::new();
+        for i in 0..num_clips {
+            audio_inputs.push(format!("[{}:a]", i));
+        }
+        let audio_filter = format!(
+            "{}concat=n={}:v=0:a=1[aout]",
+            audio_inputs.join(""),
+            num_clips
+        );
+
+        Ok((video_filter_parts.join(";"), audio_filter))
+    }
+
+    /// Map frontend transition type to FFmpeg xfade transition name
+    fn map_transition_type(&self, transition_type: &str) -> Result<String, String> {
+        match transition_type {
+            "fade" => Ok("fade".to_string()),
+            "crossfade" | "dissolve" => Ok("fade".to_string()),  // Same in FFmpeg
+            "fadeToBlack" => Ok("fadeblack".to_string()),  // FFmpeg has fadeblack
+            "wipeLeft" => Ok("wiperight".to_string()),  // Wipe left = new clip comes from left
+            "wipeRight" => Ok("wipeleft".to_string()),  // Wipe right = new clip comes from right
+            _ => Err(format!("Unsupported transition type: {}", transition_type))
+        }
     }
 
     /// Export multi-track timeline with overlays
