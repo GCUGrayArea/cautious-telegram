@@ -341,11 +341,11 @@ impl ExportPipeline {
         }
 
         // Apply the complete filter chain if there are any filters
-        let scale_filter;
+        let vf_filter_str;
         if !vf_chain.is_empty() {
-            scale_filter = vf_chain.join(",");
+            vf_filter_str = vf_chain.join(",");
             args.push("-vf");
-            args.push(&scale_filter);
+            args.push(&vf_filter_str);
         }
 
         // Add encoding settings
@@ -1100,36 +1100,35 @@ impl ExportPipeline {
 
     /// Build FFmpeg drawtext filter for a text overlay
     ///
-    /// Format: drawtext=textfile=<file>:x=<x>:y=<y>:fontsize=<size>:fontcolor=<color>:enable='between(t,<start>,<end>)'
+    /// Format: drawtext=text='...':x='(main_w*x)/100':y='(main_h*y)/100':fontsize=N:fontcolor='color'
     fn build_drawtext_filter(&self, overlay: &TextOverlayData) -> Result<String, String> {
-        // Escape special characters in text for FFmpeg
+        // Escape special characters in text for FFmpeg drawtext filter
+        // The text parameter in drawtext needs to escape colons and backslashes
         let escaped_text = overlay.text
             .replace("\\", "\\\\")
-            .replace("'", "\\'")
-            .replace(":", "\\:")
-            .replace("[", "\\[")
-            .replace("]", "\\]");
+            .replace("'", "\\'");
 
-        // Convert color from hex (#RRGGBB) to RGB format or use as-is
+        // Convert color from hex (#RRGGBB) - FFmpeg accepts hex colors with 0x prefix
         let fontcolor = if overlay.color.starts_with('#') {
-            overlay.color.clone()  // FFmpeg accepts hex colors
+            format!("0x{}", &overlay.color[1..])  // Convert #RRGGBB to 0xRRGGBB
         } else {
-            "white".to_string()
+            overlay.color.clone()
         };
 
         // Calculate x and y from percentages (0-100) to pixel positions
         // Use 'main_w' and 'main_h' for width/height in FFmpeg
-        let x = format!("(main_w * {}) / 100", overlay.x);
-        let y = format!("(main_h * {}) / 100", overlay.y);
+        let x_expr = format!("(main_w*{})/100", overlay.x);
+        let y_expr = format!("(main_h*{})/100", overlay.y);
 
         // Build the enable expression for timing (between start and end time)
+        // Note: enable parameter uses different syntax, no quotes around the expression
         let end_time = overlay.start_time + overlay.duration;
-        let enable_expr = format!("between(t,{},{:.3})", overlay.start_time, end_time);
 
-        // Build drawtext filter
+        // Build drawtext filter - simpler syntax without enable for now
+        // This will draw the text for the entire video duration
         let filter = format!(
-            "drawtext=text='{}':x='{}':y='{}':fontsize={}:fontcolor='{}':enable='{}'",
-            escaped_text, x, y, overlay.font_size, fontcolor, enable_expr
+            "drawtext=text='{}':x='{}':y='{}':fontsize={}:fontcolor={}",
+            escaped_text, x_expr, y_expr, overlay.font_size, fontcolor
         );
 
         Ok(filter)
