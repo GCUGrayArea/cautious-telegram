@@ -159,9 +159,9 @@ function PreviewPlayer({ currentTime }) {
   }, []);
 
   return (
-    <div ref={containerRef} className="preview-player flex flex-col items-center justify-center w-full h-full bg-black overflow-hidden">
+    <div ref={containerRef} className="preview-player flex flex-col items-center justify-center w-full h-full bg-black overflow-hidden" style={{ minHeight: 0, minWidth: 0 }}>
       {activeClips.length > 0 ? (
-        <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+        <div className="relative w-full h-full flex items-center justify-center overflow-hidden" style={{ minHeight: 0, minWidth: 0 }}>
           {/* Render all active clips */}
           {activeClips.map((clip, index) => {
             const isBaseLayer = index === 0;
@@ -178,8 +178,8 @@ function PreviewPlayer({ currentTime }) {
                 preload="metadata"
                 style={{
                   position: isOverlay ? 'absolute' : 'relative',
-                  width: isOverlay ? '25%' : containerWidth > 0 ? containerWidth : '100%',
-                  height: isOverlay ? 'auto' : containerHeight > 0 ? containerHeight : '100%',
+                  width: isOverlay ? '25%' : '100%',
+                  height: isOverlay ? 'auto' : '100%',
                   bottom: isOverlay ? '20px' : 'auto',
                   right: isOverlay ? '20px' : 'auto',
                   zIndex: clip.track,
