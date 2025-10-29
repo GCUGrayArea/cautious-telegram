@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Rect, Text, Line } from 'react-konva';
+import { Stage, Layer, Rect, Text, Line, Group } from 'react-konva';
 import TimeRuler from './timeline/TimeRuler';
 import Playhead from './timeline/Playhead';
 import TimelineClip from './timeline/TimelineClip';
@@ -71,6 +71,7 @@ function Timeline() {
   const [dropIndicator, setDropIndicator] = useState(null); // { x, y, track, width }
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 }); // Track mouse for custom drag
   const [transitionEditorState, setTransitionEditorState] = useState(null); // { transition, clipBefore, clipAfter } or null
+  const [hoveredTransitionZone, setHoveredTransitionZone] = useState(null); // ID of hovered transition zone
 
   // Number of tracks to display
   const numTracks = 3;
@@ -710,8 +711,73 @@ function Timeline() {
           )}
         </Layer>
 
-        {/* Transitions layer */}
+        {/* Transition zones and indicators layer */}
         <Layer>
+          {/* First render clickable zones for adjacent clips WITHOUT transitions */}
+          {findAdjacentClips(clips).map(({ clipBefore, clipAfter }, index) => {
+            // Check if a transition already exists for this pair
+            const existingTransition = transitions.find(
+              t => t.clipIdBefore === clipBefore.id && t.clipIdAfter === clipAfter.id
+            );
+
+            if (existingTransition) return null; // Skip if transition exists
+
+            // Calculate position at the boundary between clips
+            const clipBeforeEnd = clipBefore.startTime + (clipBefore.outPoint - clipBefore.inPoint);
+            const zoneX = (clipBeforeEnd * pixelsPerSecond) - scrollX;
+            const zoneY = getTrackY(clipBefore.track);
+            const zoneId = `${clipBefore.id}-${clipAfter.id}`;
+            const isHovered = hoveredTransitionZone === zoneId;
+
+            return (
+              <Group key={`transition-zone-${zoneId}`}>
+                {/* Clickable zone (vertical line at boundary) */}
+                <Rect
+                  x={zoneX - 10}
+                  y={zoneY}
+                  width={20}
+                  height={TIMELINE_CONFIG.TRACK_HEIGHT}
+                  fill={isHovered ? "rgba(34, 197, 94, 0.3)" : "rgba(139, 92, 246, 0.2)"}
+                  stroke={isHovered ? "#22C55E" : "#8B5CF6"}
+                  strokeWidth={2}
+                  dash={[4, 4]}
+                  opacity={1}
+                  onClick={() => {
+                    // Open transition editor for new transition
+                    setTransitionEditorState({
+                      transition: null,
+                      clipBefore,
+                      clipAfter
+                    });
+                  }}
+                  onTap={() => {
+                    setTransitionEditorState({
+                      transition: null,
+                      clipBefore,
+                      clipAfter
+                    });
+                  }}
+                  onMouseEnter={() => setHoveredTransitionZone(zoneId)}
+                  onMouseLeave={() => setHoveredTransitionZone(null)}
+                  perfectDrawEnabled={false}
+                  listening={true}
+                />
+                {/* Plus icon hint */}
+                <Text
+                  x={zoneX - 6}
+                  y={zoneY + (TIMELINE_CONFIG.TRACK_HEIGHT / 2) - 8}
+                  text="+"
+                  fontSize={16}
+                  fill={isHovered ? "#22C55E" : "#8B5CF6"}
+                  fontStyle="bold"
+                  perfectDrawEnabled={false}
+                  listening={false}
+                />
+              </Group>
+            );
+          })}
+
+          {/* Then render existing transitions */}
           {transitions.map(transition => {
             const clipBefore = clips.find(c => c.id === transition.clipIdBefore);
             const clipAfter = clips.find(c => c.id === transition.clipIdAfter);

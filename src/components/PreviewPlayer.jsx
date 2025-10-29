@@ -16,6 +16,51 @@ function hexToRgba(hex, alpha) {
 }
 
 /**
+ * Calculate opacity for a clip during a transition
+ * @param {Object} clip - The clip to calculate opacity for
+ * @param {Object} transitionInfo - Transition info { transition, clipBefore, clipAfter, progress }
+ * @returns {number} Opacity value 0-1
+ */
+function calculateTransitionOpacity(clip, transitionInfo) {
+  if (!transitionInfo) return 1;
+
+  const { transition, clipBefore, clipAfter, progress } = transitionInfo;
+  const isBeforeClip = clip.id === clipBefore.id;
+  const isAfterClip = clip.id === clipAfter.id;
+
+  if (!isBeforeClip && !isAfterClip) return 1; // Not part of transition
+
+  const type = transition.type;
+
+  if (type === 'crossfade' || type === 'dissolve') {
+    // Crossfade: both clips visible, opacity changes linearly
+    return isBeforeClip ? 1 - progress : progress;
+  } else if (type === 'fade') {
+    // Fade: fade out first clip, then fade in second clip
+    if (progress < 0.5) {
+      return isBeforeClip ? 1 - (progress * 2) : 0;
+    } else {
+      return isBeforeClip ? 0 : (progress - 0.5) * 2;
+    }
+  } else if (type === 'fadeToBlack') {
+    // Fade to black: fade out first, fade in second with black in between
+    if (progress < 0.4) {
+      return isBeforeClip ? 1 - (progress / 0.4) : 0;
+    } else if (progress > 0.6) {
+      return isBeforeClip ? 0 : (progress - 0.6) / 0.4;
+    } else {
+      return 0; // Black screen in middle
+    }
+  } else if (type === 'wipeLeft' || type === 'wipeRight') {
+    // For wipe transitions, we'll just use crossfade for now (actual wipe would need CSS clip-path)
+    return isBeforeClip ? 1 - progress : progress;
+  } else {
+    // Default to crossfade
+    return isBeforeClip ? 1 - progress : progress;
+  }
+}
+
+/**
  * PreviewPlayer Component
  *
  * Displays video preview at the current playhead position.
@@ -25,19 +70,57 @@ function hexToRgba(hex, alpha) {
 function PreviewPlayer({ currentTime }) {
   const videoRefsRef = useRef({});
   const containerRef = useRef(null);
-  const { clips, isPlaying, textOverlays } = useTimeline();
+  const { clips, isPlaying, textOverlays, transitions } = useTimeline();
   const [activeClips, setActiveClips] = useState([]);
   const [videoError, setVideoError] = useState(null);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const [activeTextOverlays, setActiveTextOverlays] = useState([]);
   const [containerHeight, setContainerHeight] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [activeTransition, setActiveTransition] = useState(null);
 
-  // Find all clips at the current playhead position (for PiP)
+  // Find all clips at the current playhead position (for PiP) and check for transitions
   useEffect(() => {
     const clipsAtTime = getAllClipsAtTime(clips, currentTime);
+
+    // Check if we're currently in a transition
+    let transitionInfo = null;
+    for (const transition of transitions || []) {
+      const clipBefore = clips.find(c => c.id === transition.clipIdBefore);
+      const clipAfter = clips.find(c => c.id === transition.clipIdAfter);
+
+      if (!clipBefore || !clipAfter) continue;
+
+      // Calculate transition boundary time
+      const boundaryTime = clipBefore.startTime + (clipBefore.outPoint - clipBefore.inPoint);
+      const transitionStart = boundaryTime - (transition.duration / 2);
+      const transitionEnd = boundaryTime + (transition.duration / 2);
+
+      if (currentTime >= transitionStart && currentTime <= transitionEnd) {
+        // We're in this transition!
+        const progress = (currentTime - transitionStart) / transition.duration;
+        transitionInfo = {
+          transition,
+          clipBefore,
+          clipAfter,
+          progress: Math.max(0, Math.min(1, progress)),
+        };
+
+        // Make sure both clips are included in activeClips
+        if (!clipsAtTime.find(c => c.id === clipBefore.id)) {
+          clipsAtTime.push(clipBefore);
+        }
+        if (!clipsAtTime.find(c => c.id === clipAfter.id)) {
+          clipsAtTime.push(clipAfter);
+        }
+
+        break; // Only one transition at a time
+      }
+    }
+
     setActiveClips(clipsAtTime);
-  }, [clips, currentTime]);
+    setActiveTransition(transitionInfo);
+  }, [clips, currentTime, transitions]);
 
   // Find all text overlays at the current playhead position
   useEffect(() => {
@@ -210,7 +293,14 @@ function PreviewPlayer({ currentTime }) {
           {/* Render all active clips */}
           {activeClips.map((clip, index) => {
             const isBaseLayer = index === 0;
-            const isOverlay = index > 0;
+            const transitionOpacity = calculateTransitionOpacity(clip, activeTransition);
+
+            // Check if this clip is part of a transition
+            const isInTransition = activeTransition &&
+              (clip.id === activeTransition.clipBefore.id || clip.id === activeTransition.clipAfter.id);
+
+            // Overlays are clips on track 1+, unless they're part of a transition
+            const isOverlay = !isInTransition && index > 0 && clip.track > 0;
 
             return (
               <video
@@ -222,17 +312,21 @@ function PreviewPlayer({ currentTime }) {
                 onLoadedData={handleVideoLoad}
                 preload="metadata"
                 style={{
-                  position: isOverlay ? 'absolute' : 'relative',
+                  position: isOverlay || isInTransition ? 'absolute' : 'relative',
                   width: isOverlay ? '25%' : '100%',
                   height: isOverlay ? 'auto' : '100%',
                   bottom: isOverlay ? '20px' : 'auto',
                   right: isOverlay ? '20px' : 'auto',
-                  zIndex: clip.track,
+                  top: isInTransition ? 0 : 'auto',
+                  left: isInTransition ? 0 : 'auto',
+                  zIndex: isInTransition ? (clip.id === activeTransition.clipAfter.id ? 2 : 1) : clip.track,
                   objectFit: 'contain',
                   objectPosition: 'center center',
                   borderRadius: isOverlay ? '8px' : '0',
                   border: isOverlay ? '2px solid rgba(255, 255, 255, 0.3)' : 'none',
-                  boxShadow: isOverlay ? '0 4px 12px rgba(0, 0, 0, 0.5)' : 'none'
+                  boxShadow: isOverlay ? '0 4px 12px rgba(0, 0, 0, 0.5)' : 'none',
+                  opacity: transitionOpacity,
+                  transition: 'opacity 0.1s linear',
                 }}
               />
             );

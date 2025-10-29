@@ -15,8 +15,8 @@ function TransitionIndicator({
   onDoubleClick,
 }) {
   const size = 12;
-  const fillColor = isSelected ? '#3B82F6' : '#8B5CF6';
-  const strokeColor = isSelected ? '#1E40AF' : '#6D28D9';
+  const fillColor = isSelected ? '#A855F7' : '#8B5CF6'; // Purple-500 selected, Purple-600 normal
+  const strokeColor = isSelected ? '#7C3AED' : '#6D28D9'; // Purple-700 selected, Purple-800 normal
 
   // Map transition type to display name
   const transitionTypeNames = {
