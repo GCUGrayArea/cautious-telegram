@@ -5174,18 +5174,21 @@ Add video filters for color correction and effects: brightness, contrast, satura
 ---
 
 ### PR-STRETCH-009: AI-Powered One-Click Subtitling
-**Status:** New
-**Agent:** (unassigned)
+**Status:** Complete (Export Functionality)
+**Agent:** Orange (export fix completed in 97ba535)
 **Dependencies:** PR-STRETCH-006 (Text Overlays) ✅
 **Priority:** High (significant value-add feature)
 
 **Description:**
 Automatically generate subtitles from video audio using AI speech-to-text, then create text overlays for each subtitle phrase. Enable one-click subtitle generation for entire timeline with customizable styling.
 
-**Current State:**
-- Text overlays require manual creation
-- No speech-to-text or subtitle generation
-- Can't automatically caption videos
+**Current Implementation Status:**
+- ✅ Transcription/Speech-to-Text UI working (generates subtitles in preview)
+- ✅ Text overlays created from transcribed phrases
+- ✅ Text overlays render in timeline preview
+- ✅ **FIXED: Text overlay export - subtitles now burn into final video** (commit 97ba535)
+- Text overlays support custom position, font, color, timing
+- Export includes FFmpeg drawtext filter for each text overlay
 
 **Files:**
 - src/components/SubtitleGenerator.jsx (create) - UI panel for subtitle generation
