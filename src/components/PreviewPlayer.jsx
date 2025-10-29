@@ -134,6 +134,7 @@ function PreviewPlayer({ currentTime }) {
   }, [activeClips]);
 
   // Measure container height for responsive font sizing
+  // Also force video recalculation on resize to ensure centering when contracting
   useEffect(() => {
     const updateHeight = () => {
       if (containerRef.current) {
@@ -142,8 +143,34 @@ function PreviewPlayer({ currentTime }) {
     };
 
     updateHeight();
+
+    // Use ResizeObserver to detect container size changes (more reliable than window resize)
+    const resizeObserver = new ResizeObserver(() => {
+      updateHeight();
+
+      // Force video elements to recalculate their display aspect ratio
+      // This is critical when window contracts - video needs to recenter
+      Object.values(videoRefsRef.current).forEach((video) => {
+        if (video) {
+          // Temporarily change display to trigger recalculation
+          const originalDisplay = video.style.display;
+          video.style.display = 'none';
+          // Force reflow
+          void video.offsetHeight;
+          video.style.display = originalDisplay;
+        }
+      });
+    });
+
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
     window.addEventListener('resize', updateHeight);
-    return () => window.removeEventListener('resize', updateHeight);
+    return () => {
+      window.removeEventListener('resize', updateHeight);
+      resizeObserver.disconnect();
+    };
   }, []);
 
   return (
