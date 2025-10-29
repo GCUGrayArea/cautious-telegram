@@ -84,14 +84,39 @@ function PreviewPlayer({ currentTime }) {
         }
       }
 
-      // Apply volume and mute settings
+      // Apply volume and mute settings with fade envelope
       if (clip.isMuted) {
         video.muted = true;
         video.volume = 0;
       } else {
         video.muted = false;
-        // Normalize volume from 0-200% range to 0-1 HTML5 range
-        video.volume = Math.max(0, Math.min(1, (clip.volume || 100) / 100));
+
+        // Get the base volume (0-200% normalized to 0-1)
+        let baseVolume = Math.max(0, Math.min(1, (clip.volume || 100) / 100));
+
+        // Calculate position within the clip (relative to clip start)
+        const positionInClip = currentTime - clip.startTime;
+        const clipDuration = clip.outPoint - clip.inPoint;
+
+        // Apply fade in envelope
+        const fadeInDuration = clip.fadeInDuration || 0;
+        if (fadeInDuration > 0 && positionInClip < fadeInDuration) {
+          // Linear fade in from 0 to baseVolume
+          baseVolume *= (positionInClip / fadeInDuration);
+        }
+
+        // Apply fade out envelope
+        const fadeOutDuration = clip.fadeOutDuration || 0;
+        if (fadeOutDuration > 0) {
+          const fadeOutStart = clipDuration - fadeOutDuration;
+          if (positionInClip > fadeOutStart) {
+            // Linear fade out from baseVolume to 0
+            const fadeOutProgress = (positionInClip - fadeOutStart) / fadeOutDuration;
+            baseVolume *= (1 - fadeOutProgress);
+          }
+        }
+
+        video.volume = Math.max(0, Math.min(1, baseVolume));
       }
     });
   }, [activeClips, currentTime]);
