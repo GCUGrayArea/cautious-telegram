@@ -5321,8 +5321,8 @@ Extend single-project auto-save to support multiple independent projects. Add UI
   - Complete: 8 PRs ✓
   - New: 3 PRs (009, 010, 011)
 - **Stretch Goals (PR-STRETCH-001 to PR-STRETCH-010):** 10 PRs
-  - Complete: 3 PRs (PR-STRETCH-001, PR-STRETCH-002, PR-STRETCH-006) ✓
-  - New: 7 PRs
+  - Complete: 4 PRs (PR-STRETCH-001, PR-STRETCH-002, PR-STRETCH-004, PR-STRETCH-006) ✓
+  - New: 6 PRs
 
 **Post-MVP Status:**
 - **Complete:**
@@ -5361,7 +5361,7 @@ These features extend beyond the MVP and post-MVP bugfixes, adding professional-
   - PR-STRETCH-010: Multi-Project Support
 
 - **Medium Priority (Valuable Features):** 5 PRs
-  - PR-STRETCH-004: Copy/Cut/Paste Shortcuts
+  - PR-STRETCH-004: Copy/Cut/Paste Shortcuts ✓ (Complete)
   - PR-STRETCH-005: Export Presets for Platforms
   - PR-STRETCH-006: Text Overlays ✓ (Complete)
   - PR-STRETCH-007: Transitions Between Clips
@@ -5373,8 +5373,8 @@ These features extend beyond the MVP and post-MVP bugfixes, adding professional-
 **Recommended Implementation Order:**
 1. ✓ Auto-Save (prevents data loss, database already exists) - COMPLETE
 2. ✓ Undo/Redo (critical for editing workflow) - COMPLETE
-3. Audio Controls (essential for professional video)
-4. Copy/Cut/Paste (quick win, completes keyboard shortcuts)
+3. ✓ Copy/Cut/Paste (quick win, completes keyboard shortcuts) - COMPLETE
+4. Audio Controls (essential for professional video)
 5. Multi-Project Support (extends auto-save to manage multiple projects)
 6. Export Presets (extends existing export dialog)
 7. Transitions, Filters, Subtitling (polish and advanced features)
