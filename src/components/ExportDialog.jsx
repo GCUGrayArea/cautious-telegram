@@ -159,7 +159,7 @@ export default function ExportDialog({ isOpen, onClose }) {
       }
     }
 
-    // Convert to backend format (include track field for multi-track support)
+    // Convert to backend format (include track field and audio properties)
     const clipData = allClips.map(c => ({
       id: c.id,
       path: c.metadata.path,
@@ -167,6 +167,10 @@ export default function ExportDialog({ isOpen, onClose }) {
       out_point: c.outPoint || c.metadata.duration,
       start_time: c.startTime,
       track: c.track || 0,  // Include track field
+      volume: c.volume !== undefined ? c.volume : 100,
+      is_muted: c.isMuted || false,
+      fade_in_duration: c.fadeInDuration || 0,
+      fade_out_duration: c.fadeOutDuration || 0,
     }));
 
     // Export settings

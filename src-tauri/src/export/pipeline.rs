@@ -188,18 +188,95 @@ impl ExportPipeline {
             let path_str = intermediate_path.to_str()
                 .ok_or_else(|| "Failed to convert path to string (invalid UTF-8)".to_string())?;
 
-            // Trim clip using FFmpeg
-            ffmpeg.trim_video(
-                &clip.path,
-                path_str,
-                clip.in_point,
-                clip.out_point,
-            )?;
+            // Check if audio filtering is needed
+            let needs_audio_filter = clip.is_muted ||
+                                      clip.volume != 100 ||
+                                      clip.fade_in_duration > 0.0 ||
+                                      clip.fade_out_duration > 0.0;
+
+            if needs_audio_filter {
+                // Trim with audio filtering (requires re-encoding)
+                self.trim_with_audio_filters(
+                    &ffmpeg,
+                    &clip.path,
+                    path_str,
+                    clip.in_point,
+                    clip.out_point,
+                    clip,
+                )?;
+            } else {
+                // Fast trim with codec copy (no re-encoding)
+                ffmpeg.trim_video(
+                    &clip.path,
+                    path_str,
+                    clip.in_point,
+                    clip.out_point,
+                )?;
+            }
 
             intermediate_files.push(intermediate_path);
         }
 
         Ok(intermediate_files)
+    }
+
+    /// Trim clip with audio filtering (requires re-encoding audio)
+    fn trim_with_audio_filters(
+        &self,
+        ffmpeg: &FFmpegWrapper,
+        input_path: &str,
+        output_path: &str,
+        start_time: f64,
+        end_time: f64,
+        clip: &ClipData,
+    ) -> Result<(), String> {
+        let duration = end_time - start_time;
+
+        // Build audio filter string
+        let mut audio_filters = Vec::new();
+
+        // Mute takes precedence
+        if clip.is_muted {
+            audio_filters.push("volume=0".to_string());
+        } else {
+            // Apply volume adjustment (100 = 1.0, 200 = 2.0, etc.)
+            if clip.volume != 100 {
+                let volume_factor = clip.volume as f64 / 100.0;
+                audio_filters.push(format!("volume={:.2}", volume_factor));
+            }
+
+            // Apply fade in
+            if clip.fade_in_duration > 0.0 {
+                audio_filters.push(format!("afade=t=in:st=0:d={:.3}", clip.fade_in_duration));
+            }
+
+            // Apply fade out
+            if clip.fade_out_duration > 0.0 {
+                let fade_out_start = duration - clip.fade_out_duration;
+                audio_filters.push(format!("afade=t=out:st={:.3}:d={:.3}", fade_out_start, clip.fade_out_duration));
+            }
+        }
+
+        let audio_filter_str = audio_filters.join(",");
+
+        // Build FFmpeg command - store strings to ensure they live long enough
+        let start_time_str = start_time.to_string();
+        let duration_str = duration.to_string();
+
+        let args = vec![
+            "-ss", start_time_str.as_str(),
+            "-i", input_path,
+            "-t", duration_str.as_str(),
+            "-af", audio_filter_str.as_str(),
+            "-c:v", "copy",  // Copy video codec (fast)
+            "-c:a", "aac",   // Re-encode audio with AAC
+            "-b:a", "192k",  // Audio bitrate
+            "-y",
+            output_path,
+        ];
+
+        ffmpeg.execute_command(&args)?;
+        Ok(())
     }
 
     /// Concatenate intermediate files and re-encode with settings
@@ -646,8 +723,14 @@ impl ExportPipeline {
             args.push(overlay_file.display().to_string());
         }
 
-        // Build filter_complex string
-        let filter_complex = self.build_overlay_filter(overlay_clips, overlay_files.len());
+        // Build filter_complex string (video overlays + audio mixing)
+        let (video_filter, audio_filter) = self.build_overlay_and_audio_filter(overlay_clips, overlay_files.len());
+
+        let filter_complex = if audio_filter.is_empty() {
+            video_filter
+        } else {
+            format!("{};{}", video_filter, audio_filter)
+        };
 
         // Add filter_complex and output mapping
         args.push("-filter_complex".to_string());
@@ -655,7 +738,7 @@ impl ExportPipeline {
         args.push("-map".to_string());
         args.push("[out]".to_string());
         args.push("-map".to_string());
-        args.push("0:a?".to_string());  // Audio from base video (if exists)
+        args.push("[aout]".to_string());  // Mixed audio output
 
         // Add scaling filter if needed (applied to final output)
         if let Some(scale) = settings.resolution.scale_filter() {
@@ -688,13 +771,30 @@ impl ExportPipeline {
         Ok(settings.output_path.clone())
     }
 
-    /// Build FFmpeg filter_complex string for overlaying multiple clips
+    /// Build FFmpeg filter_complex string for overlaying multiple clips and mixing audio
     ///
-    /// Example output:
-    /// "[0:v][1:v]overlay=W-w-20:H-h-20:enable='between(t,5.0,10.0)'[temp1];[temp1][2:v]overlay=W-w-20:H-h-20:enable='between(t,15.0,20.0)'[out]"
-    fn build_overlay_filter(&self, overlay_clips: &[ClipData], num_overlays: usize) -> String {
+    /// Returns (video_filter, audio_filter)
+    ///
+    /// Example video output:
+    /// "[1:v]scale=iw*0.25:-1[scaled1];[0:v][scaled1]overlay=W-w-20:H-h-20:enable='between(t,5.0,10.0)'[temp1];..."
+    ///
+    /// Example audio output:
+    /// "[0:a][1:a]amix=inputs=2:duration=first[aout]"
+    fn build_overlay_and_audio_filter(&self, overlay_clips: &[ClipData], num_overlays: usize) -> (String, String) {
         let mut filter_parts = Vec::new();
 
+        // First, scale all overlays to 25% width (matching preview)
+        for (index, _clip) in overlay_clips.iter().enumerate() {
+            let input_index = index + 1; // Input 0 is base, overlays start at 1
+            let scale_filter = format!(
+                "[{}:v]scale=iw*0.25:-1[scaled{}]",
+                input_index,
+                input_index
+            );
+            filter_parts.push(scale_filter);
+        }
+
+        // Then, overlay each scaled clip
         for (index, clip) in overlay_clips.iter().enumerate() {
             let input_index = index + 1; // Input 0 is base, overlays start at 1
             let start = clip.start_time;
@@ -714,10 +814,10 @@ impl ExportPipeline {
                 format!("[temp{}]", index + 1)
             };
 
-            // Overlay filter: position in bottom-right corner with 20px padding
+            // Overlay filter: scale to 25% and position in bottom-right corner with 20px padding
             // enable filter makes overlay appear only during its timeline duration
             let overlay_filter = format!(
-                "{}[{}:v]overlay=W-w-20:H-h-20:enable='between(t,{:.3},{:.3})'{}",
+                "{}[scaled{}]overlay=W-w-20:H-h-20:enable='between(t,{:.3},{:.3})'{}",
                 input_label,
                 input_index,
                 start,
@@ -728,6 +828,23 @@ impl ExportPipeline {
             filter_parts.push(overlay_filter);
         }
 
-        filter_parts.join(";")
+        let video_filter = filter_parts.join(";");
+
+        // Build audio mixing filter
+        // Mix base audio (input 0) with all overlay audios (inputs 1+)
+        let num_audio_inputs = 1 + num_overlays; // Base + overlays
+        let mut audio_inputs = Vec::new();
+
+        for i in 0..num_audio_inputs {
+            audio_inputs.push(format!("[{}:a]", i));
+        }
+
+        let audio_filter = format!(
+            "{}amix=inputs={}:duration=first:dropout_transition=0[aout]",
+            audio_inputs.join(""),
+            num_audio_inputs
+        );
+
+        (video_filter, audio_filter)
     }
 }
