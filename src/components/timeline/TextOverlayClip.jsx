@@ -18,6 +18,8 @@ import {
  */
 function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd, pixelsPerSecond, scrollX, clips, numTracks = 3 }) {
   const [isTrimming, setIsTrimming] = useState(false);
+  const [dragStartPos, setDragStartPos] = useState(null);
+  const [allowDrag, setAllowDrag] = useState(true); // Flag to disable drag after click
 
   // Track 3 is for text overlays - positioned on top of Track 1 (base video)
   const TRACK_3_INDEX = 2; // Zero-indexed, so track 3 = index 2
@@ -42,25 +44,95 @@ function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd,
     ? textOverlay.text.substring(0, maxTextLength - 3) + '...'
     : textOverlay.text;
 
-  // Handle click
-  const handleClick = (e) => {
-    console.log('TextOverlayClip clicked:', textOverlay.id, 'onClick prop:', typeof onClick);
-    e.cancelBubble = true;
-    e.evt?.stopPropagation?.();
-    if (onClick) {
-      console.log('Calling onClick with id:', textOverlay.id);
-      onClick(textOverlay.id);
-    }
+  // Handle mouse down - record starting screen position for click detection
+  const handleMouseDown = (e) => {
+    // Get the actual mouse position from the event, not the element position
+    const screenPos = e.evt ? { x: e.evt.clientX, y: e.evt.clientY } : null;
+    console.log('TextOverlayClip mouseDown at screen:', screenPos);
+    setDragStartPos(screenPos);
   };
 
-  // Handle drag end - update overlay position in store
+  // Handle mouse up - catch pure clicks that don't drag
+  const handleMouseUp = (e) => {
+    if (!dragStartPos) return;
+
+    const screenEndPos = e.evt ? { x: e.evt.clientX, y: e.evt.clientY } : null;
+    console.log('TextOverlayClip mouseUp at screen:', screenEndPos, 'started at:', dragStartPos);
+
+    if (screenEndPos) {
+      const distance = Math.sqrt(
+        Math.pow(screenEndPos.x - dragStartPos.x, 2) +
+        Math.pow(screenEndPos.y - dragStartPos.y, 2)
+      );
+      console.log('Screen distance on mouseUp:', distance);
+
+      // If barely moved (< 5 pixels), treat as click instead of drag
+      if (distance < 5) {
+        console.log('Treating as click on mouseUp, calling onClick for id:', textOverlay.id);
+        // IMPORTANT: Stop event propagation to prevent Stage's handleStageClick from clearing selection
+        e.cancelBubble = true;
+        console.log('TextOverlayClip: set cancelBubble to true');
+        e.evt?.stopPropagation?.();
+        e.evt?.stopImmediatePropagation?.();
+
+        // Disable drag temporarily to prevent dragStart from firing after this click
+        setAllowDrag(false);
+        console.log('TextOverlayClip: disabled drag to prevent dragStart after click');
+
+        if (onClick) {
+          console.log('TextOverlayClip: calling onClick');
+          onClick(textOverlay.id);
+        }
+
+        // Re-enable drag on next frame so clicks don't prevent future drags
+        setTimeout(() => {
+          setAllowDrag(true);
+          console.log('TextOverlayClip: re-enabled drag');
+        }, 0);
+      }
+    }
+    setDragStartPos(null);
+  };
+
+  // Handle drag end - called when drag actually happened
   const handleDragEnd = (e) => {
-    if (!onDragEnd) return;
+    // Get the actual mouse position from the event (where it ended)
+    const screenEndPos = e.evt ? { x: e.evt.clientX, y: e.evt.clientY } : null;
 
-    const newX = e.target.x() + scrollX;
-    const newStartTime = Math.max(0, newX / pixelsPerSecond);
+    console.log('TextOverlayClip dragEnd at screen:', screenEndPos, 'started at:', dragStartPos);
 
-    onDragEnd(textOverlay.id, newStartTime);
+    // Only process as drag if we have significant movement
+    let wasSignificantDrag = false;
+
+    if (dragStartPos && screenEndPos) {
+      const distance = Math.sqrt(
+        Math.pow(screenEndPos.x - dragStartPos.x, 2) +
+        Math.pow(screenEndPos.y - dragStartPos.y, 2)
+      );
+      console.log('Screen distance on dragEnd:', distance);
+
+      // If moved >= 5 pixels, it's a real drag
+      if (distance >= 5) {
+        console.log('Distance >= 5, treating as significant drag');
+        wasSignificantDrag = true;
+      } else {
+        console.log('Distance < 5, ignoring as drag (should have been handled by mouseUp click)');
+      }
+    } else {
+      console.log('No dragStartPos or screenEndPos, ignoring dragEnd');
+    }
+
+    if (wasSignificantDrag) {
+      // It was a real drag, update position
+      if (onDragEnd) {
+        const newX = e.target.x() + scrollX;
+        const newStartTime = Math.max(0, newX / pixelsPerSecond);
+        console.log('Treating as drag on dragEnd, calling onDragEnd with newStartTime:', newStartTime);
+        onDragEnd(textOverlay.id, newStartTime);
+      }
+    }
+
+    setDragStartPos(null);
   };
 
   // Drag bound function - constrains drag position to Track 3 only (horizontal movement)
@@ -111,11 +183,14 @@ function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd,
     <Group
       x={clipX}
       y={clipY}
-      draggable={!isTrimming}
+      draggable={!isTrimming && allowDrag}
       dragBoundFunc={handleDragBound}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onDragStart={() => {
+        console.log('TextOverlayClip dragStart detected');
+      }}
       onDragEnd={handleDragEnd}
-      onClick={handleClick}
-      onTap={handleClick}
       onMouseEnter={(e) => {
         if (!isTrimming) {
           const container = e.target.getStage().container();
@@ -127,18 +202,7 @@ function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd,
         container.style.cursor = 'default';
       }}
     >
-      {/* Invisible hit area for dragging and clicking */}
-      <Rect
-        x={0}
-        y={0}
-        width={Math.max(clipWidth, 20)}
-        height={clipHeight}
-        fill="rgba(255, 255, 255, 0.01)"
-        stroke="transparent"
-        listening={false}
-      />
-
-      {/* Background - always visible with pale yellow */}
+      {/* Background - always visible and clickable */}
       <Rect
         x={0}
         y={0}
@@ -148,8 +212,7 @@ function TextOverlayClip({ textOverlay, selected, onClick, onDragEnd, onTrimEnd,
         opacity={backgroundOpacity}
         stroke={borderColor}
         strokeWidth={borderWidth}
-        listening={false}
-        pointerEvents="none"
+        listening={true}
       />
 
       {/* Text content - main visual */}

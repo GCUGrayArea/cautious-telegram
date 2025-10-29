@@ -25,6 +25,7 @@ import { useDrag } from '../store/dragStore.jsx';
  */
 function Timeline() {
   const containerRef = useRef(null);
+  const textOverlayClickedRef = useRef(false); // Flag to prevent stage click from clearing text overlay selection
   const [dimensions, setDimensions] = useState({ width: 800, height: 300 });
 
   // Timeline store for clips and playhead time
@@ -96,9 +97,15 @@ function Timeline() {
   const handleStageClick = (e) => {
     // Check if click was on a clip (clips have onClick handlers that set cancelBubble)
     const clickedOnClip = e.cancelBubble === true;
+    const textOverlayClicked = textOverlayClickedRef.current;
 
-    if (!clickedOnClip) {
-      // Clear clip selection when clicking anywhere except clips
+    console.log('⏱️ [Timeline] Stage click - cancelBubble:', e.cancelBubble, 'textOverlayClicked:', textOverlayClicked);
+
+    // Reset the flag for next click
+    textOverlayClickedRef.current = false;
+
+    if (!clickedOnClip && !textOverlayClicked) {
+      // Clear clip selection when clicking anywhere except clips and text overlays
       clearSelection();
     }
   };
@@ -195,8 +202,13 @@ function Timeline() {
   // Handle text overlay selection
   const handleTextOverlayClick = (textOverlayId) => {
     console.log('Timeline: handleTextOverlayClick called with id:', textOverlayId);
+    console.log('Timeline: selectedTextOverlayId BEFORE:', selectedTextOverlayId);
+
+    // Flag that a text overlay was clicked, so handleStageClick won't clear the selection
+    textOverlayClickedRef.current = true;
+
     selectTextOverlay(textOverlayId);
-    console.log('Timeline: selectTextOverlay called');
+    console.log('Timeline: selectTextOverlay called, selectedTextOverlayId AFTER:', selectedTextOverlayId);
   };
 
   // Handle text overlay drag end - update overlay position
@@ -208,6 +220,11 @@ function Timeline() {
   const handleTextOverlayTrimEnd = (textOverlayId, updates) => {
     updateTextOverlay(textOverlayId, updates);
   };
+
+  // Log when selectedTextOverlayId changes
+  useEffect(() => {
+    console.log('⭐ Timeline: selectedTextOverlayId changed to:', selectedTextOverlayId);
+  }, [selectedTextOverlayId]);
 
   // Keyboard event handler
   useEffect(() => {
@@ -584,7 +601,7 @@ function Timeline() {
 
         {/* Text overlays layer */}
         <Layer>
-          {console.log('Rendering text overlays:', textOverlays.length, textOverlays)}
+          {console.log('Rendering text overlays:', textOverlays.length, textOverlays, 'selectedTextOverlayId:', selectedTextOverlayId)}
           {textOverlays.map(textOverlay => (
             <TextOverlayClip
               key={textOverlay.id}

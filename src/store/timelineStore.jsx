@@ -37,6 +37,7 @@ const SELECT_TEXT_OVERLAY = 'SELECT_TEXT_OVERLAY';
 
 // Reducer
 function timelineReducer(state, action) {
+  console.log('🔄 [Store] Reducer action:', action.type, 'payload:', action.payload, 'current state:', state);
   switch (action.type) {
     case ADD_CLIP: {
       const newClip = {
@@ -174,11 +175,13 @@ function timelineReducer(state, action) {
     }
 
     case SELECT_TEXT_OVERLAY: {
-      return {
+      const newState = {
         ...state,
         selectedTextOverlayId: action.payload,
         selectedClipId: null, // Deselect clips when selecting text overlay
       };
+      console.log('🔄 [Store] SELECT_TEXT_OVERLAY returning:', newState);
+      return newState;
     }
 
     default:
