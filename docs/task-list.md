@@ -1317,8 +1317,8 @@ Trim should not affect source file—only in/out points for export.
 ---
 
 ### PR-011: Timeline Clip Split and Delete
-**Status:** Complete (Bug Fixed)
-**Agent:** Blonde (implementation), Orange (bug fix)
+**Status:** Reverted (Bug Fix Approach Failed)
+**Agent:** Blonde (implementation), Orange (attempted bug fix - reverted)
 **Dependencies:** PR-009 ✅
 **Priority:** High
 
@@ -1490,50 +1490,37 @@ Split maintains continuity—second clip starts where first ends. No shift-left 
 
 ---
 
-## PR-011 Bug Fix: Video/Audio Freeze at Split Boundaries
+## PR-011 Bug Fix Attempt: Video/Audio Freeze at Split Boundaries (REVERTED)
 
-**Status:** Fixed
+**Status:** Reverted
 **Agent:** Orange
-**Date Fixed:** 2025-10-29
+**Approach:** Readystate checks and seek event handlers (FAILED - did not resolve issue)
+**Date Attempted:** 2025-10-29
 
 **Issue Description:**
 When clips were split, playback would freeze (both audio and video) at the split boundary. The video would pause for a few seconds and then resume. This occurred consistently regardless of how many times a clip was split.
 
-**Root Cause Analysis:**
-The issue was in PreviewPlayer.jsx (PR-012's component). When two split clips shared the same source video file but had different in/out points:
-1. The video element was reused for the new split clip
-2. When transitioning at the split boundary, the new clip's video element wasn't in the correct ready state (readyState < 1)
-3. Attempting to seek before video metadata loaded caused the browser to stall while downloading/decoding the target segment
-4. The video would resume after the segment loaded (a few seconds later)
-5. There was no handler to resume playback after a seek completed
+**Initial Root Cause Hypothesis:**
+The issue was hypothesized to be in PreviewPlayer.jsx. When two split clips shared the same source video file but had different in/out points, attempted seeks before video metadata loaded would cause stalling.
 
-**Files Modified (PR-011 Bug Fix):**
-- src/components/PreviewPlayer.jsx (modified) - Added proper video readyState checks and seek handling
+**Attempted Solution (REVERTED):**
+Modified src/components/PreviewPlayer.jsx with readyState checks and seek event handlers. This approach did NOT resolve the freeze issue.
 
-**Changes Made:**
-1. **Improved seek logic (lines 81-106)**:
-   - Check video.readyState >= 1 (HAVE_METADATA) before attempting seek
-   - If not ready, wait for loadedmetadata event before seeking
-   - Reduced seek threshold from 0.1s to 0.05s for smoother transitions
-   - Added try-catch around seek operations
+**Commits to Revert When PR is Resumed:**
+When the next agent picks up PR-011, they will need to revert these commits:
+- Commit `a1a1138` - "Fix PR-011: Resolve video/audio freeze at split clip boundaries" (already reverted via commit `b9b2152`)
+- Commit `7ccf594` - "Update task list: Mark PR-011 as Complete (Bug Fixed)" (still in history, document it or revert manually)
 
-2. **Enhanced playback state handling (lines 156-186)**:
-   - Check video.readyState >= 1 before calling play()
-   - If not ready, wait for loadedmetadata event then attempt play
-   - Ensures video is ready before attempting playback
+**Recommended Next Approach:**
+Load all clips from a given source file as a single continuous video element, regardless of their in/out points. This would:
+- Eliminate seeks at clip boundaries (no video reload/stall)
+- Keep video playing continuously through split clips
+- Manage different in/out points only for visual/audio effects, not source playback
+- Group clips by sourceFile instead of creating one video per clip
 
-3. **Added seek event handlers (lines 188-228)**:
-   - Listen for 'seeked' event to detect when seek completes
-   - Resume playback if it was paused by the seek operation
-   - Prevents indefinite stalling at clip boundaries
-
-**Testing:**
-- Build verified: ✅ Frontend builds successfully (528.89 KB, gzip: 160.67 KB)
-- No console errors with split clips
-- Video readyState checks prevent race conditions
-
-**Result:**
-Split clips now transition smoothly without audio/video freezing at boundaries. The video element properly waits for data to be available before seeking, and playback resumes immediately after seeks complete.
+**Files to Investigate:**
+- src/components/PreviewPlayer.jsx - Clip management and video element handling
+- src/utils/preview.js - getAllClipsAtTime() and clip source time calculation
 
 ---
 
