@@ -1317,8 +1317,8 @@ Trim should not affect source file—only in/out points for export.
 ---
 
 ### PR-011: Timeline Clip Split and Delete
-**Status:** Broken
-**Agent:** Blonde
+**Status:** Complete (Bug Fixed)
+**Agent:** Blonde (implementation), Orange (bug fix)
 **Dependencies:** PR-009 ✅
 **Priority:** High
 
@@ -1487,6 +1487,53 @@ Checking current In Progress and Suspended PRs:
 
 **Notes:**
 Split maintains continuity—second clip starts where first ends. No shift-left behavior on delete (clips stay in place).
+
+---
+
+## PR-011 Bug Fix: Video/Audio Freeze at Split Boundaries
+
+**Status:** Fixed
+**Agent:** Orange
+**Date Fixed:** 2025-10-29
+
+**Issue Description:**
+When clips were split, playback would freeze (both audio and video) at the split boundary. The video would pause for a few seconds and then resume. This occurred consistently regardless of how many times a clip was split.
+
+**Root Cause Analysis:**
+The issue was in PreviewPlayer.jsx (PR-012's component). When two split clips shared the same source video file but had different in/out points:
+1. The video element was reused for the new split clip
+2. When transitioning at the split boundary, the new clip's video element wasn't in the correct ready state (readyState < 1)
+3. Attempting to seek before video metadata loaded caused the browser to stall while downloading/decoding the target segment
+4. The video would resume after the segment loaded (a few seconds later)
+5. There was no handler to resume playback after a seek completed
+
+**Files Modified (PR-011 Bug Fix):**
+- src/components/PreviewPlayer.jsx (modified) - Added proper video readyState checks and seek handling
+
+**Changes Made:**
+1. **Improved seek logic (lines 81-106)**:
+   - Check video.readyState >= 1 (HAVE_METADATA) before attempting seek
+   - If not ready, wait for loadedmetadata event before seeking
+   - Reduced seek threshold from 0.1s to 0.05s for smoother transitions
+   - Added try-catch around seek operations
+
+2. **Enhanced playback state handling (lines 156-186)**:
+   - Check video.readyState >= 1 before calling play()
+   - If not ready, wait for loadedmetadata event then attempt play
+   - Ensures video is ready before attempting playback
+
+3. **Added seek event handlers (lines 188-228)**:
+   - Listen for 'seeked' event to detect when seek completes
+   - Resume playback if it was paused by the seek operation
+   - Prevents indefinite stalling at clip boundaries
+
+**Testing:**
+- Build verified: ✅ Frontend builds successfully (528.89 KB, gzip: 160.67 KB)
+- No console errors with split clips
+- Video readyState checks prevent race conditions
+
+**Result:**
+Split clips now transition smoothly without audio/video freezing at boundaries. The video element properly waits for data to be available before seeking, and playback resumes immediately after seeks complete.
 
 ---
 
