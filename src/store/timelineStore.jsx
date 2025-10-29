@@ -21,6 +21,9 @@ const initialState = {
   // Undo/Redo stacks store snapshots of clips and textOverlays state
   undoStack: [], // Array of state snapshots for undo (max 50)
   redoStack: [], // Array of state snapshots for redo (max 50)
+  // Clipboard for copy/cut/paste operations
+  clipboardClip: null, // Cloned clip in clipboard
+  clipboardOperation: null, // 'copy' or 'cut' or null
 };
 
 // Action types
@@ -40,6 +43,9 @@ const SELECT_TEXT_OVERLAY = 'SELECT_TEXT_OVERLAY';
 const RESTORE_STATE = 'RESTORE_STATE';
 const UNDO = 'UNDO';
 const REDO = 'REDO';
+const COPY_CLIP = 'COPY_CLIP';
+const CUT_CLIP = 'CUT_CLIP';
+const PASTE_CLIP = 'PASTE_CLIP';
 
 // Helper: Create a snapshot of editable state (clips and overlays)
 function createStateSnapshot(state) {
@@ -288,6 +294,60 @@ function timelineReducer(state, action) {
       };
     }
 
+    case COPY_CLIP: {
+      // Copy selected clip to clipboard
+      const clipToCopy = state.clips.find(clip => clip.id === action.payload);
+      if (!clipToCopy) return state;
+
+      return {
+        ...state,
+        clipboardClip: structuredClone(clipToCopy),
+        clipboardOperation: 'copy',
+      };
+    }
+
+    case CUT_CLIP: {
+      // Cut selected clip (copy to clipboard and mark for deletion)
+      const clipToCut = state.clips.find(clip => clip.id === action.payload);
+      if (!clipToCut) return state;
+
+      return {
+        ...state,
+        clipboardClip: structuredClone(clipToCut),
+        clipboardOperation: 'cut',
+        // Note: actual deletion happens when paste is performed or explicitly
+      };
+    }
+
+    case PASTE_CLIP: {
+      // Paste clipboard clip at playhead position
+      if (!state.clipboardClip) return state;
+
+      const newClipId = state.nextClipId;
+      const newClip = {
+        ...structuredClone(state.clipboardClip),
+        id: newClipId,
+        startTime: action.payload.playheadTime, // Paste at playhead
+      };
+
+      // If operation was cut, also remove the original clip
+      let updatedClips = [...state.clips];
+      if (state.clipboardOperation === 'cut') {
+        updatedClips = updatedClips.filter(clip => clip.id !== state.clipboardClip.id);
+      }
+
+      return {
+        ...state,
+        clips: [...updatedClips, newClip],
+        nextClipId: state.nextClipId + 1,
+        selectedClipId: newClipId,
+        undoStack: pushUndoStack(state.undoStack, createStateSnapshot(state)),
+        redoStack: [],
+        // Keep clipboard for potential re-paste (unless it was a cut)
+        clipboardOperation: state.clipboardOperation === 'cut' ? null : state.clipboardOperation,
+      };
+    }
+
     default:
       return state;
   }
@@ -368,6 +428,18 @@ export function TimelineProvider({ children }) {
     dispatch({ type: REDO });
   }, []);
 
+  const copyClip = useCallback((clipId) => {
+    dispatch({ type: COPY_CLIP, payload: clipId });
+  }, []);
+
+  const cutClip = useCallback((clipId) => {
+    dispatch({ type: CUT_CLIP, payload: clipId });
+  }, []);
+
+  const pasteClip = useCallback((playheadTime) => {
+    dispatch({ type: PASTE_CLIP, payload: { playheadTime } });
+  }, []);
+
   const value = {
     clips: state.clips,
     textOverlays: state.textOverlays,
@@ -393,8 +465,13 @@ export function TimelineProvider({ children }) {
     restoreState,
     undo,
     redo,
+    copyClip,
+    cutClip,
+    pasteClip,
     canUndo: state.undoStack.length > 0,
     canRedo: state.redoStack.length > 0,
+    hasClipboard: state.clipboardClip !== null,
+    clipboardOperation: state.clipboardOperation,
   };
 
   return (

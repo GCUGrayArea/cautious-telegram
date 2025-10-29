@@ -49,6 +49,10 @@ function Timeline() {
     redo,
     canUndo,
     canRedo,
+    copyClip,
+    cutClip,
+    pasteClip,
+    hasClipboard,
   } = useTimeline();
 
   // Drag store for custom drag-drop
@@ -83,30 +87,57 @@ function Timeline() {
     return () => window.removeEventListener('resize', updateDimensions);
   }, [totalHeight]);
 
-  // Handle keyboard shortcuts for undo/redo
+  // Handle keyboard shortcuts for undo/redo/copy/cut/paste
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ctrl+Z or Cmd+Z for undo (but not in text inputs)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+      // Skip if in text input or textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      // Ctrl+Z or Cmd+Z for undo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         if (canUndo) {
           undo();
           console.log('↶ [Timeline] Undo triggered');
         }
       }
-      // Ctrl+Y or Cmd+Shift+Z for redo (but not in text inputs)
-      else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z')) && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+      // Ctrl+Y or Cmd+Shift+Z for redo
+      else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
         e.preventDefault();
         if (canRedo) {
           redo();
           console.log('↷ [Timeline] Redo triggered');
         }
       }
+      // Ctrl+C or Cmd+C for copy
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        e.preventDefault();
+        if (selectedClipId) {
+          copyClip(selectedClipId);
+          console.log('📋 [Timeline] Copy triggered for clip', selectedClipId);
+        }
+      }
+      // Ctrl+X or Cmd+X for cut
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+        e.preventDefault();
+        if (selectedClipId) {
+          cutClip(selectedClipId);
+          console.log('✂️ [Timeline] Cut triggered for clip', selectedClipId);
+        }
+      }
+      // Ctrl+V or Cmd+V for paste
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault();
+        if (hasClipboard) {
+          pasteClip(playheadTime);
+          console.log('📌 [Timeline] Paste triggered at', playheadTime);
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, canUndo, canRedo]);
+  }, [undo, redo, canUndo, canRedo, selectedClipId, copyClip, cutClip, pasteClip, hasClipboard, playheadTime]);
 
   // Handle zoom with mouse wheel (Ctrl+Scroll)
   const handleWheel = (e) => {
