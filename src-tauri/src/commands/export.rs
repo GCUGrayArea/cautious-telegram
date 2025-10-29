@@ -2,17 +2,18 @@
 use tauri::State;
 
 use crate::export::{ExportPipeline, ExportSettings};
-use crate::export::pipeline::ClipData;
+use crate::export::pipeline::{ClipData, TransitionData};
 use crate::ffmpeg::commands::FFmpegState;
 use crate::ffmpeg::wrapper::ExportProgress;
 
 /// Tauri command to export timeline to video file
 ///
-/// Takes timeline clips and export settings from frontend,
+/// Takes timeline clips, transitions, and export settings from frontend,
 /// processes them through ExportPipeline, and returns output path.
 #[tauri::command]
 pub fn export_timeline(
     clips: Vec<ClipData>,
+    transitions: Vec<TransitionData>,
     settings: ExportSettings,
     ffmpeg_state: State<'_, FFmpegState>,
 ) -> Result<String, String> {
@@ -23,7 +24,7 @@ pub fn export_timeline(
     let pipeline = ExportPipeline::new(std::sync::Arc::new(std::sync::Mutex::new(ffmpeg_wrapper)));
 
     // Execute export (blocking operation)
-    pipeline.export_timeline(clips, settings)
+    pipeline.export_timeline(clips, transitions, settings)
 }
 
 /// Tauri command to get current export progress

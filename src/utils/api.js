@@ -120,11 +120,12 @@ export async function importRecording(filePath, durationOverride = null) {
 /**
  * Export timeline to video file
  * @param {Array} clips - Array of clip data objects
+ * @param {Array} transitions - Array of transition data objects
  * @param {Object} settings - Export settings (resolution, output_path)
  * @returns {Promise<string>} - Path to exported file
  */
-export async function exportTimeline(clips, settings) {
-  return await invoke('export_timeline', { clips, settings });
+export async function exportTimeline(clips, transitions, settings) {
+  return await invoke('export_timeline', { clips, transitions, settings });
 }
 
 /**

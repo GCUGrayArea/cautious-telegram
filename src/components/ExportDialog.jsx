@@ -14,7 +14,7 @@ import { useTimeline } from '../store/timelineStore';
 import { exportTimeline, getExportProgress } from '../utils/api';
 
 export default function ExportDialog({ isOpen, onClose }) {
-  const { clips } = useTimeline();
+  const { clips, transitions } = useTimeline();
 
   // Component state
   const [resolution, setResolution] = useState('source');
@@ -153,8 +153,17 @@ export default function ExportDialog({ isOpen, onClose }) {
       setIsExporting(true);
       setError(null);
 
+      // Prepare transition data for export
+      const transitionData = transitions.map(t => ({
+        id: t.id,
+        clip_id_before: t.clipIdBefore,
+        clip_id_after: t.clipIdAfter,
+        transition_type: t.type,
+        duration: t.duration
+      }));
+
       // Call backend export command
-      const result = await exportTimeline(clipData, settings);
+      const result = await exportTimeline(clipData, transitionData, settings);
 
       // Success
       setSuccess(true);

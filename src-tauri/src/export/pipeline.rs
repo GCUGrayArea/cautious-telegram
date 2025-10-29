@@ -71,10 +71,11 @@ impl ExportPipeline {
     /// Process:
     /// 1. Validate clips and sort by timeline position
     /// 2. Detect if multi-track (any clips on track 1+)
-    /// 3. Route to single-track or multi-track export
+    /// 3. Route to single-track or multi-track export with transitions
     pub fn export_timeline(
         &self,
         clips: Vec<ClipData>,
+        transitions: Vec<TransitionData>,
         settings: ExportSettings,
     ) -> Result<String, String> {
         // Reset progress at start
@@ -108,17 +109,18 @@ impl ExportPipeline {
 
         if has_temporal_overlap {
             // Multi-track export with overlays (Picture-in-Picture)
-            self.export_multitrack(clips, settings)
+            self.export_multitrack(clips, transitions, settings)
         } else {
-            // Single-track export - concatenate all clips sequentially
-            self.export_singletrack(clips, settings)
+            // Single-track export - concatenate all clips sequentially with transitions
+            self.export_singletrack(clips, transitions, settings)
         }
     }
 
-    /// Export single track (track 0 only) - original implementation
+    /// Export single track (track 0 only) with transitions
     fn export_singletrack(
         &self,
         clips: Vec<ClipData>,
+        transitions: Vec<TransitionData>,
         settings: ExportSettings,
     ) -> Result<String, String> {
         // Sort clips by timeline position
@@ -277,6 +279,7 @@ impl ExportPipeline {
     fn export_multitrack(
         &self,
         clips: Vec<ClipData>,
+        _transitions: Vec<TransitionData>,
         settings: ExportSettings,
     ) -> Result<String, String> {
         // Group clips by track
