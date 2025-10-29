@@ -78,30 +78,9 @@ function PreviewPlayer({ currentTime }) {
 
         video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
       } else {
-        // Same source, but may have different in/out points (e.g., split clips)
-        // Always seek if time differs significantly
-        // Use seekable property to ensure video can be seeked
-        if (video.readyState >= 1) {
-          // HAVE_METADATA or better: safe to seek
-          if (Math.abs(video.currentTime - sourceTime) > 0.05) {
-            try {
-              video.currentTime = sourceTime;
-            } catch (e) {
-              console.warn('Failed to seek video:', e);
-            }
-          }
-        } else {
-          // Not ready yet, wait for metadata
-          const handleLoadedMetadata = () => {
-            if (Math.abs(video.currentTime - sourceTime) > 0.05) {
-              try {
-                video.currentTime = sourceTime;
-              } catch (e) {
-                console.warn('Failed to seek video:', e);
-              }
-            }
-          };
-          video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+        // Same source, just seek to new time
+        if (Math.abs(video.currentTime - sourceTime) > 0.1) {
+          video.currentTime = sourceTime;
         }
       }
 
@@ -162,22 +141,11 @@ function PreviewPlayer({ currentTime }) {
       if (!video) return;
 
       if (isPlaying) {
-        // Ensure video is ready before playing
-        // Wait for metadata if not ready
-        const attemptPlay = () => {
-          if (video.readyState >= 1) {
-            // HAVE_METADATA or better
-            video.play().catch(err => {
-              console.error('Failed to play video:', err);
-              setVideoError('Failed to play video. Please try again.');
-            });
-          } else {
-            // Not ready yet, wait for loadedmetadata
-            video.addEventListener('loadedmetadata', attemptPlay, { once: true });
-          }
-        };
-
-        attemptPlay();
+        // Start video playback
+        video.play().catch(err => {
+          console.error('Failed to play video:', err);
+          setVideoError('Failed to play video. Please try again.');
+        });
       } else {
         // Pause video playback
         video.pause();
@@ -186,7 +154,6 @@ function PreviewPlayer({ currentTime }) {
   }, [isPlaying, activeClips]);
 
   // Track video playback time for display (use first active clip)
-  // Also handle seeking stalls by resuming playback if needed
   useEffect(() => {
     if (activeClips.length === 0) return;
 
@@ -198,34 +165,9 @@ function PreviewPlayer({ currentTime }) {
       setVideoCurrentTime(video.currentTime);
     };
 
-    // If video is seeking and stalls, resume playback
-    const handleSeeking = () => {
-      if (isPlaying && video.readyState < 2) {
-        // HAVE_CURRENT_DATA or better needed for playback
-        // Video is seeking but data not ready - this will cause stall
-        // Nothing we can do here except wait
-      }
-    };
-
-    const handleSeeked = () => {
-      // After seek completes, resume playback if needed
-      if (isPlaying && video.paused && video.readyState >= 2) {
-        video.play().catch(err => {
-          console.error('Failed to resume after seek:', err);
-        });
-      }
-    };
-
     video.addEventListener('timeupdate', handleTimeUpdate);
-    video.addEventListener('seeking', handleSeeking);
-    video.addEventListener('seeked', handleSeeked);
-
-    return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdate);
-      video.removeEventListener('seeking', handleSeeking);
-      video.removeEventListener('seeked', handleSeeked);
-    };
-  }, [activeClips, isPlaying]);
+    return () => video.removeEventListener('timeupdate', handleTimeUpdate);
+  }, [activeClips]);
 
   // Track container dimensions for responsive layout
   // Use ResizeObserver to detect both width and height changes and force re-centering
