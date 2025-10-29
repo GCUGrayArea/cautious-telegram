@@ -7,8 +7,8 @@ const AUTO_SAVE_INTERVAL_MS = 30000; // 30 seconds
  * Custom hook to handle auto-saving timeline state to the database
  *
  * Features:
+ * - Loads saved state on component mount and restores via restoreState callback
  * - Auto-saves timeline state every 30 seconds
- * - Loads saved state on component mount
  * - Shows save status indicator
  * - Graceful error handling
  *
@@ -16,17 +16,21 @@ const AUTO_SAVE_INTERVAL_MS = 30000; // 30 seconds
  * @param {Array} timelineState.clips - Array of clip objects
  * @param {Array} timelineState.textOverlays - Array of text overlay objects
  * @param {number} timelineState.playheadTime - Current playhead position
- * @param {Function} callback - Callback to restore loaded state (receives timelineData)
- * @returns {Object} - { saveStatus, lastSaveTime, projectId }
+ * @param {number} timelineState.nextClipId - Next clip ID counter
+ * @param {number} timelineState.nextTextOverlayId - Next text overlay ID counter
+ * @param {Function} restoreStateCallback - Function to restore state (receives { clips, textOverlays, playheadTime, nextClipId, nextTextOverlayId })
+ * @returns {Object} - { saveStatus, lastSaveTime, projectId, isLoading }
  */
-export function useAutoSave(timelineState, callback) {
+export function useAutoSave(timelineState, restoreStateCallback) {
   const [projectId, setProjectId] = useState(null);
-  const [saveStatus, setSaveStatus] = useState('idle'); // idle, saving, saved, error
+  const [saveStatus, setSaveStatus] = useState('loading'); // loading, idle, saving, saved, error
   const [lastSaveTime, setLastSaveTime] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const autoSaveTimeoutRef = useRef(null);
   const isInitializedRef = useRef(false);
+  const hasRestoredRef = useRef(false);
 
-  // Initialize project and load saved state
+  // Initialize project and load saved state ONCE on mount
   useEffect(() => {
     if (isInitializedRef.current) return;
     isInitializedRef.current = true;
@@ -35,38 +39,45 @@ export function useAutoSave(timelineState, callback) {
       try {
         setSaveStatus('loading');
         const id = await getOrCreateDefaultProject();
+        console.log(`✅ [AutoSave] Initialized project with ID: ${id}`);
         setProjectId(id);
 
         // Load saved timeline state
         const savedTimelineJson = await loadProject(id);
-        if (savedTimelineJson) {
+        if (savedTimelineJson && !hasRestoredRef.current) {
           try {
             const savedTimeline = JSON.parse(savedTimelineJson);
             console.log('✅ [AutoSave] Loaded saved project state:', savedTimeline);
 
-            // Call callback to restore the state
-            if (callback) {
-              callback(savedTimeline);
+            // Call the restoreState function to update Redux/Context state
+            if (restoreStateCallback) {
+              restoreStateCallback(savedTimeline);
+              hasRestoredRef.current = true;
             }
           } catch (e) {
             console.warn('[AutoSave] Failed to parse saved timeline JSON:', e);
           }
+        } else {
+          console.log('[AutoSave] No saved state found or already restored');
         }
+
+        setIsLoading(false);
         setSaveStatus('idle');
       } catch (error) {
         console.error('[AutoSave] Failed to initialize project:', error);
+        setIsLoading(false);
         setSaveStatus('error');
       }
     };
 
     initializeProject();
-  }, [callback]);
+  }, [restoreStateCallback]);
 
-  // Auto-save timeline state
+  // Auto-save timeline state periodically
   useEffect(() => {
     if (!projectId) return;
 
-    // Clear any existing timeout
+    // Clear any existing interval
     if (autoSaveTimeoutRef.current) {
       clearInterval(autoSaveTimeoutRef.current);
     }
@@ -80,7 +91,6 @@ export function useAutoSave(timelineState, callback) {
           clips: timelineState.clips || [],
           textOverlays: timelineState.textOverlays || [],
           playheadTime: timelineState.playheadTime || 0,
-          // Store metadata for future use
           nextClipId: timelineState.nextClipId || 1,
           nextTextOverlayId: timelineState.nextTextOverlayId || 1,
         };
@@ -114,6 +124,7 @@ export function useAutoSave(timelineState, callback) {
     projectId,
     saveStatus,
     lastSaveTime,
+    isLoading,
     autoSaveIntervalMs: AUTO_SAVE_INTERVAL_MS,
   };
 }

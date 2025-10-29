@@ -34,6 +34,7 @@ const ADD_TEXT_OVERLAY = 'ADD_TEXT_OVERLAY';
 const REMOVE_TEXT_OVERLAY = 'REMOVE_TEXT_OVERLAY';
 const UPDATE_TEXT_OVERLAY = 'UPDATE_TEXT_OVERLAY';
 const SELECT_TEXT_OVERLAY = 'SELECT_TEXT_OVERLAY';
+const RESTORE_STATE = 'RESTORE_STATE';
 
 // Reducer
 function timelineReducer(state, action) {
@@ -186,6 +187,24 @@ function timelineReducer(state, action) {
       return newState;
     }
 
+    case RESTORE_STATE: {
+      // Restore entire timeline state from saved data
+      const { clips, textOverlays, playheadTime, nextClipId, nextTextOverlayId } = action.payload;
+      const restoredState = {
+        ...state,
+        clips: clips || [],
+        textOverlays: textOverlays || [],
+        playheadTime: playheadTime || 0,
+        nextClipId: nextClipId || 1,
+        nextTextOverlayId: nextTextOverlayId || 1,
+        selectedClipId: null,
+        selectedTextOverlayId: null,
+        isPlaying: false,
+      };
+      console.log('🔄 [Store] RESTORE_STATE - restored timeline with', restoredState.clips.length, 'clips and', restoredState.textOverlays.length, 'overlays');
+      return restoredState;
+    }
+
     default:
       return state;
   }
@@ -254,6 +273,10 @@ export function TimelineProvider({ children }) {
     dispatch({ type: SELECT_TEXT_OVERLAY, payload: textOverlayId });
   }, []);
 
+  const restoreState = useCallback((savedState) => {
+    dispatch({ type: RESTORE_STATE, payload: savedState });
+  }, []);
+
   const value = {
     clips: state.clips,
     textOverlays: state.textOverlays,
@@ -261,6 +284,8 @@ export function TimelineProvider({ children }) {
     selectedTextOverlayId: state.selectedTextOverlayId,
     playheadTime: state.playheadTime,
     isPlaying: state.isPlaying,
+    nextClipId: state.nextClipId,
+    nextTextOverlayId: state.nextTextOverlayId,
     addClip,
     removeClip,
     updateClip,
@@ -274,6 +299,7 @@ export function TimelineProvider({ children }) {
     removeTextOverlay,
     updateTextOverlay,
     selectTextOverlay,
+    restoreState,
   };
 
   return (

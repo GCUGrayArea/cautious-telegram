@@ -204,8 +204,15 @@ function PlaybackControls({ onExportClick, currentTime }) {
         )}
       </div>
 
+      {/* Auto-save notice - centered */}
+      <div className="flex-1 flex justify-center">
+        <span className="text-xs text-gray-500">
+          Auto-saves every 30 seconds
+        </span>
+      </div>
+
       {/* Current time display and Export button */}
-      <div className="ml-4 flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-2">
         <div className="bg-gray-700 rounded px-3 py-1">
           <span className="text-xs text-gray-300">
             Time: {currentTime?.toFixed(2) || '0.00'}s

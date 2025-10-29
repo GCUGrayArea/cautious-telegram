@@ -18,7 +18,7 @@ function AppContent() {
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [activeTab, setActiveTab] = useState('library'); // 'library' or 'record'
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const { playheadTime, clips, isPlaying, setPlayheadTime, setPlaybackState, selectedTextOverlayId, textOverlays, clearSelection } = useTimeline();
+  const { playheadTime, clips, isPlaying, setPlayheadTime, setPlaybackState, selectedTextOverlayId, textOverlays, clearSelection, restoreState, nextClipId, nextTextOverlayId } = useTimeline();
   const playbackEngineRef = useRef(null);
 
   // Recording state - lifted from RecordingPanel to persist across tab switches
@@ -47,23 +47,17 @@ function AppContent() {
     // The MediaLibrary component will auto-refresh via its useEffect
   };
 
-  // Auto-save callback to restore loaded timeline state
-  const handleRestoreTimeline = useCallback((savedTimeline) => {
-    // This callback would be called when saved state is loaded
-    // For now, we just log it - the auto-save hook handles state internally
-    console.log('[AutoSave] Timeline state loaded from database');
-  }, []);
-
   // Setup auto-save - will save every 30 seconds
-  const { projectId, saveStatus, lastSaveTime } = useAutoSave(
+  // Passes restoreState function to hook so it can restore saved state when component mounts
+  const { projectId, saveStatus, lastSaveTime, isLoading } = useAutoSave(
     {
       clips,
       textOverlays,
       playheadTime,
-      nextClipId: 1, // These would normally come from store
-      nextTextOverlayId: 1,
+      nextClipId,
+      nextTextOverlayId,
     },
-    handleRestoreTimeline
+    restoreState
   );
 
   const handleExportClick = () => {
