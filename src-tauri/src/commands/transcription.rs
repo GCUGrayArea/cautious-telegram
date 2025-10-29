@@ -24,26 +24,33 @@ pub async fn transcribe_timeline(clips: Vec<ClipData>) -> Result<TranscriptionRe
         .map_err(|e| format!("Failed to transcribe timeline: {}", e))?;
 
     // Adjust segment timings to match timeline positions
-    // Need to account for clip start times and gaps
-    let mut timeline_offset = 0.0;
-
-    // Sort clips by timeline position
+    // Build a mapping of audio time ranges to timeline positions
     let mut sorted_clips = clips.clone();
     sorted_clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap_or(std::cmp::Ordering::Equal));
 
+    // Create array of (audio_start, audio_end, timeline_start) for each clip
+    let mut time_mappings: Vec<(f64, f64, f64)> = Vec::new();
+    let mut audio_time = 0.0;
+
+    for clip in &sorted_clips {
+        let clip_duration = clip.out_point - clip.in_point;
+        let audio_end = audio_time + clip_duration;
+        time_mappings.push((audio_time, audio_end, clip.start_time));
+        audio_time = audio_end;
+    }
+
+    // Map each segment using the time mappings
     for segment in &mut result.segments {
-        // Find which clip this segment belongs to based on audio time
-        let mut cumulative_time = 0.0;
-        for clip in &sorted_clips {
-            let clip_duration = clip.out_point - clip.in_point;
-            if segment.start_time < cumulative_time + clip_duration {
-                // This segment is in this clip
-                let segment_time_in_clip = segment.start_time - cumulative_time;
-                segment.start_time = clip.start_time + segment_time_in_clip;
+        let original_time = segment.start_time;
+        for (audio_start, audio_end, timeline_start) in &time_mappings {
+            if original_time >= *audio_start && original_time < *audio_end {
+                // This segment belongs to this clip
+                let offset_in_clip = original_time - audio_start;
+                segment.start_time = timeline_start + offset_in_clip;
                 break;
             }
-            cumulative_time += clip_duration;
         }
+        // If segment wasn't found in any clip (shouldn't happen), leave it as-is
     }
 
     // Clean up audio file
