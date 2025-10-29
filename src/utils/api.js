@@ -126,7 +126,7 @@ export async function importRecording(filePath, durationOverride = null) {
  * @returns {Promise<string>} - Path to exported file
  */
 export async function exportTimeline(clips, transitions, textOverlays, settings) {
-  return await invoke('export_timeline', { clips, transitions, text_overlays: textOverlays, settings });
+  return await invoke('export_timeline', { clips, transitions, textOverlays, settings });
 }
 
 /**
