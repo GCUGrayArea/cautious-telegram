@@ -10,7 +10,7 @@ This file tracks which agent identities are currently in use. Agents must claim 
 |----------|--------|-------------|------------|
 | White    | In Use | 2025-10-29 02:15 | Review & QC |
 | Orange   | Available | - | - |
-| Blonde   | Available | - | - |
+| Blonde   | In Use | 2025-10-29 15:50 | PR-STRETCH-002 |
 | Pink     | Available | - | - |
 | Blue     | Available | - | - |
 | Brown    | Available | - | - |
