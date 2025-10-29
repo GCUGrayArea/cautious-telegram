@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import MediaLibrary from './components/MediaLibrary';
 import RecordingPanel from './components/RecordingPanel';
 import Timeline from './components/Timeline';
@@ -9,6 +9,7 @@ import TextOverlayEditor from './components/TextOverlayEditor';
 import { TimelineProvider, useTimeline } from './store/timelineStore.jsx';
 import { DragProvider } from './store/dragStore.jsx';
 import { PlaybackEngine, calculateTimelineDuration } from './utils/playback';
+import { useAutoSave } from './hooks/useAutoSave';
 
 /**
  * AppContent - Inner component that has access to timeline store
@@ -45,6 +46,25 @@ function AppContent() {
     setActiveTab('library');
     // The MediaLibrary component will auto-refresh via its useEffect
   };
+
+  // Auto-save callback to restore loaded timeline state
+  const handleRestoreTimeline = useCallback((savedTimeline) => {
+    // This callback would be called when saved state is loaded
+    // For now, we just log it - the auto-save hook handles state internally
+    console.log('[AutoSave] Timeline state loaded from database');
+  }, []);
+
+  // Setup auto-save - will save every 30 seconds
+  const { projectId, saveStatus, lastSaveTime } = useAutoSave(
+    {
+      clips,
+      textOverlays,
+      playheadTime,
+      nextClipId: 1, // These would normally come from store
+      nextTextOverlayId: 1,
+    },
+    handleRestoreTimeline
+  );
 
   const handleExportClick = () => {
     setExportDialogOpen(true);
@@ -104,8 +124,33 @@ function AppContent() {
     <div className="flex flex-col h-screen bg-gray-900 text-white">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-gray-800 border-b border-gray-700">
-        <h1 className="text-2xl font-bold">ClipForge</h1>
-        <p className="text-sm text-gray-400">Desktop Video Editor</p>
+        <div>
+          <h1 className="text-2xl font-bold">ClipForge</h1>
+          <p className="text-sm text-gray-400">Desktop Video Editor</p>
+        </div>
+        {/* Auto-save Status Indicator */}
+        <div className="flex items-center gap-2">
+          {saveStatus === 'saving' && (
+            <span className="text-sm text-yellow-400 flex items-center gap-1">
+              <span className="animate-spin">⟳</span> Saving...
+            </span>
+          )}
+          {saveStatus === 'saved' && (
+            <span className="text-sm text-green-400 flex items-center gap-1">
+              ✓ Saved
+            </span>
+          )}
+          {saveStatus === 'error' && (
+            <span className="text-sm text-red-400 flex items-center gap-1">
+              ✕ Save failed
+            </span>
+          )}
+          {lastSaveTime && saveStatus === 'idle' && (
+            <span className="text-xs text-gray-500">
+              Last saved: {lastSaveTime}
+            </span>
+          )}
+        </div>
       </header>
 
       {/* Main Content */}
@@ -164,7 +209,7 @@ function AppContent() {
         {/* Main Editor Area (Timeline + Preview) */}
         <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
           {/* Preview Area */}
-          <div className="flex-1 bg-black max-h-[75vh]" style={{ minHeight: 0 }}>
+          <div className="flex-1 bg-black max-h-[75vh]" style={{ minHeight: 0, minWidth: 0 }}>
             <PreviewPlayer currentTime={playheadTime} />
           </div>
 

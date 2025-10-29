@@ -134,3 +134,39 @@ export async function exportTimeline(clips, settings) {
 export async function getExportProgress() {
   return await invoke('get_export_progress');
 }
+
+/**
+ * Save project timeline state to database
+ * @param {number} projectId - Project ID (usually 1 for default)
+ * @param {string} timelineJson - JSON string of timeline data
+ * @returns {Promise<boolean>} - Success status
+ */
+export async function saveProject(projectId, timelineJson) {
+  return await invoke('save_project', { projectId, timelineJson });
+}
+
+/**
+ * Load project timeline state from database
+ * @param {number} projectId - Project ID (usually 1 for default)
+ * @returns {Promise<string|null>} - Timeline JSON string or null if not found
+ */
+export async function loadProject(projectId) {
+  return await invoke('load_project', { projectId });
+}
+
+/**
+ * Create a new project
+ * @param {string} name - Project name
+ * @returns {Promise<number>} - New project ID
+ */
+export async function createProject(name) {
+  return await invoke('create_project', { name });
+}
+
+/**
+ * Get or create the default project
+ * @returns {Promise<number>} - Project ID (always 1 for default)
+ */
+export async function getOrCreateDefaultProject() {
+  return await invoke('get_or_create_default_project');
+}

@@ -50,6 +50,10 @@ fn main() {
             commands::export::export_timeline,
             commands::export::get_export_progress,
             commands::transcription::transcribe_timeline,
+            commands::project::save_project,
+            commands::project::load_project,
+            commands::project::create_project,
+            commands::project::get_or_create_default_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
