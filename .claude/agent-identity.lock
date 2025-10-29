@@ -9,7 +9,7 @@ This file tracks which agent identities are currently in use. Agents must claim 
 | Identity | Status | Last Commit | Current PR |
 |----------|--------|-------------|------------|
 | White    | In Use | 2025-10-29 02:15 | Review & QC |
-| Orange   | In Use | 2025-10-29 18:00 | Reviewing priorities |
+| Orange   | In Use | 2025-10-29 18:05 | PR-STRETCH-007 |
 | Blonde   | Available | 2025-10-29 16:25 | (released) |
 | Pink     | Available | - | - |
 | Blue     | Available | - | - |
