@@ -617,18 +617,58 @@ impl ExportPipeline {
             }
         }
 
-        // Build audio filter: concat all audio streams (with fallback for missing audio)
-        let mut audio_inputs = Vec::new();
+        // Build audio filter: trim and delay audio to match xfade video timing
+        // When xfade creates an overlap, we need to adjust audio timing accordingly
+        let mut audio_filter_parts = Vec::new();
+        let mut audio_time = 0.0;
+
         for i in 0..num_clips {
-            // Use anullsrc as fallback for clips without audio
-            audio_inputs.push(format!("[{}:a?]", i));
+            let clip = &clips[i];
+            let clip_duration = clip.out_point - clip.in_point;
+
+            // Get transition info for this clip (if transitioning to next)
+            let has_transition = if i < num_clips - 1 {
+                let next_clip = &clips[i + 1];
+                transitions.iter().any(|t| t.clip_id_before == clip.id && t.clip_id_after == next_clip.id)
+            } else {
+                false
+            };
+
+            let transition_duration = if has_transition {
+                transitions.iter()
+                    .find(|t| t.clip_id_before == clip.id && i < num_clips - 1 && t.clip_id_after == clips[i + 1].id)
+                    .map(|t| t.duration)
+                    .unwrap_or(0.0)
+            } else {
+                0.0
+            };
+
+            // For this clip: trim audio duration and delay it to match timeline position
+            let audio_duration = clip_duration;
+            let delay_ms = (audio_time * 1000.0) as i64;
+
+            let audio_part = if delay_ms > 0 {
+                format!("[{}:a?]atrim=duration={:.3},adelay={}ms[a{}]", i, audio_duration, delay_ms, i)
+            } else {
+                format!("[{}:a?]atrim=duration={:.3}[a{}]", i, audio_duration, i)
+            };
+
+            audio_filter_parts.push(audio_part);
+
+            // Update audio_time for next clip: current duration minus transition overlap
+            if has_transition && transition_duration > 0.0 {
+                audio_time += clip_duration - transition_duration;
+            } else {
+                audio_time += clip_duration - 0.01; // Account for minimal xfade even without transition
+            }
         }
 
-        // If we have audio inputs, build concat filter
+        // Combine all audio streams with amix (volume normalization)
         let audio_filter = if num_clips > 0 {
+            let audio_labels: Vec<String> = (0..num_clips).map(|i| format!("[a{}]", i)).collect();
             format!(
-                "{}concat=n={}:v=0:a=1[aout]",
-                audio_inputs.join(""),
+                "{}amix=inputs={}:duration=first[aout]",
+                audio_filter_parts.join(";"),
                 num_clips
             )
         } else {
@@ -1023,11 +1063,15 @@ impl ExportPipeline {
             args.push(overlay_file.display().to_string());
         }
 
-        // Build filter_complex string (video overlays only)
-        let (video_filter, _audio_filter) = self.build_overlay_and_audio_filter(overlay_clips, overlay_files.len());
+        // Build filter_complex string (video overlays + audio mixing)
+        let (video_filter, audio_filter) = self.build_overlay_and_audio_filter(overlay_clips, overlay_files.len());
 
-        // Add filter_complex and output mapping
-        let filter_complex = video_filter;
+        // Combine video and audio filters
+        let mut filter_complex = if audio_filter.is_empty() {
+            video_filter
+        } else {
+            format!("{};{}", video_filter, audio_filter)
+        };
 
         // Text overlay export disabled - feature suspended pending FFmpeg limitations resolution
         // text_overlays parameter is accepted but not processed (see .claude/PR-STRETCH-009-NOTES.md)
@@ -1040,7 +1084,7 @@ impl ExportPipeline {
         args.push("-map".to_string());
         args.push("[out]".to_string());
         args.push("-map".to_string());
-        args.push("0:a?".to_string());  // Audio from base video (simpler than mixing)
+        args.push("[aout]".to_string());  // Audio mixed from all sources
 
         // Add scaling filter if needed (applied to final output)
         if let Some(scale) = settings.resolution.scale_filter() {
@@ -1132,9 +1176,24 @@ impl ExportPipeline {
 
         let video_filter = filter_parts.join(";");
 
-        // Build audio mixing filter - just use base audio for now
-        // TODO: Properly detect which inputs have audio and mix only those
-        let audio_filter = "[0:a?]acopy[aout]".to_string();
+        // Build audio mixing filter - mix base audio with all overlay audio streams
+        // Include base audio (input 0) and all overlay audio (inputs 1+)
+        let mut audio_inputs = vec!["[0:a?]".to_string()];  // Base audio
+
+        // Add audio from all overlay clips
+        for index in 0..num_overlays {
+            audio_inputs.push(format!("[{}:a?]", index + 1));  // Overlay audio at input index+1
+        }
+
+        let audio_filter = if num_overlays > 0 {
+            format!(
+                "{}amix=inputs={}:duration=longest[aout]",
+                audio_inputs.join(""),
+                num_overlays + 1  // Base + all overlays
+            )
+        } else {
+            "[0:a?]acopy[aout]".to_string()
+        };
 
         (video_filter, audio_filter)
     }
