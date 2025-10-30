@@ -2,13 +2,13 @@
 
 This file tracks which agent identities are currently in use. Agents must claim an identity before starting work and release it when done.
 
-**Last Updated:** 2025-10-28 (White releasing identity after completing PR-POST-MVP-010)
+**Last Updated:** 2025-10-30 (White suspending PR-STRETCH-009, moving to transcription feature)
 
 ## Available Identities
 
 | Identity | Status | Last Commit | Current PR |
 |----------|--------|-------------|------------|
-| White    | In Use | 2025-10-29 02:15 | Review & QC |
+| White    | Available | 2025-10-30 01:40 | (suspended PR-STRETCH-009) |
 | Orange   | Available | 2025-10-30 00:15 | (released) |
 | Blonde   | Available | 2025-10-29 16:25 | (released) |
 | Pink     | Available | - | - |
