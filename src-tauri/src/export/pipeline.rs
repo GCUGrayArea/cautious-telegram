@@ -826,6 +826,7 @@ impl ExportPipeline {
             "-safe", "0",
             "-i", concat_list_str,
             "-c", "copy",  // Copy codecs (no re-encoding)
+            "-map", "0",  // Map all streams (video and audio)
             "-y",
             output_str,
         ];
@@ -1176,20 +1177,22 @@ impl ExportPipeline {
 
         let video_filter = filter_parts.join(";");
 
-        // Build audio mixing filter - mix base audio with all overlay audio streams
-        // Include base audio (input 0) and all overlay audio (inputs 1+)
-        let mut audio_inputs = vec!["[0:a?]".to_string()];  // Base audio
+        // Build audio mixing filter - mix base audio with overlay audio
+        // Use anullsrc=s=1 trick to replace missing audio with silence
+        let mut audio_inputs = String::new();
+        audio_inputs.push_str("[0:a?]");
 
-        // Add audio from all overlay clips
         for index in 0..num_overlays {
-            audio_inputs.push(format!("[{}:a?]", index + 1));  // Overlay audio at input index+1
+            audio_inputs.push_str(&format!("[{}:a?]", index + 1));
         }
 
+        // Add anullsrc as fallback for completely missing audio
+        // anullsrc=s=1:r=48000:cl=stereo creates 1 second of silence
         let audio_filter = if num_overlays > 0 {
             format!(
-                "{}amix=inputs={}:duration=longest[aout]",
-                audio_inputs.join(""),
-                num_overlays + 1  // Base + all overlays
+                "{}[vs]anullsrc=s=1:r=48000:cl=stereo[asilent];[asilent]amix=inputs={}:duration=longest[aout]",
+                audio_inputs,
+                num_overlays + 1
             )
         } else {
             "[0:a?]acopy[aout]".to_string()
