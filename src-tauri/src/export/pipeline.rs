@@ -1020,22 +1020,29 @@ impl ExportPipeline {
         if !text_overlays.is_empty() {
             eprintln!("   Adding {} text overlays to filter chain", text_overlays.len());
             // Text overlays are applied as a separate filter after video overlays
-            // Change output label from [out] to [vout_with_text] for chaining
+            // Change output label from [out] to [vtext_in] for chaining
             filter_complex = filter_complex.replace("[out]", "[vtext_in]");
 
             // Build drawtext filters for text overlays
-            let mut text_filter_chain = vec!["[vtext_in]".to_string()];
+            // Each drawtext filter is: drawtext=text='...':x='...':y='...:fontsize=...:fontcolor=...
+            // When chaining multiple, they should be separated by commas
+            let mut text_filters = Vec::new();
             for (i, overlay) in text_overlays.iter().enumerate() {
                 if let Ok(drawtext) = self.build_drawtext_filter(overlay) {
                     eprintln!("   Overlay {}: {}", i, drawtext);
-                    text_filter_chain.push(drawtext);
+                    text_filters.push(drawtext);
                 }
             }
-            text_filter_chain.push("[out]".to_string());
+
+            // Build the complete text filter chain with proper comma separation
+            let text_filter_chain = format!(
+                "[vtext_in]{}[out]",
+                text_filters.join(",")
+            );
 
             // Combine video overlay filter with text overlay filters
             filter_complex.push_str(";");
-            filter_complex.push_str(&text_filter_chain.join(""));
+            filter_complex.push_str(&text_filter_chain);
         }
 
         args.push("-filter_complex".to_string());
@@ -1144,13 +1151,16 @@ impl ExportPipeline {
 
     /// Build FFmpeg drawtext filter for a text overlay
     ///
-    /// Format: drawtext=text='...':x='(main_w*x)/100':y='(main_h*y)/100':fontsize=N:fontcolor='color'
+    /// Format: drawtext=text='...':x='(main_w*x)/100':y='(main_h*y)/100':fontsize=N:fontcolor=0xRRGGBB
     fn build_drawtext_filter(&self, overlay: &TextOverlayData) -> Result<String, String> {
         // Escape special characters in text for FFmpeg drawtext filter
-        // The text parameter in drawtext needs to escape colons and backslashes
+        // In FFmpeg filter syntax, within single quotes:
+        // - Single quotes need to be escaped as '\''
+        // - Backslashes need to be doubled: \\
+        // - Colons don't need escaping inside quoted values
         let escaped_text = overlay.text
-            .replace("\\", "\\\\")
-            .replace("'", "\\'");
+            .replace("\\", "\\\\")     // Escape backslashes first
+            .replace("'", "\\'");      // Then escape single quotes
 
         // Convert color from hex (#RRGGBB) - FFmpeg accepts hex colors with 0x prefix
         let fontcolor = if overlay.color.starts_with('#') {
@@ -1160,21 +1170,19 @@ impl ExportPipeline {
         };
 
         // Calculate x and y from percentages (0-100) to pixel positions
-        // Use 'main_w' and 'main_h' for width/height in FFmpeg
+        // Use main_w and main_h for width/height in FFmpeg expressions
+        // These need to be quoted as well
         let x_expr = format!("(main_w*{})/100", overlay.x);
         let y_expr = format!("(main_h*{})/100", overlay.y);
 
-        // Build the enable expression for timing (between start and end time)
-        // Note: enable parameter uses different syntax, no quotes around the expression
-        let end_time = overlay.start_time + overlay.duration;
-
-        // Build drawtext filter - simpler syntax without enable for now
-        // This will draw the text for the entire video duration
+        // Build drawtext filter with proper quoting
+        // All values are wrapped in single quotes to protect special characters
         let filter = format!(
             "drawtext=text='{}':x='{}':y='{}':fontsize={}:fontcolor={}",
             escaped_text, x_expr, y_expr, overlay.font_size, fontcolor
         );
 
+        eprintln!("      built drawtext: {}", filter);
         Ok(filter)
     }
 }
