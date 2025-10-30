@@ -1171,15 +1171,25 @@ impl ExportPipeline {
     /// Build FFmpeg drawtext filter for a text overlay
     ///
     /// Format: drawtext=text='...':x='(main_w*x)/100':y='(main_h*y)/100':fontsize=N:fontcolor=0xRRGGBB
+    ///
+    /// FFmpeg drawtext escaping:
+    /// - Within single quotes, to include a literal single quote: end quote, escaped quote, start quote: '...' '\'' '...'
+    /// - This becomes: ...\...
+    /// - But in practice, FFmpeg also accepts \' inside single quotes for escaping
     fn build_drawtext_filter(&self, overlay: &TextOverlayData) -> Result<String, String> {
         // Escape special characters in text for FFmpeg drawtext filter
-        // In FFmpeg filter syntax, within single quotes:
-        // - Single quotes need to be escaped as '\''
-        // - Backslashes need to be doubled: \\
-        // - Colons don't need escaping inside quoted values
+        // FFmpeg drawtext filter documentation:
+        // - For text parameter, we can use single quotes to protect most special chars
+        // - But single quotes inside the quoted text need special handling
+        // - The safest way is to use the sequence: '\'' which ends the quote, adds escaped quote, starts new quote
+        // - OR we can use the expansion syntax where we don't quote the parameter at all
+
+        // Use FFmpeg's text expansion format which is more flexible
+        // In drawtext filter, we can use: text='literal text' or without quotes if we escape properly
+        // Let's use the quoting approach but properly escape single quotes
         let escaped_text = overlay.text
-            .replace("\\", "\\\\")     // Escape backslashes first
-            .replace("'", "\\'");      // Then escape single quotes
+            .replace("\\", "\\\\")                    // Backslashes -> double backslash
+            .replace("'", "'\\''");                   // Single quote -> '\'(escaped quote)'
 
         // Convert color from hex (#RRGGBB) - FFmpeg accepts hex colors with 0x prefix
         let fontcolor = if overlay.color.starts_with('#') {
@@ -1190,18 +1200,23 @@ impl ExportPipeline {
 
         // Calculate x and y from percentages (0-100) to pixel positions
         // Use main_w and main_h for width/height in FFmpeg expressions
-        // These need to be quoted as well
         let x_expr = format!("(main_w*{})/100", overlay.x);
         let y_expr = format!("(main_h*{})/100", overlay.y);
 
-        // Build drawtext filter with proper quoting
-        // All values are wrapped in single quotes to protect special characters
+        // Build the enable expression to show text only during its time range
+        // enable='between(t,start_time,end_time)' tells FFmpeg to only apply the filter during that time
+        let end_time = overlay.start_time + overlay.duration;
+        let enable_expr = format!("between(t,{:.3},{:.3})", overlay.start_time, end_time);
+
+        // Build drawtext filter with proper FFmpeg escaping
+        // Using the '\'' (end quote, escaped quote, start quote) pattern for embedded single quotes
+        // The enable parameter constrains when the text appears based on video timestamp
         let filter = format!(
-            "drawtext=text='{}':x='{}':y='{}':fontsize={}:fontcolor={}",
-            escaped_text, x_expr, y_expr, overlay.font_size, fontcolor
+            "drawtext=text='{}':x='{}':y='{}':fontsize={}:fontcolor={}:enable='{}'",
+            escaped_text, x_expr, y_expr, overlay.font_size, fontcolor, enable_expr
         );
 
-        eprintln!("      built drawtext: {}", filter);
+        eprintln!("      built drawtext with timing {:.2}s-{:.2}s: {}", overlay.start_time, end_time, filter);
         Ok(filter)
     }
 }
