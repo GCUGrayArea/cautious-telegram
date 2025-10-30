@@ -4,8 +4,8 @@ import TimeRuler from './timeline/TimeRuler';
 import Playhead from './timeline/Playhead';
 import TimelineClip from './timeline/TimelineClip';
 // import TextOverlayClip from './timeline/TextOverlayClip'; // DISABLED: Text overlay feature suspended - see .claude/PR-STRETCH-009-NOTES.md
-import TransitionIndicator from './timeline/TransitionIndicator';
-import TransitionEditor from './TransitionEditor';
+// import TransitionIndicator from './timeline/TransitionIndicator'; // DISABLED: Scene transitions disabled - using jump cuts only
+// import TransitionEditor from './TransitionEditor'; // DISABLED: Scene transitions disabled - using jump cuts only
 import {
   TIMELINE_CONFIG,
   applyZoom,
@@ -711,9 +711,10 @@ function Timeline() {
           )}
         </Layer>
 
-        {/* Transition zones and indicators layer */}
-        <Layer>
-          {/* First render clickable zones for adjacent clips WITHOUT transitions */}
+        {/* Transition zones and indicators layer - DISABLED */}
+        {/* Scene transitions disabled - using jump cuts only */}
+        {/* <Layer>
+          {/* First render clickable zones for adjacent clips WITHOUT transitions * /}
           {findAdjacentClips(clips).map(({ clipBefore, clipAfter }, index) => {
             // Check if a transition already exists for this pair
             const existingTransition = transitions.find(
@@ -731,7 +732,7 @@ function Timeline() {
 
             return (
               <Group key={`transition-zone-${zoneId}`}>
-                {/* Clickable zone (vertical line at boundary) */}
+                {/* Clickable zone (vertical line at boundary) * /}
                 <Rect
                   x={zoneX - 10}
                   y={zoneY}
@@ -762,7 +763,7 @@ function Timeline() {
                   perfectDrawEnabled={false}
                   listening={true}
                 />
-                {/* Plus icon hint */}
+                {/* Plus icon hint * /}
                 <Text
                   x={zoneX - 6}
                   y={zoneY + (TIMELINE_CONFIG.TRACK_HEIGHT / 2) - 8}
@@ -777,7 +778,7 @@ function Timeline() {
             );
           })}
 
-          {/* Then render existing transitions */}
+          {/* Then render existing transitions * /}
           {transitions.map(transition => {
             const clipBefore = clips.find(c => c.id === transition.clipIdBefore);
             const clipAfter = clips.find(c => c.id === transition.clipIdAfter);
@@ -801,7 +802,7 @@ function Timeline() {
               />
             );
           })}
-        </Layer>
+        </Layer> */}
 
         {/* Text overlays layer - DISABLED */}
         {/* Feature suspended - see .claude/PR-STRETCH-009-NOTES.md for details */}
@@ -845,15 +846,16 @@ function Timeline() {
         </Stage>
       </div>
 
-      {/* Transition Editor Modal */}
-      {transitionEditorState && (
+      {/* Transition Editor Modal - DISABLED */}
+      {/* Scene transitions disabled - using jump cuts only */}
+      {/* {transitionEditorState && (
         <TransitionEditor
           transition={transitionEditorState.transition}
           clipBefore={transitionEditorState.clipBefore}
           clipAfter={transitionEditorState.clipAfter}
           onClose={() => setTransitionEditorState(null)}
         />
-      )}
+      )} */}
     </div>
   );
 }

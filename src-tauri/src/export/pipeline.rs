@@ -151,15 +151,11 @@ impl ExportPipeline {
         // Phase 1: Trim clips to intermediate files
         let intermediate_files = self.trim_clips(&sorted_clips, &temp_dir)?;
 
-        // Phase 2: Choose concatenation method based on whether we have transitions
-        let result = if transitions.is_empty() {
-            // No transitions: Use fast concat demuxer
-            eprintln!("🎬 Using concatenate_and_encode (no transitions)");
-            self.concatenate_and_encode(&intermediate_files, &text_overlays, &settings)
-        } else {
-            // With transitions: Use filter_complex with xfade
-            self.concatenate_with_transitions(&intermediate_files, &sorted_clips, &transitions, &text_overlays, &settings)
-        };
+        // Phase 2: Concatenate clips with jump cuts (transitions disabled)
+        // Transitions are a stretch goal and have been disabled
+        // Always use fast concat demuxer for jump cuts
+        eprintln!("🎬 Using concatenate_and_encode (jump cuts only - transitions disabled)");
+        let result = self.concatenate_and_encode(&intermediate_files, &text_overlays, &settings);
 
         // Clean up temp files
         for file in &intermediate_files {
@@ -203,30 +199,22 @@ impl ExportPipeline {
                 .ok_or_else(|| "Failed to convert path to string (invalid UTF-8)".to_string())?;
 
             // Check if audio filtering is needed
+            // Always re-encode if we need to handle missing audio (generate silence)
             let needs_audio_filter = clip.is_muted ||
                                       clip.volume != 100 ||
                                       clip.fade_in_duration > 0.0 ||
                                       clip.fade_out_duration > 0.0;
 
-            if needs_audio_filter {
-                // Trim with audio filtering (requires re-encoding)
-                self.trim_with_audio_filters(
-                    &ffmpeg,
-                    &clip.path,
-                    path_str,
-                    clip.in_point,
-                    clip.out_point,
-                    clip,
-                )?;
-            } else {
-                // Fast trim with codec copy (no re-encoding)
-                ffmpeg.trim_video(
-                    &clip.path,
-                    path_str,
-                    clip.in_point,
-                    clip.out_point,
-                )?;
-            }
+            // Always use audio filtering to ensure output has audio
+            // This handles clips that may not have audio by generating silence
+            self.trim_with_audio_filters(
+                &ffmpeg,
+                &clip.path,
+                path_str,
+                clip.in_point,
+                clip.out_point,
+                clip,
+            )?;
 
             intermediate_files.push(intermediate_path);
         }
@@ -235,6 +223,7 @@ impl ExportPipeline {
     }
 
     /// Trim clip with audio filtering (requires re-encoding audio)
+    /// Handles audio from the source file (if present), or generates silence if missing
     fn trim_with_audio_filters(
         &self,
         ffmpeg: &FFmpegWrapper,
@@ -246,7 +235,7 @@ impl ExportPipeline {
     ) -> Result<(), String> {
         let duration = end_time - start_time;
 
-        // Build audio filter string
+        // Build audio filter string for user-specified filters (volume, fades, mute)
         let mut audio_filters = Vec::new();
 
         // Mute takes precedence
@@ -271,26 +260,77 @@ impl ExportPipeline {
             }
         }
 
-        let audio_filter_str = audio_filters.join(",");
-
         // Build FFmpeg command - store strings to ensure they live long enough
         let start_time_str = start_time.to_string();
         let duration_str = duration.to_string();
+        let anullsrc_spec = format!("anullsrc=r=48000:cl=stereo:d={}", duration);
 
-        let args = vec![
-            "-ss", start_time_str.as_str(),
-            "-i", input_path,
-            "-t", duration_str.as_str(),
-            "-af", audio_filter_str.as_str(),
-            "-c:v", "copy",  // Copy video codec (fast)
-            "-c:a", "aac",   // Re-encode audio with AAC
-            "-b:a", "192k",  // Audio bitrate
-            "-y",
-            output_path,
+        // Build the audio filter chain - applies filters to audio from input 0 (if it exists)
+        // or to silence from input 1 (if input 0 has no audio)
+        let user_filters = if audio_filters.is_empty() {
+            "".to_string()
+        } else {
+            format!(",{}", audio_filters.join(","))
+        };
+
+        // Build filter_complex - try to use audio from input 0, fall back to silence from input 1
+        let filter_complex_with_audio = format!(
+            "[0:a]acopy{}[aout]",
+            user_filters
+        );
+
+        // Build command with TWO inputs: video file and silence generator
+        let mut args = vec![
+            "-ss".to_string(),
+            start_time_str.clone(),
+            "-i".to_string(),
+            input_path.to_string(),
+            "-t".to_string(),
+            duration_str.clone(),
+            // Add silence generator as fallback
+            "-f".to_string(),
+            "lavfi".to_string(),
+            "-i".to_string(),
+            anullsrc_spec.clone(),
+            "-filter_complex".to_string(),
+            filter_complex_with_audio.clone(),
+            "-map".to_string(),
+            "0:v".to_string(),
+            "-map".to_string(),
+            "[aout]".to_string(),
+            "-c:v".to_string(),
+            "libx264".to_string(),
+            "-crf".to_string(),
+            "23".to_string(),
+            "-c:a".to_string(),
+            "aac".to_string(),
+            "-b:a".to_string(),
+            "192k".to_string(),
+            "-y".to_string(),
+            output_path.to_string(),
         ];
 
-        ffmpeg.execute_command(&args)?;
-        Ok(())
+        let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+
+        // Try with original audio first
+        match ffmpeg.execute_command(&args_refs) {
+            Ok(_) => {
+                // Success with original audio
+                Ok(())
+            }
+            Err(_) => {
+                // Input 0 has no audio - use silence from input 1
+                eprintln!("Input has no audio, using silence fallback");
+                let filter_complex_silence = format!(
+                    "[1:a]acopy{}[aout]",
+                    user_filters
+                );
+                args[11] = filter_complex_silence;
+                let args_refs2: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+                ffmpeg.execute_command(&args_refs2)?;
+                Ok(())
+            }
+        }
     }
 
     /// Concatenate intermediate files and re-encode with settings
@@ -376,8 +416,11 @@ impl ExportPipeline {
             }
         }
 
-        // Add encoding settings
+        // Add explicit stream mapping and encoding settings
+        // This ensures video and audio are properly selected from the concat demuxer
         args.extend(&[
+            "-map", "0:v:0",   // Map video stream 0 from concat output
+            "-map", "0:a:0",   // Map audio stream 0 from concat output
             "-c:v", "libx264",
             "-crf", "23",           // High quality H.264
             "-c:a", "aac",
@@ -737,19 +780,9 @@ impl ExportPipeline {
             .filter(|t| track0_clip_ids.contains(&t.clip_id_before) && track0_clip_ids.contains(&t.clip_id_after))
             .collect();
 
-        // Concatenate track 0 clips into base video (with or without transitions)
-        if track0_transitions.is_empty() {
-            // No transitions: fast concat
-            self.concatenate_only(&track0_intermediates, &base_video_path)?;
-        } else {
-            // With transitions: use xfade filter
-            self.concatenate_base_with_transitions(
-                &track0_intermediates,
-                &track0_clips,
-                &track0_transitions,
-                &base_video_path,
-            )?;
-        }
+        // Concatenate track 0 clips into base video with jump cuts
+        // Transitions disabled - using only jump cuts
+        self.concatenate_only(&track0_intermediates, &base_video_path)?;
 
         // Clean up track 0 intermediates
         for file in &track0_intermediates {
@@ -950,7 +983,9 @@ impl ExportPipeline {
             };
             let input_after = format!("[v{}n]", i + 1);
 
-            // Audio inputs (from individual video files)
+            // Audio inputs - use a?to allow missing audio, which FFmpeg will handle
+            // by not creating an audio stream if the input has no audio
+            // For acrossfade, if either input has no audio, we just copy the available audio
             let audio_input_before = if i == 0 {
                 format!("[{}:a?]", input_offset)
             } else {
@@ -988,6 +1023,9 @@ impl ExportPipeline {
                 video_filter_parts.push(xfade_filter);
 
                 // Audio acrossfade (match video timing)
+                // If audio streams are missing, this will fail, so we try acrossfade first,
+                // and if that fails, the filter_complex will error out and export will fail
+                // User should note that clips with no audio will cause issues
                 let acrossfade_filter = format!(
                     "{}{}acrossfade=d={:.3}:c1=tri:c2=tri{}",
                     audio_input_before,
@@ -1177,25 +1215,27 @@ impl ExportPipeline {
 
         let video_filter = filter_parts.join(";");
 
-        // Build audio mixing filter - mix base audio with overlay audio
-        // Use anullsrc=s=1 trick to replace missing audio with silence
-        let mut audio_inputs = String::new();
-        audio_inputs.push_str("[0:a?]");
+        // Build audio filter - mix audio from all tracks
+        // This handles clips with audio on different tracks:
+        // - Screen recording (no audio) gets silence or audio from another track
+        // - Webcam (has audio) contributes its audio
+        // - All audio streams are mixed together
 
-        for index in 0..num_overlays {
-            audio_inputs.push_str(&format!("[{}:a?]", index + 1));
-        }
-
-        // Add anullsrc as fallback for completely missing audio
-        // anullsrc=s=1:r=48000:cl=stereo creates 1 second of silence
-        let audio_filter = if num_overlays > 0 {
-            format!(
-                "{}[vs]anullsrc=s=1:r=48000:cl=stereo[asilent];[asilent]amix=inputs={}:duration=longest[aout]",
-                audio_inputs,
-                num_overlays + 1
-            )
+        // Use amix to combine all audio inputs
+        // amix will mix whatever audio streams are available
+        let audio_filter = if overlay_clips.is_empty() {
+            // No overlays: just use base audio (which may or may not exist)
+            "[0:a]acopy[aout]".to_string()
         } else {
-            "[0:a?]acopy[aout]".to_string()
+            // With overlays: mix all available audio inputs using amix
+            // amix will handle clips with or without audio gracefully
+            let num_inputs = overlay_clips.len() + 1;
+            let mut input_labels = "[0:a]".to_string();
+            for i in 1..num_inputs {
+                input_labels.push_str(&format!("[{}:a]", i));
+            }
+            // amix: mix inputs together (output will have audio from all sources)
+            format!("{}amix=inputs={}[aout]", input_labels, num_inputs)
         };
 
         (video_filter, audio_filter)
