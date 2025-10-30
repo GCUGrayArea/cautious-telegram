@@ -357,12 +357,14 @@ impl ExportPipeline {
         let vf_filter_str;
         if !vf_chain.is_empty() {
             vf_filter_str = vf_chain.join(",");
-            eprintln!("   Complete filter chain: {}", vf_filter_str);
+            eprintln!("📊 SINGLE-TRACK: Complete filter chain: {}", vf_filter_str);
             args.push("-vf");
             args.push(&vf_filter_str);
         } else {
             eprintln!("   ⚠️  No filters to apply!");
         }
+
+        eprintln!("📊 SINGLE-TRACK: FFmpeg arguments: {:?}", args);
 
         // Add encoding settings
         args.extend(&[
@@ -373,6 +375,8 @@ impl ExportPipeline {
             "-y",                   // Overwrite output
             output_str,
         ]);
+
+        eprintln!("📊 SINGLE-TRACK: Final FFmpeg arguments: {:?}", args);
 
         // Update progress: encoding starts at 50%
         ffmpeg.set_progress(50.0, "Encoding video...".to_string(), None);
@@ -454,9 +458,12 @@ impl ExportPipeline {
         // Apply the filter chain if there are any filters
         if !vf_filters.is_empty() {
             let vf_chain = vf_filters.join(",");
+            eprintln!("📊 WITH-TRANSITIONS: Filter chain: {}", vf_chain);
             args.push("-vf".to_string());
             args.push(vf_chain);
         }
+
+        eprintln!("📊 WITH-TRANSITIONS: FFmpeg arguments before encoding: {:?}", args);
 
         // Add encoding settings
         args.push("-c:v".to_string());
@@ -469,6 +476,8 @@ impl ExportPipeline {
         args.push("192k".to_string());
         args.push("-y".to_string());
         args.push(settings.output_path.clone());
+
+        eprintln!("📊 WITH-TRANSITIONS: Final FFmpeg arguments: {:?}", args);
 
         // Convert to &str refs
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
