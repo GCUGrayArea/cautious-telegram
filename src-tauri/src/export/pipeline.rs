@@ -1204,15 +1204,19 @@ impl ExportPipeline {
         let y_expr = format!("(main_h*{})/100", overlay.y);
 
         // Build the enable expression to show text only during its time range
-        // FFmpeg enable parameter: between(t,start,end) - no escaping needed, simple values
+        // FFmpeg enable parameter: between(t,start,end) - expression NOT escaped with backslashes
         let end_time = overlay.start_time + overlay.duration;
 
         // Build drawtext filter with proper FFmpeg escaping
         // Using the '\'' (end quote, escaped quote, start quote) pattern for embedded single quotes
         // The enable parameter constrains when the text appears based on video timestamp
+        // Key fixes:
+        // 1. enable parameter is quoted: enable='between(t,...)'
+        // 2. No backslash escaping on parentheses/commas inside enable expression
+        // 3. x and y use expressions to center based on text width
         let filter = format!(
-            "drawtext=text='{}':x='{}':y='{}':fontsize={}:fontcolor={}:enable=between\\(t\\,{:.3}\\,{:.3}\\)",
-            escaped_text, x_expr, y_expr, overlay.font_size, fontcolor, overlay.start_time, end_time
+            "drawtext=text='{}':fontsize={}:fontcolor={}:x={}:y={}:enable='between(t,{:.3},{:.3})'",
+            escaped_text, overlay.font_size, fontcolor, x_expr, y_expr, overlay.start_time, end_time
         );
 
         eprintln!("      built drawtext with timing {:.2}s-{:.2}s", overlay.start_time, end_time);
