@@ -80,6 +80,12 @@ impl ExportPipeline {
         text_overlays: Vec<TextOverlayData>,
         settings: ExportSettings,
     ) -> Result<String, String> {
+        // Debug: Log incoming data
+        eprintln!("🎬 Export started with {} clips, {} transitions, {} text overlays", clips.len(), transitions.len(), text_overlays.len());
+        for (i, overlay) in text_overlays.iter().enumerate() {
+            eprintln!("   Overlay {}: '{}' at ({}, {}) from {:.2}s for {:.2}s", i, overlay.text, overlay.x, overlay.y, overlay.start_time, overlay.duration);
+        }
+
         // Reset progress at start
         if let Ok(ffmpeg) = self.ffmpeg.lock() {
             ffmpeg.reset_progress();
@@ -111,9 +117,11 @@ impl ExportPipeline {
 
         if has_temporal_overlap {
             // Multi-track export with overlays (Picture-in-Picture)
+            eprintln!("📹 Taking MULTITRACK path (temporal overlap detected)");
             self.export_multitrack(clips, transitions, text_overlays, settings)
         } else {
             // Single-track export - concatenate all clips sequentially with transitions
+            eprintln!("📹 Taking SINGLETRACK path");
             self.export_singletrack(clips, transitions, text_overlays, settings)
         }
     }
@@ -126,6 +134,8 @@ impl ExportPipeline {
         text_overlays: Vec<TextOverlayData>,
         settings: ExportSettings,
     ) -> Result<String, String> {
+        eprintln!("🎬 export_singletrack: {} text overlays to apply", text_overlays.len());
+
         // Sort clips by timeline position
         let mut sorted_clips = clips;
         sorted_clips.sort_by(|a, b| {
@@ -144,6 +154,7 @@ impl ExportPipeline {
         // Phase 2: Choose concatenation method based on whether we have transitions
         let result = if transitions.is_empty() {
             // No transitions: Use fast concat demuxer
+            eprintln!("🎬 Using concatenate_and_encode (no transitions)");
             self.concatenate_and_encode(&intermediate_files, &text_overlays, &settings)
         } else {
             // With transitions: Use filter_complex with xfade
@@ -330,12 +341,14 @@ impl ExportPipeline {
 
         // Add scaling if needed
         if let Some(scale) = settings.resolution.scale_filter() {
+            eprintln!("   Adding scale filter: {}", scale);
             vf_chain.push(scale);
         }
 
         // Add text overlay filters if there are any overlays
         for overlay in text_overlays {
             if let Ok(drawtext_filter) = self.build_drawtext_filter(overlay) {
+                eprintln!("   Adding drawtext filter: {}", drawtext_filter);
                 vf_chain.push(drawtext_filter);
             }
         }
@@ -344,8 +357,11 @@ impl ExportPipeline {
         let vf_filter_str;
         if !vf_chain.is_empty() {
             vf_filter_str = vf_chain.join(",");
+            eprintln!("   Complete filter chain: {}", vf_filter_str);
             args.push("-vf");
             args.push(&vf_filter_str);
+        } else {
+            eprintln!("   ⚠️  No filters to apply!");
         }
 
         // Add encoding settings
@@ -703,6 +719,7 @@ impl ExportPipeline {
             &base_video_path,
             &overlay_intermediates,
             &overlay_clips,
+            &text_overlays,
             &settings,
         );
 
@@ -966,14 +983,17 @@ impl ExportPipeline {
         Ok((combined_filter, String::new()))
     }
 
-    /// Apply overlay clips on top of base video using FFmpeg filter_complex
+    /// Apply overlay clips on top of base video using FFmpeg filter_complex, and apply text overlays
     fn apply_overlays(
         &self,
         base_video: &Path,
         overlay_files: &[PathBuf],
         overlay_clips: &[ClipData],
+        text_overlays: &[TextOverlayData],
         settings: &ExportSettings,
     ) -> Result<String, String> {
+        eprintln!("🎬 apply_overlays: {} video overlays, {} text overlays", overlay_files.len(), text_overlays.len());
+
         if overlay_files.is_empty() {
             return Err("No overlay files to apply".to_string());
         }
@@ -994,8 +1014,32 @@ impl ExportPipeline {
         let (video_filter, _audio_filter) = self.build_overlay_and_audio_filter(overlay_clips, overlay_files.len());
 
         // Add filter_complex and output mapping
+        let mut filter_complex = video_filter;
+
+        // Add text overlay filters if there are any
+        if !text_overlays.is_empty() {
+            eprintln!("   Adding {} text overlays to filter chain", text_overlays.len());
+            // Text overlays are applied as a separate filter after video overlays
+            // Change output label from [out] to [vout_with_text] for chaining
+            filter_complex = filter_complex.replace("[out]", "[vtext_in]");
+
+            // Build drawtext filters for text overlays
+            let mut text_filter_chain = vec!["[vtext_in]".to_string()];
+            for (i, overlay) in text_overlays.iter().enumerate() {
+                if let Ok(drawtext) = self.build_drawtext_filter(overlay) {
+                    eprintln!("   Overlay {}: {}", i, drawtext);
+                    text_filter_chain.push(drawtext);
+                }
+            }
+            text_filter_chain.push("[out]".to_string());
+
+            // Combine video overlay filter with text overlay filters
+            filter_complex.push_str(";");
+            filter_complex.push_str(&text_filter_chain.join(""));
+        }
+
         args.push("-filter_complex".to_string());
-        args.push(video_filter);
+        args.push(filter_complex);
         args.push("-map".to_string());
         args.push("[out]".to_string());
         args.push("-map".to_string());

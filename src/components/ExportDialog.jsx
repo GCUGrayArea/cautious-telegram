@@ -206,6 +206,9 @@ export default function ExportDialog({ isOpen, onClose }) {
         animation: overlay.animation || 'none'
       }));
 
+      console.log('📤 Exporting with text overlays:', textOverlayData);
+      console.log('📦 Export data:', { clipData, transitionData, textOverlayData, settings });
+
       // Call backend export command
       const result = await exportTimeline(clipData, transitionData, textOverlayData, settings);
 
