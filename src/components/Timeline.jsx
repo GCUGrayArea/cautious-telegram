@@ -3,7 +3,7 @@ import { Stage, Layer, Rect, Text, Line, Group } from 'react-konva';
 import TimeRuler from './timeline/TimeRuler';
 import Playhead from './timeline/Playhead';
 import TimelineClip from './timeline/TimelineClip';
-import TextOverlayClip from './timeline/TextOverlayClip';
+// import TextOverlayClip from './timeline/TextOverlayClip'; // DISABLED: Text overlay feature suspended - see .claude/PR-STRETCH-009-NOTES.md
 import TransitionIndicator from './timeline/TransitionIndicator';
 import TransitionEditor from './TransitionEditor';
 import {
@@ -803,8 +803,9 @@ function Timeline() {
           })}
         </Layer>
 
-        {/* Text overlays layer */}
-        <Layer>
+        {/* Text overlays layer - DISABLED */}
+        {/* Feature suspended - see .claude/PR-STRETCH-009-NOTES.md for details */}
+        {/* <Layer>
           {console.log('Rendering text overlays:', textOverlays.length, textOverlays, 'selectedTextOverlayId:', selectedTextOverlayId)}
           {textOverlays.map(textOverlay => (
             <TextOverlayClip
@@ -820,7 +821,7 @@ function Timeline() {
               numTracks={numTracks}
             />
           ))}
-        </Layer>
+        </Layer> */}
 
         {/* Time ruler layer */}
         <TimeRuler

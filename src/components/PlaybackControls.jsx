@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTimeline } from '../store/timelineStore.jsx';
 import { invoke } from '@tauri-apps/api/tauri';
+import TranscriptModal from './TranscriptModal.jsx';
 
 /**
  * Playback Controls Component
@@ -9,9 +10,11 @@ import { invoke } from '@tauri-apps/api/tauri';
  * Supports spacebar keyboard shortcut for play/pause toggle.
  */
 function PlaybackControls({ onExportClick, currentTime }) {
-  const { isPlaying, clips, togglePlayback, setPlaybackState, setPlayheadTime, addTextOverlay, playheadTime } = useTimeline();
+  const { isPlaying, clips, togglePlayback, setPlaybackState, setPlayheadTime, playheadTime } = useTimeline();
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState(null);
+  const [transcript, setTranscript] = useState(null);
+  const [showTranscriptModal, setShowTranscriptModal] = useState(false);
 
   // Spacebar shortcut for play/pause
   useEffect(() => {
@@ -30,21 +33,6 @@ function PlaybackControls({ onExportClick, currentTime }) {
   const handleStop = () => {
     setPlaybackState(false);
     setPlayheadTime(0);
-  };
-
-  const handleAddTextOverlay = () => {
-    // Create a new text overlay at the current playhead position
-    addTextOverlay({
-      text: 'New Text',
-      startTime: playheadTime || 0,
-      duration: 5, // 5 second default duration
-      x: 50,
-      y: 50,
-      fontSize: 48,
-      fontFamily: 'Arial',
-      color: '#FFFFFF',
-      animation: 'none',
-    });
   };
 
   const handleTranscribeTimeline = async () => {
@@ -69,23 +57,14 @@ function PlaybackControls({ onExportClick, currentTime }) {
         })),
       });
 
-      // Add text overlays from transcription result
+      // Extract full transcript from segments
       if (result && result.segments && result.segments.length > 0) {
         console.log('Transcription result segments:', result.segments);
-        result.segments.forEach(segment => {
-          console.log(`Adding overlay: text="${segment.text}", startTime=${segment.startTime}, duration=${segment.duration}`);
-          addTextOverlay({
-            text: segment.text,
-            startTime: segment.startTime,
-            duration: segment.duration,
-            x: 50,
-            y: 90, // 10% from bottom (100 - 90 = 10)
-            fontSize: 64,
-            fontFamily: 'Arial',
-            color: '#FFFFFF',
-            animation: 'none',
-          });
-        });
+        const fullTranscript = result.segments.map(s => s.text).join(' ');
+        setTranscript(fullTranscript);
+        setShowTranscriptModal(true);
+      } else {
+        setTranscriptionError('No transcription segments returned');
       }
     } catch (error) {
       console.error('Transcription error:', error);
@@ -147,19 +126,6 @@ function PlaybackControls({ onExportClick, currentTime }) {
             fillRule="evenodd"
             d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z"
             clipRule="evenodd"
-          />
-        </svg>
-      </button>
-
-      {/* Add Text Overlay button */}
-      <button
-        onClick={handleAddTextOverlay}
-        className="p-2 rounded transition hover:bg-gray-700 text-white"
-        title="Add text overlay at current playhead position (T)"
-      >
-        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM15.657 14.243a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM11 17a1 1 0 102 0v-1a1 1 0 10-2 0v1zM5.757 15.657a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707zM4 11a1 1 0 110-2H3a1 1 0 110 2h1zM5.757 5.757a1 1 0 00-1.414 1.414l.707.707a1 1 0 101.414-1.414l-.707-.707zM12 7a1 1 0 110-2h.01a1 1 0 110 2H12z"
           />
         </svg>
       </button>
@@ -236,6 +202,14 @@ function PlaybackControls({ onExportClick, currentTime }) {
       <div className="ml-auto text-xs text-gray-500">
         <p>Ctrl+Scroll: Zoom | Scroll: Pan | Click: Jump playhead | S: Split | Ctrl+Z: Undo | Ctrl+Y: Redo | Ctrl+C/X/V: Copy/Cut/Paste</p>
       </div>
+
+      {/* Transcript Modal */}
+      {showTranscriptModal && (
+        <TranscriptModal
+          transcript={transcript}
+          onClose={() => setShowTranscriptModal(false)}
+        />
+      )}
     </div>
   );
 }

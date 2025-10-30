@@ -5,7 +5,7 @@ import Timeline from './components/Timeline';
 import PreviewPlayer from './components/PreviewPlayer';
 import PlaybackControls from './components/PlaybackControls';
 import ExportDialog from './components/ExportDialog';
-import TextOverlayEditor from './components/TextOverlayEditor';
+// import TextOverlayEditor from './components/TextOverlayEditor'; // DISABLED: Text overlay feature suspended - see .claude/PR-STRETCH-009-NOTES.md
 import ClipPropertiesPanel from './components/ClipPropertiesPanel';
 import { TimelineProvider, useTimeline } from './store/timelineStore.jsx';
 import { DragProvider } from './store/dragStore.jsx';
@@ -225,8 +225,9 @@ function AppContent() {
       {/* Clip Properties Panel (Audio Controls) */}
       <ClipPropertiesPanel />
 
-      {/* Text Overlay Editor Panel */}
-      {selectedTextOverlayId !== null && textOverlays && (
+      {/* Text Overlay Editor Panel - DISABLED */}
+      {/* Feature suspended - see .claude/PR-STRETCH-009-NOTES.md for details */}
+      {/* {selectedTextOverlayId !== null && textOverlays && (
         (() => {
           const selectedOverlay = textOverlays.find(o => o.id === selectedTextOverlayId);
           return selectedOverlay ? (
@@ -236,7 +237,7 @@ function AppContent() {
             />
           ) : null;
         })()
-      )}
+      )} */}
     </div>
   );
 }
