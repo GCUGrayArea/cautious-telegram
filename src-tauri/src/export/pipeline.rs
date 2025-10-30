@@ -434,7 +434,24 @@ impl ExportPipeline {
         }
 
         // Build filter_complex with xfade filters for video and concat for audio
-        let (video_filter, audio_filter) = self.build_xfade_and_audio_filter(clips, transitions, intermediate_files.len())?;
+        let (mut video_filter, audio_filter) = self.build_xfade_and_audio_filter(clips, transitions, intermediate_files.len())?;
+
+        // Add scaling to the video filter (text overlays disabled - see .claude/PR-STRETCH-009-NOTES.md)
+        let mut additional_filters = Vec::new();
+
+        // Add scaling if needed
+        if let Some(scale) = settings.resolution.scale_filter() {
+            additional_filters.push(scale);
+        }
+
+        // Text overlay export disabled - feature suspended pending FFmpeg limitations resolution
+        // text_overlays are passed but intentionally not processed
+
+        // Append additional filters to video filter chain
+        if !additional_filters.is_empty() {
+            video_filter.push(',');
+            video_filter.push_str(&additional_filters.join(","));
+        }
 
         // Combine video and audio filters
         let filter_complex = if audio_filter.is_empty() {
@@ -449,29 +466,6 @@ impl ExportPipeline {
         args.push("[vout]".to_string());  // Map final video output
         args.push("-map".to_string());
         args.push("[aout]".to_string());  // Map final audio output
-
-        // Build video filter chain (scaling + text overlays)
-        let mut vf_filters = Vec::new();
-
-        // Add scaling if needed
-        if let Some(scale) = settings.resolution.scale_filter() {
-            vf_filters.push(scale);
-        }
-
-        // Add text overlay filters if there are any overlays
-        for overlay in text_overlays {
-            if let Ok(drawtext_filter) = self.build_drawtext_filter(overlay) {
-                vf_filters.push(drawtext_filter);
-            }
-        }
-
-        // Apply the filter chain if there are any filters
-        if !vf_filters.is_empty() {
-            let vf_chain = vf_filters.join(",");
-            eprintln!("📊 WITH-TRANSITIONS: Filter chain: {}", vf_chain);
-            args.push("-vf".to_string());
-            args.push(vf_chain);
-        }
 
         eprintln!("📊 WITH-TRANSITIONS: FFmpeg arguments before encoding: {:?}", args);
 
@@ -1033,35 +1027,12 @@ impl ExportPipeline {
         let (video_filter, _audio_filter) = self.build_overlay_and_audio_filter(overlay_clips, overlay_files.len());
 
         // Add filter_complex and output mapping
-        let mut filter_complex = video_filter;
+        let filter_complex = video_filter;
 
-        // Add text overlay filters if there are any
+        // Text overlay export disabled - feature suspended pending FFmpeg limitations resolution
+        // text_overlays parameter is accepted but not processed (see .claude/PR-STRETCH-009-NOTES.md)
         if !text_overlays.is_empty() {
-            eprintln!("   Adding {} text overlays to filter chain", text_overlays.len());
-            // Text overlays are applied as a separate filter after video overlays
-            // Change output label from [out] to [vtext_in] for chaining
-            filter_complex = filter_complex.replace("[out]", "[vtext_in]");
-
-            // Build drawtext filters for text overlays
-            // Each drawtext filter is: drawtext=text='...':x='...':y='...:fontsize=...:fontcolor=...
-            // When chaining multiple, they should be separated by commas
-            let mut text_filters = Vec::new();
-            for (i, overlay) in text_overlays.iter().enumerate() {
-                if let Ok(drawtext) = self.build_drawtext_filter(overlay) {
-                    eprintln!("   Overlay {}: {}", i, drawtext);
-                    text_filters.push(drawtext);
-                }
-            }
-
-            // Build the complete text filter chain with proper comma separation
-            let text_filter_chain = format!(
-                "[vtext_in]{}[out]",
-                text_filters.join(",")
-            );
-
-            // Combine video overlay filter with text overlay filters
-            filter_complex.push_str(";");
-            filter_complex.push_str(&text_filter_chain);
+            eprintln!("   ⚠️  {} text overlays present but not exported (feature suspended)", text_overlays.len());
         }
 
         args.push("-filter_complex".to_string());
