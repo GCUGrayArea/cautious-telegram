@@ -364,7 +364,17 @@ impl ExportPipeline {
             eprintln!("   ⚠️  No filters to apply!");
         }
 
-        eprintln!("📊 SINGLE-TRACK: FFmpeg arguments: {:?}", args);
+        eprintln!("📊 SINGLE-TRACK: FFmpeg arguments before encoding: {:?}", args);
+
+        // Debug: Print the exact filter string if it exists
+        if let Some(pos) = args.iter().position(|&arg| arg == "-vf") {
+            if pos + 1 < args.len() {
+                let filter_str = args[pos + 1];
+                eprintln!("📊 SINGLE-TRACK: Filter string length: {}", filter_str.len());
+                eprintln!("📊 SINGLE-TRACK: Filter string bytes: {:?}", filter_str.as_bytes());
+                eprintln!("📊 SINGLE-TRACK: Filter string: {}", filter_str);
+            }
+        }
 
         // Add encoding settings
         args.extend(&[
@@ -376,7 +386,7 @@ impl ExportPipeline {
             output_str,
         ]);
 
-        eprintln!("📊 SINGLE-TRACK: Final FFmpeg arguments: {:?}", args);
+        eprintln!("📊 SINGLE-TRACK: Final FFmpeg arguments (count={}): {:?}", args.len(), args);
 
         // Update progress: encoding starts at 50%
         ffmpeg.set_progress(50.0, "Encoding video...".to_string(), None);
